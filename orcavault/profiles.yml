@@ -1,0 +1,21 @@
+orcavault:
+  outputs:
+    prod:
+      dbname: orcavault
+      host: "{{ env_var('DBT_ENV_SECRET_HOST') }}"
+      pass: "{{ env_var('DBT_ENV_SECRET_PASSWORD') }}"
+      port: 5432
+      schema: public
+      threads: 4
+      type: postgres
+      user: "{{ env_var('DBT_ENV_SECRET_USER') }}"
+    dev:
+      dbname: orcavault
+      host: localhost
+      pass: dev
+      port: 5432
+      schema: public
+      threads: 4
+      type: postgres
+      user: dev
+  target: dev

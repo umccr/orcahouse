@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:16.4
+    restart: always
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=sa
+      - POSTGRES_PASSWORD=sa
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./src/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./data:/data

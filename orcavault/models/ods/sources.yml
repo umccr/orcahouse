@@ -1,0 +1,56 @@
+version: 2
+
+sources:
+  - name: ods
+    database: orcavault
+    schema: ods
+    tables:
+      - name: data_portal_analysisresult
+      - name: data_portal_analysisresult_gdsfiles
+      - name: data_portal_analysisresult_s3objects
+      - name: data_portal_batch
+      - name: data_portal_batchrun
+      - name: data_portal_configuration
+      - name: data_portal_fastqlistrow
+      - name: data_portal_gdsfile
+      - name: data_portal_labmetadata
+      - name: data_portal_libraryrun
+      - name: data_portal_libraryrun_workflows
+      - name: data_portal_limsrow
+      - name: data_portal_s3lims
+      - name: data_portal_s3object
+      - name: data_portal_sequence
+      - name: data_portal_sequencerun
+      - name: data_portal_workflow
+      - name: file_manager_s3object
+      - name: metadata_manager_contact
+      - name: metadata_manager_historicalcontact
+      - name: metadata_manager_historicalindividual
+      - name: metadata_manager_historicallibrary
+      - name: metadata_manager_historicallibraryprojectlink
+      - name: metadata_manager_historicalproject
+      - name: metadata_manager_historicalprojectcontactlink
+      - name: metadata_manager_historicalsample
+      - name: metadata_manager_historicalsubject
+      - name: metadata_manager_historicalsubjectindividuallink
+      - name: metadata_manager_individual
+      - name: metadata_manager_library
+      - name: metadata_manager_libraryprojectlink
+      - name: metadata_manager_project
+      - name: metadata_manager_projectcontactlink
+      - name: metadata_manager_sample
+      - name: metadata_manager_subject
+      - name: metadata_manager_subjectindividuallink
+      - name: workflow_manager_analysis
+      - name: workflow_manager_analysis_contexts
+      - name: workflow_manager_analysis_workflows
+      - name: workflow_manager_analysiscontext
+      - name: workflow_manager_analysisrun
+      - name: workflow_manager_analysisrun_libraries
+      - name: workflow_manager_library
+      - name: workflow_manager_libraryassociation
+      - name: workflow_manager_payload
+      - name: workflow_manager_state
+      - name: workflow_manager_workflow
+      - name: workflow_manager_workflowrun
+      - name: workflow_manager_workflowruncomment

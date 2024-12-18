@@ -1,0 +1,5 @@
+# See https://github.com/Homebrew/homebrew-bundle
+
+# https://developer.hashicorp.com/terraform/install
+tap "hashicorp/tap"
+brew "hashicorp/tap/terraform"

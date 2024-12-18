@@ -1,0 +1,108 @@
+version: 2
+
+models:
+  - name: hub_library
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_hk ]
+    columns:
+      - name: library_hk
+        data_type: char(64)
+      - name: library_id
+        data_type: varchar(255)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+  - name: hub_sample
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ sample_hk ]
+    columns:
+      - name: sample_hk
+        data_type: char(64)
+      - name: sample_id
+        data_type: varchar(255)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+  - name: hub_internal_subject
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ internal_subject_hk ]
+    columns:
+      - name: internal_subject_hk
+        data_type: char(64)
+      - name: internal_subject_id
+        data_type: varchar(255)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+  - name: hub_external_subject
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ external_subject_hk ]
+    columns:
+      - name: external_subject_hk
+        data_type: char(64)
+      - name: external_subject_id
+        data_type: varchar(255)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+  - name: hub_external_sample
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ external_sample_hk ]
+    columns:
+      - name: external_sample_hk
+        data_type: char(64)
+      - name: external_sample_id
+        data_type: varchar(255)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+  - name: hub_project
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ project_hk ]
+    columns:
+      - name: project_hk
+        data_type: char(64)
+      - name: project_id
+        data_type: varchar(255)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+  - name: hub_contact
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ contact_hk ]
+    columns:
+      - name: contact_hk
+        data_type: char(64)
+      - name: contact_id
+        data_type: varchar(255)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
