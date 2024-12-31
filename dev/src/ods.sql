@@ -61,6 +61,79 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.data_portal_limsrow
     workflow            varchar(255)
 );
 
+CREATE TABLE IF NOT EXISTS orcavault.ods.data_portal_sequence
+(
+    id                bigint       not null,
+    instrument_run_id varchar(255) not null,
+    run_id            varchar(255) not null,
+    sample_sheet_name varchar(255) not null,
+    gds_folder_path   varchar(255) not null,
+    gds_volume_name   varchar(255) not null,
+    reagent_barcode   varchar(255) not null,
+    flowcell_barcode  varchar(255) not null,
+    status            varchar(255) not null,
+    start_time        timestamp    not null,
+    end_time          timestamp
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.data_portal_sequencerun
+(
+    id                   bigint       not null,
+    run_id               varchar(255) not null,
+    date_modified        timestamp    not null,
+    status               varchar(255) not null,
+    gds_folder_path      text         not null,
+    gds_volume_name      text         not null,
+    reagent_barcode      varchar(255) not null,
+    v1pre3_id            varchar(255) not null,
+    acl                  text         not null,
+    flowcell_barcode     varchar(255) not null,
+    sample_sheet_name    varchar(255) not null,
+    api_url              text         not null,
+    name                 varchar(255) not null,
+    instrument_run_id    varchar(255) not null,
+    msg_attr_action      varchar(255) not null,
+    msg_attr_action_type varchar(255) not null,
+    msg_attr_action_date timestamp    not null,
+    msg_attr_produced_by varchar(255) not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.data_portal_libraryrun
+(
+    id                 bigint       not null,
+    library_id         varchar(255) not null,
+    instrument_run_id  varchar(255) not null,
+    run_id             varchar(255) not null,
+    lane               integer      not null,
+    override_cycles    varchar(255) not null,
+    coverage_yield     varchar(255),
+    qc_pass            smallint,
+    qc_status          varchar(255),
+    valid_for_analysis smallint
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_sequence
+(
+    orcabus_id        varchar                  not null
+        primary key,
+    instrument_run_id varchar(255)             not null
+        unique,
+    run_volume_name   text                     not null,
+    run_folder_path   text,
+    run_data_uri      text                     not null,
+    status            varchar(255)             not null,
+    start_time        timestamp with time zone not null,
+    end_time          timestamp with time zone,
+    reagent_barcode   varchar(255),
+    flowcell_barcode  varchar(255),
+    sample_sheet_name varchar(255),
+    sequence_run_id   varchar(255),
+    sequence_run_name varchar(255),
+    v1pre3_id         varchar(255),
+    ica_project_id    varchar(255),
+    api_url           text
+);
+
 CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_library
 (
     orcabus_id         varchar not null
