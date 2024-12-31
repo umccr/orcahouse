@@ -16,6 +16,7 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
   - name: hub_sample
     config:
       contract: { enforced: true }
@@ -31,6 +32,7 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
   - name: hub_internal_subject
     config:
       contract: { enforced: true }
@@ -46,6 +48,7 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
   - name: hub_external_subject
     config:
       contract: { enforced: true }
@@ -61,6 +64,7 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
   - name: hub_external_sample
     config:
       contract: { enforced: true }
@@ -76,6 +80,7 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
   - name: hub_project
     config:
       contract: { enforced: true }
@@ -91,6 +96,7 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
   - name: hub_contact
     config:
       contract: { enforced: true }
@@ -101,6 +107,38 @@ models:
       - name: contact_hk
         data_type: char(64)
       - name: contact_id
+        data_type: varchar(255)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+
+  - name: hub_experiment
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ experiment_hk ]
+    columns:
+      - name: experiment_hk
+        data_type: char(64)
+      - name: experiment_id
+        data_type: varchar(255)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+
+  - name: hub_sequencing_run
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ sequencing_run_hk ]
+    columns:
+      - name: sequencing_run_hk
+        data_type: char(64)
+      - name: sequencing_run_id
         data_type: varchar(255)
       - name: load_datetime
         data_type: timestamptz

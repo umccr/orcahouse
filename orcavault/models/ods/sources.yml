@@ -54,3 +54,6 @@ sources:
       - name: workflow_manager_workflow
       - name: workflow_manager_workflowrun
       - name: workflow_manager_workflowruncomment
+      - name: sequence_run_manager_comment
+      - name: sequence_run_manager_sequence
+      - name: sequence_run_manager_state
