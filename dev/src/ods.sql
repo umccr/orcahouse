@@ -114,10 +114,8 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.data_portal_libraryrun
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_sequence
 (
-    orcabus_id        varchar                  not null
-        primary key,
-    instrument_run_id varchar(255)             not null
-        unique,
+    orcabus_id        varchar                  not null,
+    instrument_run_id varchar(255)             not null,
     run_volume_name   text                     not null,
     run_folder_path   text,
     run_data_uri      text                     not null,
@@ -136,10 +134,8 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_sequence
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_library
 (
-    orcabus_id         varchar not null
-        primary key,
-    library_id         varchar
-        unique,
+    orcabus_id         varchar not null,
+    library_id         varchar,
     phenotype          varchar,
     workflow           varchar,
     quality            varchar,
@@ -152,47 +148,51 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_library
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_sample
 (
-    orcabus_id         varchar not null
-        primary key,
-    sample_id          varchar
-        unique,
+    orcabus_id         varchar not null,
+    sample_id          varchar,
     external_sample_id varchar,
     source             varchar
 );
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_individual
 (
-    orcabus_id    varchar not null
-        primary key,
-    individual_id varchar
-        unique,
+    orcabus_id    varchar not null,
+    individual_id varchar,
     source        varchar
 );
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_subject
 (
-    orcabus_id varchar not null
-        primary key,
+    orcabus_id varchar not null,
     subject_id varchar
-        unique
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_subjectindividuallink
+(
+    id                    bigint,
+    individual_orcabus_id varchar not null,
+    subject_orcabus_id    varchar not null
 );
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_project
 (
-    orcabus_id  varchar not null
-        primary key,
-    project_id  varchar
-        unique,
+    orcabus_id  varchar not null,
+    project_id  varchar,
     name        varchar,
     description varchar
 );
 
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_libraryprojectlink
+(
+    id                 bigint,
+    library_orcabus_id varchar not null,
+    project_orcabus_id varchar not null
+);
+
 CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_contact
 (
-    orcabus_id  varchar not null
-        primary key,
-    contact_id  varchar
-        unique,
+    orcabus_id  varchar not null,
+    contact_id  varchar,
     name        varchar,
     description varchar,
     email       varchar(254)
