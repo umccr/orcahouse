@@ -235,3 +235,29 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
+  - name: link_internal_to_external_sample
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ internal_external_sample_hk ]
+      - type: foreign_key
+        columns: [ external_sample_hk ]
+        to: ref('hub_external_sample')
+        to_columns: [ external_sample_hk ]
+      - type: foreign_key
+        columns: [ sample_hk ]
+        to: ref('hub_sample')
+        to_columns: [ sample_hk ]
+    columns:
+      - name: internal_external_sample_hk
+        data_type: char(64)
+      - name: external_sample_hk
+        data_type: char(64)
+      - name: sample_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
