@@ -157,3 +157,29 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
+  - name: link_internal_to_external_subject
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ internal_external_subject_hk ]
+      - type: foreign_key
+        columns: [ external_subject_hk ]
+        to: ref('hub_external_subject')
+        to_columns: [ external_subject_hk ]
+      - type: foreign_key
+        columns: [ internal_subject_hk ]
+        to: ref('hub_internal_subject')
+        to_columns: [ internal_subject_hk ]
+    columns:
+      - name: internal_external_subject_hk
+        data_type: char(64)
+      - name: external_subject_hk
+        data_type: char(64)
+      - name: internal_subject_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
