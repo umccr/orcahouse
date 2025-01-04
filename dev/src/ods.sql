@@ -197,3 +197,10 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_contact
     description varchar,
     email       varchar(254)
 );
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_projectcontactlink
+(
+    id                 bigint,
+    contact_orcabus_id varchar not null,
+    project_orcabus_id varchar not null
+);
