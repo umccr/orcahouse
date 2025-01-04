@@ -80,6 +80,32 @@ models:
       - name: record_source
         data_type: varchar(255)
 
+  - name: link_library_external_subject
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_external_subject_hk ]
+      - type: foreign_key
+        columns: [ external_subject_hk ]
+        to: ref('hub_external_subject')
+        to_columns: [ external_subject_hk ]
+      - type: foreign_key
+        columns: [ library_hk ]
+        to: ref('hub_library')
+        to_columns: [ library_hk ]
+    columns:
+      - name: library_external_subject_hk
+        data_type: char(64)
+      - name: external_subject_hk
+        data_type: char(64)
+      - name: library_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+
   - name: link_library_experiment
     config:
       contract: { enforced: true }
