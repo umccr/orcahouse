@@ -10,3 +10,7 @@ brew "ggshield"
 
 # https://github.com/astral-sh/uv
 brew "uv"
+
+# https://docs.commonfate.io/granted/getting-started
+tap "common-fate/granted"
+brew "granted"
