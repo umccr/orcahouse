@@ -1,0 +1,3 @@
+https://github.com/awslabs/aws-glue-libs/archive/refs/tags/v4.0.zip
+pyspark==3.3.0
+pytest
