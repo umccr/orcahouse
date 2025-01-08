@@ -2,6 +2,8 @@
 .local/
 .venv/
 venv/
+.env/
+.env
 
 # exclude any local dev data
 dev/data/*
