@@ -1,0 +1,20 @@
+services:
+  glue:
+    image: public.ecr.aws/glue/aws-glue-libs:glue_libs_4.0.0_image_01
+    command:
+      - /home/glue_user/jupyter/jupyter_start.sh
+    ports:
+      - "4040:4040"
+      - "18080:18080"
+      - "8998:8998"
+      - "8888:8888"
+    volumes:
+      - ./workspace:/home/glue_user/workspace/jupyter_workspace/
+    environment:
+      - AWS_REGION=ap-southeast-2
+      - AWS_DEFAULT_REGION=ap-southeast-2
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+      - AWS_CREDENTIAL_EXPIRATION=${AWS_CREDENTIAL_EXPIRATION}
+      - DISABLE_SSL=true
