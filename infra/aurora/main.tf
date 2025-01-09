@@ -23,6 +23,7 @@ provider "aws" {
       "umccr-org:Product" = "OrcaHouse"
       "umccr-org:Creator" = "Terraform"
       "umccr-org:Service" = "OrcaHouse"
+      "umccr-org:Source"  = "https://github.com/umccr/orcahouse"
     }
   }
 }
