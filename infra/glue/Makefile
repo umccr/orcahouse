@@ -3,15 +3,6 @@
 # 	make ls dd=/tmp
 dd ?= /
 
-aws:
-	@env | grep AWS_
-
-# If you are using granted.dev, you can instead `assume -r umccr-dev-admin`
-aws-env:
-	@echo Using $$AWS_PROFILE
-	@aws configure export-credentials --profile $$AWS_PROFILE --format env > .env
-	@. .env
-
 up:
 	@docker compose up --wait -d
 
@@ -32,8 +23,13 @@ ls:
 pwd:
 	@docker compose exec -it glue pwd
 
-glue:
+deps:
+	@docker compose exec -it glue bash -c "python3 -m pip install -r requirements.txt"
+
+glue: deps
 	@docker compose exec -it glue bash
+
+restart: down up glue
 
 spark:
 	@docker compose exec -it glue bash -c "~/spark/bin/pyspark --version"
