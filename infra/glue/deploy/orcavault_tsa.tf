@@ -84,3 +84,51 @@ resource "aws_glue_trigger" "spreadsheet_library_tracking_metadata" {
 
   depends_on = [aws_glue_job.spreadsheet_library_tracking_metadata]
 }
+
+# ---
+
+resource "aws_s3_object" "spreadsheet_google_lims" {
+  bucket = data.aws_s3_bucket.glue_script_bucket.bucket
+  key    = "glue/spreadsheet_google_lims/spreadsheet_google_lims.py"
+  source = "../workspace/spreadsheet_google_lims/spreadsheet_google_lims.py"
+  etag   = filemd5("../workspace/spreadsheet_google_lims/spreadsheet_google_lims.py")
+}
+
+resource "aws_glue_job" "spreadsheet_google_lims" {
+  name              = "${local.stack_name}-spreadsheet-google-lims-job"
+  role_arn          = aws_iam_role.glue_role.arn
+  glue_version      = "5.0"
+  worker_type       = "Standard"
+  number_of_workers = 1
+  timeout           = 15
+
+  connections = sort([
+    aws_glue_connection.orcavault_tsa.name
+  ])
+
+  command {
+    name            = "glueetl"
+    script_location = "s3://${data.aws_s3_bucket.glue_script_bucket.bucket}/${aws_s3_object.spreadsheet_google_lims.key}"
+    python_version  = "3"
+  }
+
+  default_arguments = {
+    "--job-language" = "python"
+    "--python-modules-installer-option" = "-r"
+    "--additional-python-modules" = "s3://${data.aws_s3_bucket.glue_script_bucket.bucket}/${aws_s3_object.requirements_txt.key}"
+  }
+}
+
+resource "aws_glue_trigger" "spreadsheet_google_lims" {
+  name              = "${aws_glue_job.spreadsheet_google_lims.name}-scheduled-trigger"
+  type              = "SCHEDULED"
+  schedule          = "cron(10 13 * * ? *)"  # Cron expression to run daily at 13:10 PM UTC = AEST/AEDT 00:10 AM
+  description       = "Daily trigger for ${aws_glue_job.spreadsheet_google_lims.name}"
+  start_on_creation = true
+
+  actions {
+    job_name = aws_glue_job.spreadsheet_google_lims.name
+  }
+
+  depends_on = [aws_glue_job.spreadsheet_google_lims]
+}
