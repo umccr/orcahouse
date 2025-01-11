@@ -26,13 +26,20 @@ ods:
 tsa:
 	@(cd ../dev/ && $(MAKE) tsa)
 
+psa:
+	@(cd ../dev/ && $(MAKE) psa)
+
 all:
 	@(cd ../dev/ && $(MAKE) all)
 
 load:
 	@(cd ../dev/ && $(MAKE) load)
 
-reload: down up ods tsa load
+reload:
+	@(cd ../dev/ && $(MAKE) reload)
+
+next:
+	@(cd ../dev/ && $(MAKE) next)
 
 sync:
 	@(cd ../dev/ && $(MAKE) sync)

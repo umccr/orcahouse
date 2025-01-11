@@ -1,35 +1,12 @@
 SELECT current_database();
 
--- create tsa schema
-CREATE SCHEMA IF NOT EXISTS tsa AUTHORIZATION dev;
-SET search_path TO tsa;
+-- create psa schema
+CREATE SCHEMA IF NOT EXISTS psa AUTHORIZATION dev;
+SET search_path TO psa;
 
 SELECT current_schema();
 
--- --
-
-DROP FUNCTION IF EXISTS tsa.truncate_tables();
-
-CREATE OR REPLACE FUNCTION tsa.truncate_tables()
-    RETURNS void
-    LANGUAGE 'sql'
-    COST 100
-    VOLATILE PARALLEL UNSAFE
-AS $BODY$
-DO $$ DECLARE
-    table_name text;
-BEGIN
-    FOR table_name IN (SELECT tablename FROM pg_tables WHERE schemaname='tsa') LOOP
-        EXECUTE 'TRUNCATE TABLE tsa."' || table_name || '" CASCADE;';
-    END LOOP;
-END $$;
-$BODY$;
-
-ALTER FUNCTION tsa.truncate_tables() OWNER TO dev;
-
--- --
-
-CREATE TABLE IF NOT EXISTS orcavault.tsa.spreadsheet_library_tracking_metadata
+CREATE TABLE IF NOT EXISTS orcavault.psa.spreadsheet_library_tracking_metadata
 (
     assay                 varchar,
     comments              varchar,
@@ -55,5 +32,7 @@ CREATE TABLE IF NOT EXISTS orcavault.tsa.spreadsheet_library_tracking_metadata
     workflow              varchar,
     r_rna                 varchar,
     study                 varchar,
-    sheet_name            varchar
+    sheet_name            varchar,
+    load_datetime         timestamptz,
+    record_source         varchar(255)
 );
