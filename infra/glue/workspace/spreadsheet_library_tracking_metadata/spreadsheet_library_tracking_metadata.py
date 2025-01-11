@@ -26,6 +26,7 @@ SCHEMA_NAME = "tsa"
 DB_NAME = "orcavault"
 
 # Prepare out path with naming convention
+OUT_NAME_DOT = f"{DB_NAME}.{SCHEMA_NAME}.{BASE_NAME}"
 OUT_NAME = f"{DB_NAME}_{SCHEMA_NAME}_{BASE_NAME}"
 OUT_PATH = f"/tmp/{OUT_NAME}"
 
@@ -187,7 +188,7 @@ def transform():
             sql += f'{col}\tvarchar,\n'
         i += 1
 
-    sql_schema = f"""CREATE TABLE IF NOT EXISTS {OUT_NAME}
+    sql_schema = f"""CREATE TABLE IF NOT EXISTS {OUT_NAME_DOT}
     (
     {sql}
     );"""
