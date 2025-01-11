@@ -117,6 +117,9 @@ def transform():
             .name.keep()
         )
 
+        # strip whitespaces, carriage return
+        df = df.with_columns(pl.col(pl.String).str.strip_chars())
+
         # drop row iff all values are null
         # https://docs.pola.rs/api/python/stable/reference/dataframe/api/polars.DataFrame.drop_nulls.html
         df = df.filter(~pl.all_horizontal(pl.all().is_null()))
