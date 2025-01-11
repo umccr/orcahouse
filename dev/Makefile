@@ -27,6 +27,12 @@ ods:
 	@docker compose cp ./src/ods.sql postgres:/tmp/ods.sql
 	@docker compose exec -e PGPASSWORD=dev -it postgres psql -h 0.0.0.0 -d orcavault -U dev -f /tmp/ods.sql
 
+tsa:
+	@docker compose cp ./src/tsa.sql postgres:/tmp/tsa.sql
+	@docker compose exec -e PGPASSWORD=dev -it postgres psql -h 0.0.0.0 -d orcavault -U dev -f /tmp/tsa.sql
+
+all: ods tsa
+
 load:
 	@docker compose cp ./src/load.sh postgres:/tmp/load.sh
 	@docker compose exec -it postgres bash /tmp/load.sh

@@ -23,10 +23,16 @@ psql:
 ods:
 	@(cd ../dev/ && $(MAKE) ods)
 
+tsa:
+	@(cd ../dev/ && $(MAKE) tsa)
+
+all:
+	@(cd ../dev/ && $(MAKE) all)
+
 load:
 	@(cd ../dev/ && $(MAKE) load)
 
-reload: down up ods load
+reload: down up ods tsa load
 
 sync:
 	@(cd ../dev/ && $(MAKE) sync)

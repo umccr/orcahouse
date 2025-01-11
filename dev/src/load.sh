@@ -16,4 +16,5 @@ PGPASSWORD=dev psql -h 0.0.0.0 -d orcavault -U dev <<EOF
 \copy ods.metadata_manager_libraryprojectlink from '/data/orcavault_ods_metadata_manager_libraryprojectlink.csv' with (format csv, header true, delimiter ',');
 \copy ods.metadata_manager_contact from '/data/orcavault_ods_metadata_manager_contact.csv' with (format csv, header true, delimiter ',');
 \copy ods.metadata_manager_projectcontactlink from '/data/orcavault_ods_metadata_manager_projectcontactlink.csv' with (format csv, header true, delimiter ',');
+\copy tsa.spreadsheet_library_tracking_metadata from '/data/orcavault_tsa_spreadsheet_library_tracking_metadata.csv' with (format csv, header true, delimiter ',');
 EOF

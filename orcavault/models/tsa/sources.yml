@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: tsa
+    database: orcavault
+    schema: tsa
+    tables:
+      - name: spreadsheet_library_tracking_metadata

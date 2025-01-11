@@ -7,7 +7,7 @@ OrcaVault is a dbt project. It contains data warehouse models.
 ```
 make up
 make ps
-make ods
+make all
 make psql
 orcavault=> \l
 orcavault=> \dn
@@ -16,6 +16,10 @@ orcavault=> set search_path to ods;
 orcavault=> \dt
 orcavault=> \d data_portal_labmetadata
 orcavault=> select count(1) from data_portal_labmetadata;
+orcavault=> set search_path to tsa;
+orcavault=> \dt
+orcavault=> \d spreadsheet_library_tracking_metadata
+orcavault=> select count(1) from spreadsheet_library_tracking_metadata;
 orcavault=> \q
 ```
 
