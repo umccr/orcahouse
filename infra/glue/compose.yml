@@ -10,6 +10,7 @@ services:
       - "8888:8888"
     volumes:
       - ./workspace:/home/glue_user/workspace/jupyter_workspace/
+      - ./requirements.txt:/home/glue_user/workspace/requirements.txt
     environment:
       - AWS_REGION=ap-southeast-2
       - AWS_DEFAULT_REGION=ap-southeast-2
