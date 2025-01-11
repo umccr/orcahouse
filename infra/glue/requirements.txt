@@ -1,5 +1,5 @@
 libumccr==0.4.1
 google-auth==2.37.0
-requests==2.23.0
+requests==2.32.3
 polars==1.19.0
 fastexcel==0.12.0
