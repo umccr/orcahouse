@@ -83,6 +83,13 @@ resource "aws_security_group" "this" {
     protocol  = "tcp"
     self      = true
   }
+
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 resource "aws_db_subnet_group" "this" {
