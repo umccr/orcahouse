@@ -57,3 +57,37 @@ CREATE TABLE IF NOT EXISTS orcavault.tsa.spreadsheet_library_tracking_metadata
     study                 varchar,
     sheet_name            varchar
 );
+
+CREATE TABLE IF NOT EXISTS orcavault.tsa.spreadsheet_google_lims
+(
+    illumina_id         varchar,
+    run                 varchar,
+    timestamp           varchar,
+    subject_id          varchar,
+    sample_id           varchar,
+    library_id          varchar,
+    external_subject_id varchar,
+    external_sample_id  varchar,
+    external_library_id varchar,
+    sample_name         varchar,
+    project_owner       varchar,
+    project_name        varchar,
+    project_custodian   varchar,
+    type                varchar,
+    assay               varchar,
+    override_cycles     varchar,
+    phenotype           varchar,
+    source              varchar,
+    quality             varchar,
+    topup               varchar,
+    secondary_analysis  varchar,
+    workflow            varchar,
+    tags                varchar,
+    fastq               varchar,
+    number_fastqs       varchar,
+    results             varchar,
+    trello              varchar,
+    notes               varchar,
+    todo                varchar,
+    sheet_name          varchar
+);
