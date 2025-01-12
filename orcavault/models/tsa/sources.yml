@@ -6,3 +6,4 @@ sources:
     schema: tsa
     tables:
       - name: spreadsheet_library_tracking_metadata
+      - name: spreadsheet_google_lims
