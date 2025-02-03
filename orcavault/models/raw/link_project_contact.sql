@@ -7,6 +7,10 @@ with source as (
     select project_id, contact_id from {{ source('ods', 'metadata_manager_project') }} as prj
         join {{ source('ods', 'metadata_manager_projectcontactlink') }} as lnk on lnk.project_orcabus_id = prj.orcabus_id
         join {{ source('ods', 'metadata_manager_contact') }} as cnt on lnk.contact_orcabus_id = cnt.orcabus_id
+    union
+    select project_name as project_id, project_owner as contact_id from {{ ref('spreadsheet_library_tracking_metadata') }}
+    union
+    select project_name as project_id, project_owner as contact_id from {{ ref('spreadsheet_google_lims') }}
 
 ),
 
