@@ -7,6 +7,10 @@ with source as (
     select idv.individual_id as internal_subject_id, sbj.subject_id as external_subject_id from {{ source('ods', 'metadata_manager_subject') }} as sbj
         join {{ source('ods', 'metadata_manager_subjectindividuallink') }} as lnk on lnk.subject_orcabus_id = sbj.orcabus_id
         join {{ source('ods', 'metadata_manager_individual') }} as idv on lnk.individual_orcabus_id = idv.orcabus_id
+    union
+    select subject_id as internal_subject_id, external_subject_id from {{ ref('spreadsheet_library_tracking_metadata') }}
+    union
+    select subject_id as internal_subject_id, external_subject_id from {{ ref('spreadsheet_google_lims') }}
 
 ),
 
