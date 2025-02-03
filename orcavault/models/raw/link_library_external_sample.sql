@@ -6,6 +6,10 @@ with source as (
     union
     select lib.library_id as library_id, smp.external_sample_id as external_sample_id from {{ source('ods', 'metadata_manager_library') }} as lib
         join {{ source('ods', 'metadata_manager_sample') }} as smp on smp.orcabus_id = lib.sample_orcabus_id
+    union
+    select library_id, external_sample_id from {{ ref('spreadsheet_library_tracking_metadata') }}
+    union
+    select library_id, external_sample_id from {{ ref('spreadsheet_google_lims') }}
 
 ),
 

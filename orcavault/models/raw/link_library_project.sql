@@ -7,6 +7,10 @@ with source as (
     select lib.library_id as library_id, prj.project_id as project_id from {{ source('ods', 'metadata_manager_library') }} as lib
         join {{ source('ods', 'metadata_manager_libraryprojectlink') }} as lnk on lnk.library_orcabus_id = lib.orcabus_id
         join {{ source('ods', 'metadata_manager_project') }} as prj on lnk.project_orcabus_id = prj.orcabus_id
+    union
+    select library_id, project_name as project_id from {{ ref('spreadsheet_library_tracking_metadata') }}
+    union
+    select library_id, project_name as project_id from {{ ref('spreadsheet_google_lims') }}
 
 ),
 

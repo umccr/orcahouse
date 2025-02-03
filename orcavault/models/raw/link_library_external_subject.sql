@@ -6,6 +6,10 @@ with source as (
     union
     select lib.library_id as library_id, sbj.subject_id as external_subject_id from {{ source('ods', 'metadata_manager_library') }} as lib
         join {{ source('ods', 'metadata_manager_subject') }} as sbj on sbj.orcabus_id = lib.subject_orcabus_id
+    union
+    select library_id, external_subject_id from {{ ref('spreadsheet_library_tracking_metadata') }}
+    union
+    select library_id, external_subject_id from {{ ref('spreadsheet_google_lims') }}
 
 ),
 
