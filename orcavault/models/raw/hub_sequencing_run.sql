@@ -15,6 +15,8 @@ with source as (
     select instrument_run_id as sequencing_run_id from {{ source('ods', 'sequence_run_manager_sequence') }}
     union
     select illumina_id as sequencing_run_id from {{ source('ods', 'data_portal_limsrow') }}
+    union
+    select illumina_id as sequencing_run_id from {{ ref('spreadsheet_google_lims') }}
 
 ),
 
