@@ -33,8 +33,10 @@ cleaned as (
 differentiated as (
 
     select contact_id from cleaned
+    {% if is_incremental() %}
     except
     select contact_id from {{ this }}
+    {% endif %}
 
 ),
 
