@@ -1,8 +1,14 @@
-{{ config(
-    indexes=[
-      {'columns': ['experiment_id'], 'type': 'btree'},
-    ]
-)}}
+{{
+    config(
+        indexes=[
+            {'columns': ['experiment_id'], 'type': 'btree'},
+        ],
+        materialized='incremental',
+        incremental_strategy='merge',
+        unique_key='experiment_id',
+        on_schema_change='fail'
+    )
+}}
 
 with source as (
 
@@ -13,12 +19,22 @@ with source as (
 ),
 
 cleaned as (
+
     select
         distinct trim(experiment_id) as experiment_id
     from
         source
     where
         experiment_id is not null and experiment_id <> ''
+
+),
+
+differentiated as (
+
+    select experiment_id from cleaned
+    except
+    select experiment_id from {{ this }}
+
 ),
 
 transformed as (
@@ -29,12 +45,20 @@ transformed as (
         cast('{{ run_started_at }}' as timestamptz) as load_datetime,
         (select 'lab') as record_source
     from
-        cleaned
+        differentiated
 
 ),
 
 final as (
-    select * from transformed
+
+    select
+        cast(experiment_hk as char(64)) as experiment_hk,
+        cast(experiment_id as varchar(255)) as experiment_id,
+        cast(load_datetime as timestamptz) as load_datetime,
+        cast(record_source as varchar(255)) as record_source
+    from
+        transformed
+
 )
 
 select * from final
