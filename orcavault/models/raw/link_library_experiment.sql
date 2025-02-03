@@ -1,6 +1,8 @@
 with source as (
 
     select library_id, experiment_id from {{ source('ods', 'data_portal_labmetadata') }}
+    union
+    select library_id, experiment_id from {{ ref('spreadsheet_library_tracking_metadata') }}
 
 ),
 
