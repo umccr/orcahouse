@@ -1,8 +1,14 @@
-{{ config(
-    indexes=[
-      {'columns': ['project_id'], 'type': 'btree'},
-    ]
-)}}
+{{
+    config(
+        indexes=[
+            {'columns': ['project_id'], 'type': 'btree'},
+        ],
+        materialized='incremental',
+        incremental_strategy='merge',
+        unique_key='project_id',
+        on_schema_change='fail'
+    )
+}}
 
 with source as (
 
@@ -19,7 +25,17 @@ with source as (
 ),
 
 cleaned as (
+
     select * from source where project_id is not null and project_id <> ''
+
+),
+
+differentiated as (
+
+    select project_id from cleaned
+    except
+    select project_id from {{ this }}
+
 ),
 
 transformed as (
@@ -30,12 +46,20 @@ transformed as (
         cast('{{ run_started_at }}' as timestamptz) as load_datetime,
         (select 'lab') as record_source
     from
-        cleaned
+        differentiated
 
 ),
 
 final as (
-    select * from transformed
+
+    select
+        cast(project_hk as char(64)) as project_hk,
+        cast(project_id as varchar(255)) as project_id,
+        cast(load_datetime as timestamptz) as load_datetime,
+        cast(record_source as varchar(255)) as record_source
+    from
+        transformed
+
 )
 
 select * from final
