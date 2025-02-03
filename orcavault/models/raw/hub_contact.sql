@@ -11,6 +11,10 @@ with source as (
     select project_owner as contact_id from {{ source('ods', 'data_portal_limsrow') }}
     union
     select contact_id from {{ source('ods', 'metadata_manager_contact') }}
+    union
+    select project_owner as contact_id from {{ ref('spreadsheet_library_tracking_metadata') }}
+    union
+    select project_owner as contact_id from {{ ref('spreadsheet_google_lims') }}
 
 ),
 

@@ -11,6 +11,10 @@ with source as (
     select sample_id from {{ source('ods', 'data_portal_limsrow') }}
     union
     select sample_id from {{ source('ods', 'metadata_manager_sample') }}
+    union
+    select sample_id from {{ ref('spreadsheet_library_tracking_metadata') }}
+    union
+    select sample_id from {{ ref('spreadsheet_google_lims') }}
 
 ),
 

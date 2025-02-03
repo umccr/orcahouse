@@ -11,6 +11,10 @@ with source as (
     select external_subject_id from {{ source('ods', 'data_portal_limsrow') }}
     union
     select subject_id as external_subject_id from {{ source('ods', 'metadata_manager_subject') }}
+    union
+    select external_subject_id from {{ ref('spreadsheet_library_tracking_metadata') }}
+    union
+    select external_subject_id from {{ ref('spreadsheet_google_lims') }}
 
 ),
 

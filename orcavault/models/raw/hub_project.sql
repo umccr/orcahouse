@@ -11,6 +11,10 @@ with source as (
     select project_name as project_id from {{ source('ods', 'data_portal_limsrow') }}
     union
     select project_id from {{ source('ods', 'metadata_manager_project') }}
+    union
+    select project_name as project_id from {{ ref('spreadsheet_library_tracking_metadata') }}
+    union
+    select project_name as project_id from {{ ref('spreadsheet_google_lims') }}
 
 ),
 
