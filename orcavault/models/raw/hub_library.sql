@@ -33,8 +33,10 @@ cleaned as (
 differentiated as (
 
     select library_id from cleaned
+    {% if is_incremental() %}
     except
     select library_id from {{ this }}
+    {% endif %}
 
 ),
 

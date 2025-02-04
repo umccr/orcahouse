@@ -35,8 +35,10 @@ cleaned as (
 differentiated as (
 
     select sequencing_run_id from cleaned
+    {% if is_incremental() %}
     except
     select sequencing_run_id from {{ this }}
+    {% endif %}
 
 ),
 

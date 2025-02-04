@@ -33,8 +33,10 @@ cleaned as (
 differentiated as (
 
     select external_subject_id from cleaned
+    {% if is_incremental() %}
     except
     select external_subject_id from {{ this }}
+    {% endif %}
 
 ),
 
