@@ -71,12 +71,13 @@ cleaned as (
 
 ),
 
-transformed as (
+differentiated as (
 
     select
         *
     from
         cleaned
+    {% if is_incremental() %}
     except
     select
         assay,
@@ -106,17 +107,24 @@ transformed as (
         sheet_name
     from
         {{ this }}
+    {% endif %}
 
 ),
 
-final as (
+transformed as (
 
     select
         *,
         cast('{{ run_started_at }}' as timestamptz) as load_datetime,
         (select 'UMCCR_Library_Tracking_MetaData') as record_source
     from
-        transformed
+        differentiated
+
+),
+
+final as (
+
+    select * from transformed
 
 )
 
