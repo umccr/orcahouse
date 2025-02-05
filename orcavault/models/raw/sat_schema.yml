@@ -33,3 +33,37 @@ models:
         data_type: varchar(255)
       - name: quality
         data_type: varchar(255)
+
+  - name: sat_library_plab
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ library_hk ]
+        to: ref('hub_library')
+        to_columns: [ library_hk ]
+    columns:
+      - name: library_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: workflow
+        data_type: varchar(255)
+      - name: phenotype
+        data_type: varchar(255)
+      - name: type
+        data_type: varchar(255)
+      - name: assay
+        data_type: varchar(255)
+      - name: quality
+        data_type: varchar(255)
+      - name: source
+        data_type: varchar(255)
+      - name: truseqindex
+        data_type: varchar(255)
