@@ -245,3 +245,29 @@ models:
         data_type: text
       - name: trello
         data_type: text
+
+  - name: sat_project_mm
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ project_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ project_hk ]
+        to: ref('hub_project')
+        to_columns: [ project_hk ]
+    columns:
+      - name: project_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: orcabus_id
+        data_type: varchar(255)
+      - name: name
+        data_type: varchar(255)
+      - name: description
+        data_type: varchar(255)
