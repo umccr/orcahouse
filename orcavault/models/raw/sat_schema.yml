@@ -299,3 +299,25 @@ models:
         data_type: varchar(255)
       - name: email
         data_type: varchar(255)
+
+  - name: sat_subject_mm
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ external_subject_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ external_subject_hk ]
+        to: ref('hub_external_subject')
+        to_columns: [ external_subject_hk ]
+    columns:
+      - name: external_subject_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: orcabus_id
+        data_type: varchar(255)
