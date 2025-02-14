@@ -50,8 +50,8 @@ resource "aws_glue_job" "spreadsheet_library_tracking_metadata" {
   name              = "${local.stack_name}-spreadsheet-library-tracking-metadata-job"
   role_arn          = aws_iam_role.glue_role.arn
   glue_version      = "5.0"
-  worker_type       = "Standard"
-  number_of_workers = 1
+  worker_type       = "G.1X"
+  number_of_workers = 2
   timeout           = 15
 
   connections = sort([
@@ -98,8 +98,8 @@ resource "aws_glue_job" "spreadsheet_google_lims" {
   name              = "${local.stack_name}-spreadsheet-google-lims-job"
   role_arn          = aws_iam_role.glue_role.arn
   glue_version      = "5.0"
-  worker_type       = "Standard"
-  number_of_workers = 1
+  worker_type       = "G.1X"
+  number_of_workers = 2
   timeout           = 15
 
   connections = sort([
