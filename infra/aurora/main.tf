@@ -105,9 +105,10 @@ resource "aws_rds_cluster" "this" {
   master_username             = data.aws_ssm_parameter.master_username.value
   manage_master_user_password = true
   db_subnet_group_name        = aws_db_subnet_group.this.name
-  backup_retention_period     = 1
+  backup_retention_period     = 7
   deletion_protection         = true
   storage_encrypted           = true
+  enable_http_endpoint        = true
 
   vpc_security_group_ids = [
     aws_security_group.this.id,
@@ -117,7 +118,7 @@ resource "aws_rds_cluster" "this" {
 
   serverlessv2_scaling_configuration {
     min_capacity = 0.5
-    max_capacity = 4.0
+    max_capacity = 16.0
   }
 }
 
