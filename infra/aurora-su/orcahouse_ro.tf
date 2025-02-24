@@ -1,25 +1,24 @@
 locals {
-  database_name  = "orcavault"
-  tsa_stack_name = "OrcaVaultRDSSecretRotationTSA"
+  ro_stack_name = "OrcaHouseRDSSecretRotationRO"
 }
 
-data "aws_ssm_parameter" "tsa_username" {
-  name = "/${local.stack_name}/${local.database_name}/tsa_username"
+data "aws_ssm_parameter" "ro_username" {
+  name = "/${local.stack_name}/ro_username"
 }
 
-resource "aws_serverlessapplicationrepository_cloudformation_stack" "tsa" {
+resource "aws_serverlessapplicationrepository_cloudformation_stack" "ro" {
   # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/serverlessapplicationrepository_cloudformation_stack
   # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html
   # https://docs.aws.amazon.com/secretsmanager/latest/userguide/asm_access.html#endpoints
 
-  name             = local.tsa_stack_name
+  name             = local.ro_stack_name
   application_id   = data.aws_serverlessapplicationrepository_application.this.application_id
   semantic_version = data.aws_serverlessapplicationrepository_application.this.semantic_version
   capabilities     = data.aws_serverlessapplicationrepository_application.this.required_capabilities
 
   parameters = {
     endpoint            = "https://secretsmanager.${data.aws_region.current.name}.${data.aws_partition.current.dns_suffix}"
-    functionName        = local.tsa_stack_name
+    functionName        = local.ro_stack_name
     vpcSubnetIds        = join(",", local.sorted_private_subnets)
     vpcSecurityGroupIds = join(",", sort([local.orcahouse_db_sg_id[terraform.workspace]]))
   }
@@ -34,21 +33,21 @@ resource "aws_serverlessapplicationrepository_cloudformation_stack" "tsa" {
   }
 }
 
-resource "aws_secretsmanager_secret" "tsa" {
-  name                    = "${local.stack_name}/${local.database_name}/${data.aws_ssm_parameter.tsa_username.value}"
+resource "aws_secretsmanager_secret" "ro" {
+  name                    = "${local.stack_name}/${data.aws_ssm_parameter.ro_username.value}"
   recovery_window_in_days = 7
 }
 
-resource "aws_secretsmanager_secret_version" "tsa" {
-  secret_id = aws_secretsmanager_secret.tsa.id
+resource "aws_secretsmanager_secret_version" "ro" {
+  secret_id = aws_secretsmanager_secret.ro.id
 
   secret_string = jsonencode(
     {
       engine   = "postgres"
-      host     = data.aws_rds_cluster.orcahouse_db.endpoint
-      username = data.aws_ssm_parameter.tsa_username.value
+      host     = data.aws_rds_cluster.orcahouse_db.reader_endpoint  # intended
+      username = data.aws_ssm_parameter.ro_username.value
       password = data.aws_secretsmanager_random_password.this.random_password
-      dbname   = local.database_name
+      dbname   = local.database_name  # using orcavault as default db to connect for now
       port     = 5432
     }
   )
@@ -59,9 +58,9 @@ resource "aws_secretsmanager_secret_version" "tsa" {
   }
 }
 
-resource "aws_secretsmanager_secret_rotation" "tsa" {
-  secret_id           = aws_secretsmanager_secret_version.tsa.secret_id
-  rotation_lambda_arn = aws_serverlessapplicationrepository_cloudformation_stack.tsa.outputs.RotationLambdaARN
+resource "aws_secretsmanager_secret_rotation" "ro" {
+  secret_id           = aws_secretsmanager_secret_version.ro.secret_id
+  rotation_lambda_arn = aws_serverlessapplicationrepository_cloudformation_stack.ro.outputs.RotationLambdaARN
 
   rotation_rules {
     automatically_after_days = 1
