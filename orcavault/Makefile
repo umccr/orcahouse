@@ -1,5 +1,12 @@
 # convenience shortcuts to dev/Makefile targets
 
+doc:
+	@dbt docs generate
+	@rm -rf .local/orcavault
+	@mkdir -p .local/orcavault
+	@cp -v target/*.json .local/orcavault/
+	@cp -v target/*.html .local/orcavault/
+
 up:
 	@(cd ../dev/ && $(MAKE) up)
 
