@@ -22,7 +22,7 @@ resource "aws_glue_connection" "orcavault_tsa" {
   }
 
   physical_connection_requirements {
-    security_group_id_list = sort([var.orcabus_compute_sg_id.prod])
+    security_group_id_list = sort([local.orcahouse_db_sg_id[terraform.workspace]])
     subnet_id              = data.aws_subnet.selected.id
     availability_zone      = data.aws_subnet.selected.availability_zone
   }

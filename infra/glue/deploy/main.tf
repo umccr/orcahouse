@@ -29,9 +29,23 @@ provider "aws" {
 }
 
 locals {
-  stack_name                 = "orcahouse"
-  sorted_private_subnets     = sort(data.aws_subnets.private_subnets_ids.ids)
+  stack_name = "orcahouse"
+
+  sorted_private_subnets = sort(data.aws_subnets.private_subnets_ids.ids)
+
   selected_private_subnet_id = local.sorted_private_subnets[0]
+
+  orcahouse_db_sg_id = {
+    dev  = ""
+    prod = "sg-013b6e66086adc6a6"
+    stg  = ""
+  }
+
+  orcahouse_staging_bucket = {
+    dev  = ""
+    prod = "orcahouse-staging-data-472057503814"
+    stg  = ""
+  }
 }
 
 data "aws_vpc" "main_vpc" {
@@ -62,22 +76,6 @@ data "aws_rds_cluster" "orcahouse_db" {
   cluster_identifier = "orcahouse-db"
 }
 
-variable "orcabus_compute_sg_id" {
-  default = {
-    dev  = ""
-    prod = "sg-02e363a39220c955f"
-    stg  = ""
-  }
-}
-
-variable "staging_bucket" {
-  default = {
-    dev  = ""
-    prod = "orcahouse-staging-data-472057503814"
-    stg  = ""
-  }
-}
-
 data "aws_s3_bucket" "glue_script_bucket" {
-  bucket = var.staging_bucket[terraform.workspace]
+  bucket = local.orcahouse_staging_bucket[terraform.workspace]
 }
