@@ -204,3 +204,47 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_projectcontactlink
     contact_orcabus_id varchar not null,
     project_orcabus_id varchar not null
 );
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.data_portal_s3object
+(
+    id                 bigint       not null,
+    bucket             varchar(255) not null,
+    key                text         not null,
+    size               bigint       not null,
+    last_modified_date timestamp    not null,
+    e_tag              varchar(255) not null,
+    unique_hash        varchar(64)  not null
+);
+
+CREATE TYPE archive_status AS ENUM ('ArchiveAccess', 'DeepArchiveAccess');
+CREATE TYPE crawl_status AS ENUM ('InProgress', 'Completed', 'Failed');
+CREATE TYPE event_type AS ENUM ('Created', 'Deleted', 'Other');
+CREATE TYPE reason AS ENUM ('CreatedPut', 'CreatedPost', 'CreatedCopy', 'CreatedCompleteMultipartUpload', 'Deleted', 'DeletedLifecycle', 'Restored', 'RestoreExpired', 'StorageClassChanged', 'Crawl', 'Unknown', 'CrawlRestored');
+CREATE TYPE storage_class AS ENUM ('DeepArchive', 'Glacier', 'GlacierIr', 'IntelligentTiering', 'OnezoneIa', 'Outposts', 'ReducedRedundancy', 'Snow', 'Standard', 'StandardIa');
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.file_manager_s3_object
+(
+    s3_object_id            uuid                              not null primary key,
+    event_type              event_type                        not null,
+    bucket                  text                              not null,
+    key                     text                              not null,
+    version_id              text    default 'null'::text      not null,
+    event_time              timestamp with time zone,
+    size                    bigint,
+    sha256                  text,
+    last_modified_date      timestamp with time zone,
+    e_tag                   text,
+    storage_class           storage_class,
+    sequencer               text,
+    is_delete_marker        boolean default false             not null,
+    number_duplicate_events bigint  default 0                 not null,
+    attributes              jsonb,
+    deleted_date            timestamp with time zone,
+    deleted_sequencer       text,
+    number_reordered        bigint  default 0                 not null,
+    ingest_id               uuid,
+    is_current_state        boolean default true              not null,
+    reason                  reason  default 'Unknown'::reason not null,
+    archive_status          archive_status,
+    is_accessible           boolean
+);
