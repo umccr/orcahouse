@@ -159,6 +159,8 @@ models:
         data_type: varchar(255)
       - name: key
         data_type: text
+      - name: last_seen_date
+        data_type: timestamptz
       - name: load_datetime
         data_type: timestamptz
       - name: record_source
