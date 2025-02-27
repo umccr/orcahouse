@@ -345,3 +345,31 @@ models:
         data_type: varchar(255)
       - name: source
         data_type: varchar(255)
+
+  - name: sat_s3object_portal
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ s3object_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ s3object_hk ]
+        to: ref('hub_s3object')
+        to_columns: [ s3object_hk ]
+    columns:
+      - name: s3object_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: id
+        data_type: bigint
+      - name: size
+        data_type: bigint
+      - name: e_tag
+        data_type: varchar(255)
+      - name: last_modified_date
+        data_type: timestamptz
