@@ -22,7 +22,7 @@ sources:
       - name: data_portal_sequence
       - name: data_portal_sequencerun
       - name: data_portal_workflow
-      - name: file_manager_s3object
+      - name: file_manager_s3_object
       - name: metadata_manager_contact
       - name: metadata_manager_historicalcontact
       - name: metadata_manager_historicalindividual
