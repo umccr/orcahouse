@@ -56,7 +56,6 @@ transformed as (
         encode(sha256(concat(bucket, "key")::bytea), 'hex') as s3object_hk,
         bucket,
         "key",
-        last_seen_date,
         cast('{{ run_started_at }}' as timestamptz) as load_datetime,
         (select 's3') as record_source
     from
@@ -70,7 +69,6 @@ final as (
         cast(s3object_hk as char(64)) as s3object_hk,
         cast(bucket as varchar(255)) as bucket,
         cast("key" as text) as "key",
-        cast(last_seen_date as timestamptz) as last_seen_date,
         cast(load_datetime as timestamptz) as load_datetime,
         cast(record_source as varchar(255)) as record_source
     from
