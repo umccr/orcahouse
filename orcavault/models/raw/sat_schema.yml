@@ -373,3 +373,65 @@ models:
         data_type: varchar(255)
       - name: last_modified_date
         data_type: timestamptz
+
+  - name: sat_s3object_filemanager
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ s3object_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ s3object_hk ]
+        to: ref('hub_s3object')
+        to_columns: [ s3object_hk ]
+    columns:
+      - name: s3object_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: s3_object_id
+        data_type: uuid
+      - name: size
+        data_type: bigint
+      - name: e_tag
+        data_type: varchar(255)
+      - name: last_modified_date
+        data_type: timestamptz
+      - name: sha256
+        data_type: text
+      - name: event_type
+        data_type: varchar(255)
+      - name: event_time
+        data_type: timestamptz
+      - name: version_id
+        data_type: varchar(255)
+      - name: storage_class
+        data_type: varchar(255)
+      - name: sequencer
+        data_type: varchar(255)
+      - name: is_delete_marker
+        data_type: boolean
+      - name: number_duplicate_events
+        data_type: bigint
+      - name: attributes
+        data_type: jsonb
+      - name: deleted_date
+        data_type: timestamptz
+      - name: deleted_sequencer
+        data_type: varchar(255)
+      - name: number_reordered
+        data_type: varchar(255)
+      - name: ingest_id
+        data_type: uuid
+      - name: is_current_state
+        data_type: boolean
+      - name: reason
+        data_type: varchar(255)
+      - name: archive_status
+        data_type: varchar(255)
+      - name: is_accessible
+        data_type: boolean
