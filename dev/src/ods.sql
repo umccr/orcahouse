@@ -112,6 +112,97 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.data_portal_libraryrun
     valid_for_analysis smallint
 );
 
+CREATE TABLE IF NOT EXISTS orcavault.ods.data_portal_libraryrun_workflows
+(
+    id            bigint not null,
+    libraryrun_id bigint not null,
+    workflow_id   bigint not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.data_portal_workflow
+(
+    id              bigint       not null,
+    wfr_name        text,
+    type_name       varchar(255) not null,
+    wfr_id          varchar(255),
+    wfl_id          varchar(255),
+    wfv_id          varchar(255),
+    version         varchar(255),
+    input           text         not null,
+    start           timestamp    not null,
+    output          text,
+    "end"           timestamp,
+    end_status      varchar(255),
+    notified        smallint,
+    sequence_run_id bigint,
+    batch_run_id    bigint,
+    portal_run_id   varchar(255) not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.workflow_manager_workflowrun
+(
+    orcabus_id        varchar      not null primary key,
+    portal_run_id     varchar(255) not null unique,
+    execution_id      varchar(255),
+    workflow_run_name varchar(255),
+    comment           varchar(255),
+    analysis_run_id   varchar,
+    workflow_id       varchar
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.workflow_manager_workflowruncomment
+(
+    orcabus_id      varchar                  not null primary key,
+    comment         text                     not null,
+    created_at      timestamp with time zone not null,
+    created_by      varchar(255)             not null,
+    updated_at      timestamp with time zone not null,
+    is_deleted      boolean                  not null,
+    workflow_run_id varchar                  not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.workflow_manager_workflow
+(
+    orcabus_id                   varchar      not null primary key,
+    workflow_name                varchar(255) not null,
+    workflow_version             varchar(255) not null,
+    execution_engine             varchar(255) not null,
+    execution_engine_pipeline_id varchar(255) not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.workflow_manager_state
+(
+    orcabus_id      varchar                  not null primary key,
+    status          varchar(255)             not null,
+    timestamp       timestamp with time zone not null,
+    comment         varchar(255),
+    payload_id      varchar,
+    workflow_run_id varchar                  not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.workflow_manager_payload
+(
+    orcabus_id     varchar      not null primary key,
+    payload_ref_id varchar(255) not null unique,
+    version        varchar(255) not null,
+    data           jsonb        not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.workflow_manager_library
+(
+    orcabus_id varchar      not null primary key,
+    library_id varchar(255) not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.workflow_manager_libraryassociation
+(
+    orcabus_id       varchar                  not null primary key,
+    association_date timestamp with time zone not null,
+    status           varchar(255)             not null,
+    library_id       varchar                  not null,
+    workflow_run_id  varchar                  not null
+);
+
 CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_sequence
 (
     orcabus_id        varchar                  not null,
