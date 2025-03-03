@@ -146,6 +146,22 @@ models:
       - name: record_source
         data_type: varchar(255)
 
+  - name: hub_workflow_run
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ workflow_run_hk ]
+    columns:
+      - name: workflow_run_hk
+        data_type: char(64)
+      - name: portal_run_id
+        data_type: char(16)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+
   - name: hub_s3object
     config:
       contract: { enforced: true }
