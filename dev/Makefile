@@ -44,7 +44,7 @@ load:
 wait:
 	@sleep 5
 
-reload: down up wait all load
+reload: down up wait all load next
 
 next:
 	@docker compose cp ./src/next.sh postgres:/tmp/next.sh
