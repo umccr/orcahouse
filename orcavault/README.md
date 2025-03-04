@@ -47,12 +47,23 @@ To this point, it is good enough to work with structural changes and transformat
 ```
 export AWS_PROFILE=umccr-dev-admin
 make sync
-make load
+make load next
 ```
+
+Observe to tables from schema `ods` `tsa` and make some query.
 
 ```
 dbt test
 dbt build
+dbt run
+```
+
+Observe to tables from schema `psa` `raw` and make some query against them.
+
+If you would like to reload from scratch then do like so.
+
+```
+make reload
 dbt run
 ```
 
