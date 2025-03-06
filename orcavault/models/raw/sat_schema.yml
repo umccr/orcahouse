@@ -435,3 +435,47 @@ models:
         data_type: varchar(255)
       - name: is_accessible
         data_type: boolean
+
+  - name: sat_workflow_run_portal
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ workflow_run_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ workflow_run_hk ]
+        to: ref('hub_workflow_run')
+        to_columns: [ workflow_run_hk ]
+    columns:
+      - name: workflow_run_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: id
+        data_type: bigint
+      - name: type_name
+        data_type: varchar(255)
+      - name: wfr_name
+        data_type: text
+      - name: wfr_id
+        data_type: varchar(255)
+      - name: wfl_id
+        data_type: varchar(255)
+      - name: wfv_id
+        data_type: varchar(255)
+      - name: version
+        data_type: varchar(255)
+      - name: start_datetime
+        data_type: timestamptz
+      - name: end_datetime
+        data_type: timestamptz
+      - name: end_status
+        data_type: varchar(255)
+      - name: input_json
+        data_type: jsonb
+      - name: output_json
+        data_type: jsonb
