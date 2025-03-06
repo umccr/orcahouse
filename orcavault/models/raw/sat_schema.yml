@@ -479,3 +479,91 @@ models:
         data_type: jsonb
       - name: output_json
         data_type: jsonb
+
+  - name: sat_workflow_run_detail
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ workflow_run_hk, workflow_run_sq, load_datetime ]
+      - type: foreign_key
+        columns: [ workflow_run_hk ]
+        to: ref('hub_workflow_run')
+        to_columns: [ workflow_run_hk ]
+    columns:
+      - name: workflow_run_hk
+        data_type: char(64)
+      - name: workflow_run_sq
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: workflow_run_orcabus_id
+        data_type: char(26)
+      - name: workflow_run_execution_id
+        data_type: varchar(255)
+      - name: workflow_run_name
+        data_type: varchar(255)
+      - name: workflow_run_comment
+        data_type: varchar(255)
+      - name: workflow_orcabus_id
+        data_type: char(26)
+      - name: workflow_name
+        data_type: varchar(255)
+      - name: workflow_version
+        data_type: varchar(255)
+      - name: workflow_execution_engine
+        data_type: varchar(255)
+      - name: workflow_execution_engine_pipeline_id
+        data_type: varchar(255)
+      - name: state_orcabus_id
+        data_type: char(26)
+      - name: state_status
+        data_type: varchar(255)
+      - name: state_timestamp
+        data_type: timestamptz
+      - name: state_comment
+        data_type: varchar(255)
+      - name: payload_orcabus_id
+        data_type: char(26)
+      - name: payload_ref_id
+        data_type: varchar(255)
+      - name: payload_version
+        data_type: varchar(255)
+      - name: payload_data
+        data_type: jsonb
+
+  - name: sat_workflow_run_comment
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ workflow_run_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ workflow_run_hk ]
+        to: ref('hub_workflow_run')
+        to_columns: [ workflow_run_hk ]
+    columns:
+      - name: workflow_run_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: orcabus_id
+        data_type: char(26)
+      - name: comment
+        data_type: text
+      - name: created_at
+        data_type: timestamptz
+      - name: created_by
+        data_type: varchar(255)
+      - name: updated_at
+        data_type: timestamptz
+      - name: is_deleted
+        data_type: boolean
