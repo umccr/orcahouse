@@ -21,6 +21,6 @@ models:
     psa:
       +schema: psa
       +materialized: table
-    raw:
-      +schema: raw
+    dcl:
+      +schema: dcl
       +materialized: table
