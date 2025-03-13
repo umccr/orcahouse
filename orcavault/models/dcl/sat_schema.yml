@@ -567,3 +567,39 @@ models:
         data_type: timestamptz
       - name: is_deleted
         data_type: boolean
+
+  - name: sat_s3object_computed_key
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ s3object_hk, s3object_sq, load_datetime ]
+      - type: foreign_key
+        columns: [ s3object_hk ]
+        to: ref('hub_s3object')
+        to_columns: [ s3object_hk ]
+    columns:
+      - name: s3object_hk
+        data_type: char(64)
+      - name: s3object_sq
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: portal_run_id
+        data_type: char(16)
+      - name: sequencing_run_id
+        data_type: varchar(255)
+      - name: library_id
+        data_type: varchar(255)
+      - name: filename
+        data_type: text
+      - name: ext1
+        data_type: varchar(255)
+      - name: ext2
+        data_type: varchar(255)
+      - name: ext3
+        data_type: varchar(255)
