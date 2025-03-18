@@ -287,3 +287,29 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
+  - name: link_library_ownership
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_owner_hk ]
+      - type: foreign_key
+        columns: [ owner_hk ]
+        to: ref('hub_owner')
+        to_columns: [ owner_hk ]
+      - type: foreign_key
+        columns: [ library_hk ]
+        to: ref('hub_library')
+        to_columns: [ library_hk ]
+    columns:
+      - name: library_owner_hk
+        data_type: char(64)
+      - name: owner_hk
+        data_type: char(64)
+      - name: library_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
