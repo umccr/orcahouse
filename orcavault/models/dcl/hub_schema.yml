@@ -98,16 +98,16 @@ models:
       - name: record_source
         data_type: varchar(255)
 
-  - name: hub_contact
+  - name: hub_owner
     config:
       contract: { enforced: true }
     constraints:
       - type: primary_key
-        columns: [ contact_hk ]
+        columns: [ owner_hk ]
     columns:
-      - name: contact_hk
+      - name: owner_hk
         data_type: char(64)
-      - name: contact_id
+      - name: owner_id
         data_type: varchar(255)
       - name: load_datetime
         data_type: timestamptz
