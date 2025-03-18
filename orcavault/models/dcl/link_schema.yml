@@ -184,24 +184,24 @@ models:
       - name: record_source
         data_type: varchar(255)
 
-  - name: link_project_contact
+  - name: link_project_ownership
     config:
       contract: { enforced: true }
     constraints:
       - type: primary_key
-        columns: [ project_contact_hk ]
+        columns: [ project_owner_hk ]
       - type: foreign_key
-        columns: [ contact_hk ]
-        to: ref('hub_contact')
-        to_columns: [ contact_hk ]
+        columns: [ owner_hk ]
+        to: ref('hub_owner')
+        to_columns: [ owner_hk ]
       - type: foreign_key
         columns: [ project_hk ]
         to: ref('hub_project')
         to_columns: [ project_hk ]
     columns:
-      - name: project_contact_hk
+      - name: project_owner_hk
         data_type: char(64)
-      - name: contact_hk
+      - name: owner_hk
         data_type: char(64)
       - name: project_hk
         data_type: char(64)
