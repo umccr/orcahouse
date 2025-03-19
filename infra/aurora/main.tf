@@ -11,7 +11,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.78.0"
+      version = "5.91.0"
     }
   }
 }
@@ -101,7 +101,7 @@ resource "aws_rds_cluster" "this" {
   cluster_identifier          = "orcahouse-db"
   engine                      = "aurora-postgresql"
   engine_mode                 = "provisioned"
-  engine_version              = "16.4"
+  engine_version              = "16.6"
   master_username             = data.aws_ssm_parameter.master_username.value
   manage_master_user_password = true
   db_subnet_group_name        = aws_db_subnet_group.this.name
@@ -109,6 +109,12 @@ resource "aws_rds_cluster" "this" {
   deletion_protection         = true
   storage_encrypted           = true
   enable_http_endpoint        = true
+
+  enabled_cloudwatch_logs_exports = [
+    "iam-db-auth-error",
+    "instance",
+    "postgresql",
+  ]
 
   vpc_security_group_ids = [
     aws_security_group.this.id,
