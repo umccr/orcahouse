@@ -374,7 +374,7 @@ models:
       - name: last_modified_date
         data_type: timestamptz
 
-  - name: sat_s3object_filemanager
+  - name: sat_s3object_history
     config:
       contract: { enforced: true }
     constraints:
