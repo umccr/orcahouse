@@ -373,6 +373,8 @@ models:
         data_type: varchar(255)
       - name: last_modified_date
         data_type: timestamptz
+      - name: is_deleted
+        data_type: smallint
 
   - name: sat_s3object_history
     config:

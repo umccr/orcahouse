@@ -1,7 +1,15 @@
 {{
     config(
+        indexes=[
+            {'columns': ['is_deleted'], 'type': 'btree'},
+            {'columns': ['id'], 'type': 'btree'},
+            {'columns': ['last_modified_date'], 'type': 'btree'},
+            {'columns': ['hash_diff'], 'type': 'btree'},
+        ],
         materialized='incremental',
-        incremental_strategy='append',
+        incremental_strategy='merge',
+        unique_key=['s3object_hk', 'load_datetime'],
+        merge_update_columns = ['is_deleted'],
         on_schema_change='fail'
     )
 }}
@@ -34,7 +42,8 @@ transformed as (
         id,
         "size",
         e_tag,
-        last_modified_date
+        last_modified_date,
+        (select 0) as is_deleted
     from
         source
 
@@ -50,10 +59,28 @@ final as (
         cast(id as bigint) as id,
         cast("size" as bigint) as "size",
         cast(e_tag as varchar(255)) as e_tag,
-        cast(last_modified_date as timestamptz) as last_modified_date
+        cast(last_modified_date as timestamptz) as last_modified_date,
+        cast(is_deleted as smallint) as is_deleted
     from
         transformed
 
 )
 
 select * from final
+{% if is_incremental() %}
+union
+    select
+        cast(t.s3object_hk as char(64)) as s3object_hk,
+        cast(t.load_datetime as timestamptz) as load_datetime,
+        cast(t.record_source as varchar(255)) as record_source,
+        cast(t.hash_diff as char(64)) as hash_diff,
+        cast(t.id as bigint) as id,
+        cast(t."size" as bigint) as "size",
+        cast(t.e_tag as varchar(255)) as e_tag,
+        cast(t.last_modified_date as timestamptz) as last_modified_date,
+        cast((select 1) as smallint) as is_deleted
+    from {{ this }} t
+        left join {{ source('ods', 'data_portal_s3object') }} s on s.id = t.id
+    where
+        s.id is null and t.is_deleted = 0
+{% endif %}
