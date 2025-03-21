@@ -1,5 +1,14 @@
 {{
     config(
+        indexes=[
+            {'columns': ['event_time'], 'type': 'btree'},
+            {'columns': ['event_type'], 'type': 'btree'},
+            {'columns': ['s3_object_id'], 'type': 'btree'},
+            {'columns': ['ingest_id'], 'type': 'btree'},
+            {'columns': ['storage_class'], 'type': 'btree'},
+            {'columns': ['attributes'], 'type': 'gin'},
+            {'columns': ['hash_diff'], 'type': 'btree'},
+        ],
         materialized='incremental',
         incremental_strategy='append',
         on_schema_change='fail'

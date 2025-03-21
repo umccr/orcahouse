@@ -179,3 +179,5 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
