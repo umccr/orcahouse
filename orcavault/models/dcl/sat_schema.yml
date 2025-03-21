@@ -426,6 +426,54 @@ models:
       - name: archive_status
         data_type: varchar(255)
 
+  - name: sat_s3object_current
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ s3object_hk, s3object_sq, load_datetime ]
+      - type: foreign_key
+        columns: [ s3object_hk ]
+        to: ref('hub_s3object')
+        to_columns: [ s3object_hk ]
+    columns:
+      - name: s3object_hk
+        data_type: char(64)
+      - name: s3object_sq
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: s3_object_id
+        data_type: uuid
+      - name: size
+        data_type: bigint
+      - name: e_tag
+        data_type: varchar(255)
+      - name: sha256
+        data_type: text
+      - name: last_modified_date
+        data_type: timestamptz
+      - name: storage_class
+        data_type: varchar(255)
+      - name: attributes
+        data_type: jsonb
+      - name: ingest_id
+        data_type: uuid
+      - name: reason
+        data_type: varchar(255)
+      - name: effective_from
+        data_type: timestamptz
+      - name: effective_to
+        data_type: timestamptz
+      - name: is_current
+        data_type: smallint
+      - name: is_deleted
+        data_type: smallint
+
   - name: sat_workflow_run_portal
     config:
       contract: { enforced: true }
