@@ -2,10 +2,14 @@
     config(
         indexes=[
             {'columns': ['external_sample_id'], 'type': 'btree'},
+            {'columns': ['load_datetime'], 'type': 'btree'},
+            {'columns': ['last_seen_datetime'], 'type': 'btree'},
+            {'columns': ['external_sample_id', 'last_seen_datetime'], 'type': 'btree'},
         ],
         materialized='incremental',
         incremental_strategy='merge',
-        unique_key='external_sample_id',
+        unique_key='external_sample_hk',
+        merge_update_columns=['last_seen_datetime'],
         on_schema_change='fail'
     )
 }}
@@ -46,7 +50,8 @@ transformed as (
         encode(sha256(cast(external_sample_id as bytea)), 'hex') as external_sample_hk,
         external_sample_id,
         cast('{{ run_started_at }}' as timestamptz) as load_datetime,
-        (select 'lab') as record_source
+        (select 'lab') as record_source,
+        cast('{{ run_started_at }}' as timestamptz) as last_seen_datetime
     from
         differentiated
 
@@ -58,7 +63,8 @@ final as (
         cast(external_sample_hk as char(64)) as external_sample_hk,
         cast(external_sample_id as varchar(255)) as external_sample_id,
         cast(load_datetime as timestamptz) as load_datetime,
-        cast(record_source as varchar(255)) as record_source
+        cast(record_source as varchar(255)) as record_source,
+        cast(last_seen_datetime as timestamptz) as last_seen_datetime
     from
         transformed
 

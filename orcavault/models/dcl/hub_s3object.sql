@@ -11,8 +11,8 @@
         ],
         materialized='incremental',
         incremental_strategy='merge',
-        unique_key = 's3object_hk',
-        merge_update_columns = ['last_seen_datetime'],
+        unique_key='s3object_hk',
+        merge_update_columns=['last_seen_datetime'],
         on_schema_change='fail'
     )
 }}
