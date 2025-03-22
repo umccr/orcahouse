@@ -2,10 +2,14 @@
     config(
         indexes=[
             {'columns': ['owner_id'], 'type': 'btree'},
+            {'columns': ['load_datetime'], 'type': 'btree'},
+            {'columns': ['last_seen_datetime'], 'type': 'btree'},
+            {'columns': ['owner_id', 'last_seen_datetime'], 'type': 'btree'},
         ],
         materialized='incremental',
         incremental_strategy='merge',
-        unique_key='owner_id',
+        unique_key='owner_hk',
+        merge_update_columns=['last_seen_datetime'],
         on_schema_change='fail'
     )
 }}
@@ -46,7 +50,8 @@ transformed as (
         encode(sha256(cast(owner_id as bytea)), 'hex') as owner_hk,
         owner_id,
         cast('{{ run_started_at }}' as timestamptz) as load_datetime,
-        (select 'lab') as record_source
+        (select 'lab') as record_source,
+        cast('{{ run_started_at }}' as timestamptz) as last_seen_datetime
     from
         differentiated
 
@@ -58,7 +63,8 @@ final as (
         cast(owner_hk as char(64)) as owner_hk,
         cast(owner_id as varchar(255)) as owner_id,
         cast(load_datetime as timestamptz) as load_datetime,
-        cast(record_source as varchar(255)) as record_source
+        cast(record_source as varchar(255)) as record_source,
+        cast(last_seen_datetime as timestamptz) as last_seen_datetime
     from
         transformed
 

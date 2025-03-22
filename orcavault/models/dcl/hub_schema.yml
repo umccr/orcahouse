@@ -17,6 +17,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
 
   - name: hub_sample
     config:
@@ -33,6 +35,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
 
   - name: hub_internal_subject
     config:
@@ -49,6 +53,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
 
   - name: hub_external_subject
     config:
@@ -65,6 +71,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
 
   - name: hub_external_sample
     config:
@@ -81,6 +89,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
 
   - name: hub_project
     config:
@@ -97,6 +107,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
 
   - name: hub_owner
     config:
@@ -113,6 +125,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
 
   - name: hub_experiment
     config:
@@ -129,6 +143,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
 
   - name: hub_sequencing_run
     config:
@@ -145,6 +161,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
 
   - name: hub_workflow_run
     config:
@@ -161,6 +179,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: last_seen_datetime
+        data_type: timestamptz
 
   - name: hub_s3object
     config:
