@@ -1,14 +1,13 @@
+import csv
 import json
 import os
 import sys
 
+import gspread
 import polars as pl
-import requests
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.utils import getResolvedOptions
-from google.auth.transport.requests import Request
-from google.oauth2.service_account import Credentials
 from libumccr.aws import libssm, libsm, libs3
 from pyspark.sql import SparkSession
 
@@ -39,28 +38,22 @@ REGION_NAME = "ap-southeast-2"
 def extract():
     spreadsheet_id = libssm.get_secret(LIMS_SHEET_ID)
     account_info = libssm.get_secret(GDRIVE_SERVICE_ACCOUNT)
-    credentials: Credentials = Credentials.from_service_account_info(json.loads(account_info), scopes=SCOPES)
-    credentials.refresh(Request())
 
-    export_url = f"https://www.googleapis.com/drive/v3/files/{spreadsheet_id}/export?mimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    gs = gspread.service_account_from_dict(json.loads(account_info))
+    sh = gs.open_by_key(spreadsheet_id)
 
-    headers = {
-        'Authorization': f'Bearer {credentials.token}',
-    }
-
-    response = requests.get(export_url, headers=headers)
-    if response.status_code == 200:
-        with open(f"{OUT_PATH}.xlsx", 'wb') as file:
-            file.write(response.content)
-    else:
-        raise Exception(f"Failed to download spreadsheet: {response.status_code} - {response.text}")
+    worksheet = sh.worksheet(SHEET_NAME)
+    filename = f"{OUT_PATH}__{SHEET_NAME}.csv"
+    with open(filename, 'w') as f:
+        writer = csv.writer(f)
+        writer.writerows(worksheet.get_all_values())
 
 
 def transform():
     # treat all columns as string value, do not automatically infer the dataframe dtype i.e. infer_schema_length=0
     # https://github.com/pola-rs/polars/pull/16840
     # https://stackoverflow.com/questions/77318631/how-to-read-all-columns-as-strings-in-polars
-    df = pl.read_excel(f"{OUT_PATH}.xlsx", sheet_name=SHEET_NAME, infer_schema_length=0)
+    df = pl.read_csv(f"{OUT_PATH}__{SHEET_NAME}.csv", infer_schema_length=False, infer_schema=False)
 
     # replace all cells that contain well-known placeholder characters, typically derived formula columns
     df = df.with_columns(pl.col(pl.String).str.replace("^_$", ""))
@@ -87,9 +80,15 @@ def transform():
     for col in df.columns:
         if col.startswith('__UNNAMED__'):
             df = df.drop(col)
+        if col.startswith('_duplicated'):
+            df = df.drop(col)
+        if col == '':
+            df = df.drop(col)
 
     # add sheet name as a column
     df = df.with_columns(pl.lit(SHEET_NAME).alias('sheet_name'))
+
+    print(SHEET_NAME, df.columns)
 
     # final column rename
     df = df.rename({
@@ -151,13 +150,12 @@ def transform():
 
 def load(spark: SparkSession):
     # load staging data from the temporary location by naming convention
-    csv_file, sql_file, xls_file = f"{OUT_PATH}.csv", f"{OUT_PATH}.sql", f"{OUT_PATH}.xlsx"
+    csv_file, sql_file = f"{OUT_PATH}.csv", f"{OUT_PATH}.sql"
 
     # construct s3 object name
 
     csv_s3_object_name = f"{S3_MID_PATH}/{os.path.basename(csv_file)}"
     sql_s3_object_name = f"{S3_MID_PATH}/{os.path.basename(sql_file)}"
-    xls_s3_object_name = f"{S3_MID_PATH}/{os.path.basename(xls_file)}"
 
     # load data into S3
 
@@ -165,7 +163,6 @@ def load(spark: SparkSession):
 
     s3_client.upload_file(csv_file, S3_BUCKET, csv_s3_object_name)
     s3_client.upload_file(sql_file, S3_BUCKET, sql_s3_object_name)
-    s3_client.upload_file(xls_file, S3_BUCKET, xls_s3_object_name)
 
     # load data into database
 
