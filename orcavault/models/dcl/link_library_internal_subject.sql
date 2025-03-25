@@ -13,11 +13,6 @@ with source as (
     union
     select library_id, subject_id as internal_subject_id from {{ source('ods', 'data_portal_limsrow') }}
     union
-    select lib.library_id as library_id, idv.individual_id as internal_subject_id from {{ source('ods', 'metadata_manager_library') }} as lib
-        join {{ source('ods', 'metadata_manager_subject') }} as sbj on sbj.orcabus_id = lib.subject_orcabus_id
-        join {{ source('ods', 'metadata_manager_subjectindividuallink') }} as lnk on lnk.subject_orcabus_id = sbj.orcabus_id
-        join {{ source('ods', 'metadata_manager_individual') }} as idv on idv.orcabus_id = lnk.individual_orcabus_id
-    union
     select library_id, subject_id as internal_subject_id from {{ ref('spreadsheet_library_tracking_metadata') }}
     union
     select library_id, subject_id as internal_subject_id from {{ ref('spreadsheet_google_lims') }}
