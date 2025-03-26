@@ -1,0 +1,6 @@
+version: 2
+
+models:
+
+  - name: grimmond_lims
+    description: Listing of Grimmond Research Group LIMS metadata in flat table model
