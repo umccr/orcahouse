@@ -1,0 +1,9 @@
+version: 2
+
+models:
+
+  - name: lims
+    description: Listing of Centre genomic sequencing LIMS metadata in flat table model
+
+  - name: fastq
+    description: Listing of Centre genomic sequencing unaligned read level FASTQ S3 locations in flat table model

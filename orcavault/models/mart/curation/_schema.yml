@@ -1,0 +1,6 @@
+version: 2
+
+models:
+
+  - name: curation_lims
+    description: Listing of Centre Curation Team LIMS metadata in flat table model

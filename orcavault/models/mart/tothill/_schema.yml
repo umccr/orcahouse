@@ -1,0 +1,9 @@
+version: 2
+
+models:
+
+  - name: tothill_lims
+    description: Listing of Tothill Research Group LIMS metadata in flat table model
+
+  - name: tothill_fastq
+    description: Listing of Tothill Research Group primary read level FASTQ S3 locations in flat table model

@@ -24,3 +24,6 @@ models:
     dcl:
       +schema: dcl
       +materialized: table
+    mart:
+      +schema: mart
+      +materialized: table

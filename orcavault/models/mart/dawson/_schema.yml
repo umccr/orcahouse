@@ -1,0 +1,9 @@
+version: 2
+
+models:
+
+  - name: dawson_lims
+    description: Listing of Dawson Research Group LIMS metadata in flat table model
+
+  - name: dawson_fastq
+    description: Listing of Dawson Research Group primary read level FASTQ S3 locations in flat table model
