@@ -22,7 +22,18 @@
     )
 }}
 
-with transformed as (
+with effective_link_library_experiment as (
+
+    select
+        lnk.*
+    from {{ ref('link_library_experiment') }} lnk
+        join {{ ref('effsat_library_experiment') }} effsat on effsat.library_experiment_hk = lnk.library_experiment_hk
+    where
+        effsat.is_current = 1
+
+),
+
+transformed as (
 
     select
 
@@ -64,7 +75,7 @@ with transformed as (
             left join {{ ref('link_library_external_sample') }} lnk5 on lib.library_hk = lnk5.library_hk
             left join {{ ref('hub_external_sample') }} ext_smp on lnk5.external_sample_hk = ext_smp.external_sample_hk
 
-            left join {{ ref('link_library_experiment') }} lnk6 on lib.library_hk = lnk6.library_hk
+            left join effective_link_library_experiment lnk6 on lib.library_hk = lnk6.library_hk
             left join {{ ref('hub_experiment') }} expr on lnk6.experiment_hk = expr.experiment_hk
 
             left join {{ ref('link_library_project') }} lnk7 on lib.library_hk = lnk7.library_hk

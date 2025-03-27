@@ -1,0 +1,33 @@
+version: 2
+
+models:
+
+  - name: effsat_library_experiment
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_experiment_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ library_experiment_hk ]
+        to: ref('link_library_experiment')
+        to_columns: [ library_experiment_hk ]
+    columns:
+      - name: library_experiment_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: library_id
+        data_type: varchar(255)
+      - name: experiment_id
+        data_type: varchar(255)
+      - name: effective_from
+        data_type: timestamptz
+      - name: effective_to
+        data_type: timestamptz
+      - name: is_current
+        data_type: smallint
