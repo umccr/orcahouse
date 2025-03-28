@@ -14,6 +14,11 @@ with source as (
     select library_id, illumina_id as sequencing_run_id from {{ source('ods', 'data_portal_limsrow') }}
     union
     select library_id, illumina_id as sequencing_run_id from {{ ref('spreadsheet_google_lims') }}
+    union
+    select
+        assoc.library_id as library_id, seq.instrument_run_id as sequencing_run_id
+    from {{ source('ods', 'sequence_run_manager_sequence') }} seq
+        join {{ source('ods', 'sequence_run_manager_libraryassociation') }} assoc on assoc.sequence_id = seq.orcabus_id
 
 ),
 
