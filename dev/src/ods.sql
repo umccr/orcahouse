@@ -205,8 +205,8 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.workflow_manager_libraryassociation
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_sequence
 (
-    orcabus_id        varchar                  not null,
-    instrument_run_id varchar(255)             not null,
+    orcabus_id        varchar(26)              not null primary key,
+    instrument_run_id varchar(255),
     run_volume_name   text                     not null,
     run_folder_path   text,
     run_data_uri      text                     not null,
@@ -215,12 +215,52 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_sequence
     end_time          timestamp with time zone,
     reagent_barcode   varchar(255),
     flowcell_barcode  varchar(255),
-    sample_sheet_name varchar(255),
-    sequence_run_id   varchar(255),
+    sample_sheet_name varchar(255)             not null,
+    sequence_run_id   varchar(255)             not null,
     sequence_run_name varchar(255),
     v1pre3_id         varchar(255),
     ica_project_id    varchar(255),
-    api_url           text
+    api_url           text,
+    experiment_name   varchar(255)
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_state
+(
+    orcabus_id  varchar(26)              not null primary key,
+    status      varchar(255)             not null,
+    timestamp   timestamp with time zone not null,
+    comment     varchar(255),
+    sequence_id varchar(26)              not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_samplesheet
+(
+    orcabus_id            varchar(26)              not null primary key,
+    sample_sheet_name     varchar(255)             not null,
+    association_status    varchar(255)             not null,
+    association_timestamp timestamp with time zone not null,
+    sample_sheet_content  jsonb,
+    sequence_id           varchar(26)              not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_libraryassociation
+(
+    orcabus_id       varchar(26)              not null primary key,
+    library_id       varchar(255)             not null,
+    association_date timestamp with time zone not null,
+    status           varchar(255)             not null,
+    sequence_id      varchar(26)              not null
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_comment
+(
+    orcabus_id     varchar(26)              not null primary key,
+    comment        text                     not null,
+    association_id varchar(26)              not null,
+    created_at     timestamp with time zone not null,
+    created_by     varchar(255)             not null,
+    updated_at     timestamp with time zone not null,
+    is_deleted     boolean                  not null
 );
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_library
