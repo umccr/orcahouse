@@ -64,3 +64,7 @@ data "aws_subnets" "private_subnets" {
 data "aws_rds_cluster" "orcahouse_db" {
   cluster_identifier = "orcahouse-db"
 }
+
+data "aws_ssm_parameter" "ro_username" {
+  name = "/${local.stack_name}/ro_username"
+}
