@@ -40,7 +40,8 @@ resource "aws_ecs_task_definition" "this" {
       environment = [
         { "name" : "DB_HOST", "value" : data.aws_rds_cluster.orcahouse_db.endpoint },
         { "name" : "DB_NAME", "value" : local.database_name },
-        { "name" : "SECRET_NAME", "value" : data.aws_secretsmanager_secret.orcavault_dbt.name }
+        { "name" : "SECRET_NAME", "value" : data.aws_secretsmanager_secret.orcavault_dbt.name },
+        { "name" : "RO_USERNAME", "value" : data.aws_ssm_parameter.ro_username.value }
       ]
     }
   ])

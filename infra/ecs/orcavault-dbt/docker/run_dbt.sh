@@ -24,4 +24,6 @@ dbt --version
 dbt --log-format text --no-send-anonymous-usage-stats --no-use-colors --no-quiet debug --target prod
 dbt --log-format text --no-send-anonymous-usage-stats --no-use-colors --no-quiet run --target prod
 
+dbt run-operation grant_select --args "{role: $RO_USERNAME}" --target prod
+
 echo "dbt run completed successfully!"
