@@ -673,3 +673,107 @@ models:
         data_type: varchar(255)
       - name: ext3
         data_type: varchar(255)
+
+  - name: sat_sequencing_run_comment
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ sequencing_run_hk, sequencing_run_sq, load_datetime ]
+      - type: foreign_key
+        columns: [ sequencing_run_hk ]
+        to: ref('hub_sequencing_run')
+        to_columns: [ sequencing_run_hk ]
+    columns:
+      - name: sequencing_run_hk
+        data_type: char(64)
+      - name: sequencing_run_sq
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: orcabus_id
+        data_type: char(26)
+      - name: created_by
+        data_type: varchar(255)
+      - name: created_at
+        data_type: timestamptz
+      - name: updated_at
+        data_type: timestamptz
+      - name: is_deleted
+        data_type: boolean
+      - name: comment
+        data_type: text
+
+  - name: sat_sequencing_run_detail
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ sequencing_run_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ sequencing_run_hk ]
+        to: ref('hub_sequencing_run')
+        to_columns: [ sequencing_run_hk ]
+    columns:
+      - name: sequencing_run_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: orcabus_id
+        data_type: char(26)
+      - name: status
+        data_type: varchar(255)
+      - name: start_time
+        data_type: timestamptz
+      - name: end_time
+        data_type: timestamptz
+      - name: reagent_barcode
+        data_type: varchar(255)
+      - name: flowcell_barcode
+        data_type: varchar(255)
+      - name: ica_project_id
+        data_type: varchar(255)
+      - name: v1pre3_id
+        data_type: varchar(255)
+      - name: basespace_run_id
+        data_type: varchar(255)
+      - name: experiment_name
+        data_type: varchar(255)
+
+  - name: sat_sequencing_run_samplesheet
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ sequencing_run_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ sequencing_run_hk ]
+        to: ref('hub_sequencing_run')
+        to_columns: [ sequencing_run_hk ]
+    columns:
+      - name: sequencing_run_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: orcabus_id
+        data_type: char(26)
+      - name: association_status
+        data_type: varchar(255)
+      - name: association_timestamp
+        data_type: timestamptz
+      - name: samplesheet_name
+        data_type: varchar(255)
+      - name: samplesheet_content
+        data_type: jsonb
