@@ -777,3 +777,29 @@ models:
         data_type: varchar(255)
       - name: samplesheet_content
         data_type: jsonb
+
+  - name: sat_library_sequencing_run_srm
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_sequencing_run_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ library_sequencing_run_hk ]
+        to: ref('link_library_sequencing_run')
+        to_columns: [ library_sequencing_run_hk ]
+    columns:
+      - name: library_sequencing_run_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: orcabus_id
+        data_type: char(26)
+      - name: association_date
+        data_type: timestamptz
+      - name: status
+        data_type: varchar(255)
