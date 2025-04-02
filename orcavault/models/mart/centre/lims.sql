@@ -33,6 +33,15 @@ with effective_link_library_experiment as (
 
 ),
 
+effective_sat_library as (
+
+    select
+        *,
+        row_number() over (partition by library_hk order by load_datetime desc) as rank
+    from {{ ref('sat_library_glab') }}
+
+),
+
 transformed as (
 
     select
@@ -84,7 +93,7 @@ transformed as (
             left join {{ ref('link_library_ownership') }} lnk8 on lib.library_hk = lnk8.library_hk
             left join {{ ref('hub_owner') }} owner on lnk8.owner_hk = owner.owner_hk
 
-            left join {{ ref('sat_library_glab') }} sat on lib.library_hk = sat.library_hk
+            left join effective_sat_library sat on lib.library_hk = sat.library_hk and sat.rank = 1
 
 ),
 
