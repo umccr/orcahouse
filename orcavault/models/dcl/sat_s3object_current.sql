@@ -16,8 +16,8 @@
         ],
         materialized='incremental',
         incremental_strategy='merge',
-        unique_key=['s3object_hk', 's3object_sq', 'load_datetime'],
-        merge_update_columns = ['effective_to', 'is_current'],
+        unique_key=['s3object_hk', 'hash_diff'],
+        merge_update_columns = ['effective_to', 'is_current', 'is_deleted'],
         on_schema_change='fail'
     )
 }}
@@ -25,7 +25,7 @@
 with incremental as (
 
     select
-        *
+        distinct s3object_hk
     from
         {{ ref('sat_s3object_history') }}
     {% if is_incremental() %}
@@ -42,22 +42,19 @@ history as (
         row_number() over (partition by h.s3object_hk, cast(h.event_time as date) order by cast(h.event_time as date) desc) as rank_by_daily
     from
         {{ ref('sat_s3object_history') }} h
-        right outer join incremental i on i.s3object_hk = h.s3object_hk
+        join incremental i on i.s3object_hk = h.s3object_hk
 
 ),
 
 daily as (
 
-    select * from history where rank_by_daily = 1
-
-),
-
-grouped as (
-
     select
         *,
         row_number() over (partition by s3object_hk order by cast(event_time as date) desc) as rank_by_group
-    from daily
+    from
+        history
+    where
+        rank_by_daily = 1
 
 ),
 
@@ -97,7 +94,7 @@ transformed as (
         case when (rank_by_group = 1) then 1 else 0 end as is_current,
         case when (event_type = 'Deleted') then 1 else 0 end as is_deleted
     from
-        grouped
+        daily
 
 ),
 
