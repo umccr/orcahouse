@@ -64,8 +64,9 @@ def handler(event, context):
     try:
         # Get database connection
         
-        test_case()
-        fdata - parse_event(event)
+        # test_case()
+        fdata = parse_event(event)
+        push_to_db(fdata)
 
 
         # # Clean up
