@@ -31,6 +31,8 @@ locals {
   warehouse_name = "orcahouse"
   rds_security_group_id = "sg-069849c9157d4fb66"
   python_version = "3.13"
+  orcabus_bus_name = "OrcaBusMain"
+  iam_path = "/orcavault/serviceingestion/"
 }
 
 ################################################################################
@@ -67,6 +69,7 @@ data "aws_secretsmanager_secret_version" "db_secret_current" {
 # IAM Policy allowing access to Secrets Manager secret
 resource "aws_iam_policy" "db_secret_access" {
   name = "db_secret_access"
+  path = local.iam_path
   description = "Policy to allow access to the DB secret in Secrets Manager"
 
   policy = jsonencode({
@@ -83,6 +86,13 @@ resource "aws_iam_policy" "db_secret_access" {
   })
 }
 
+
+# IAM Policy allowing Lambda to create Network Interfaces
+# (required for Lambda deployment in VPC)
+# https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc.html#configuration-vpc-permissions
+data "aws_iam_policy" "lambda_vpc_access" {
+  name = "AWSLambdaVPCAccessExecutionRole"
+}
 
 
 ################################################################################
