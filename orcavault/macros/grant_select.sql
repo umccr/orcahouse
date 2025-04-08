@@ -7,6 +7,8 @@
     CREATE VIEW public.lims as SELECT * FROM mart.lims;
     CREATE VIEW public.fastq as SELECT * FROM mart.fastq;
     CREATE VIEW public.fastq_history as SELECT * FROM mart.fastq_history;
+    CREATE VIEW public.bam as SELECT * FROM mart.bam;
+    CREATE VIEW public.workflow as SELECT * FROM mart.workflow;
     GRANT USAGE ON SCHEMA public TO {{ role }};
     GRANT SELECT ON ALL tables IN SCHEMA public TO {{ role }};
 {% endset %}
