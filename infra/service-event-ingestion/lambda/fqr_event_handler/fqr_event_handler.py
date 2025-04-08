@@ -3,6 +3,10 @@ import json
 import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from psycopg2.extensions import AsIs
+from os.path import join
+from os.path import join
+from os.path import join
 
 
 FQR_DETAIL_TYPE = "FastqListRowUpdated"
@@ -10,7 +14,7 @@ FQR_EVENT_SOURCE = "orcabus.fastqmanager"
 # Get the secret name from environment variables
 DB_SECRET_NAME = os.environ['DB_SECRET_NAME']
 
-SQL_INSERT = "INSERT INTO FastqListRows (%s) VALUES (%s);"
+SQL_INSERT = "INSERT INTO FastqListRows (%s) VALUES %s;"
 
 def get_secret(secret_name):
     """Retrieve secret from AWS Secrets Manager"""
@@ -80,10 +84,12 @@ def handler(event, context):
         }
         
     except Exception as e:
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': str(e)})
-        }
+        print(f"An error occurred: {e}")
+        raise e
+        # return {
+        #     'statusCode': 500,
+        #     'body': json.dumps({'error': str(e)})
+        # }
 
 def parse_event(event):
     # Parse the event and extract the FQR code
@@ -137,6 +143,7 @@ def parse_event(event):
         }
     }
     """
+    print("Parsing event...")
     detail_type = event.get('detail-type')
     event_source = event.get('source')
 
@@ -155,7 +162,9 @@ def parse_event(event):
     is_valid = detail.get('isValid')
     fqr_date = detail.get('date')  # TODO: check with Alexis what this date is
 
-    readset = detail.get('readset')
+    readset = detail.get('readSet')
+    readset_r1 = None
+    readset_r2 = None
     if readset:
         readset_r1 = readset.get('r1').get('ingestId')
         readset_r2 = readset.get('r2').get('ingestId')
@@ -180,9 +189,9 @@ def push_to_db(data):
     print("Pushing data to database...")
     with DB_CONNECTION:
         with DB_CONNECTION.cursor() as cur:
-            # cur.execute(SQL_INSERT, (data.keys(), data.values()))
-            sql = cur.mogrify(SQL_INSERT, (data.keys(), data.values()))
-            print(f"SQL: {sql}")
+            sql = cur.mogrify(SQL_INSERT, (AsIs(','.join(data.keys())), tuple(data.values())))
+            print(f"SQL to execute: {sql}")
+            # cur.execute(sql)
 
     print("Data pushed to database!")
 

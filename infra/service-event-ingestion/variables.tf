@@ -14,6 +14,6 @@ variable "vpc_tags" {
 variable "db_secret_name" {
   description = "Name of the Secrets Manager secret holding the database credentials"
   type        = string
-  # default     = "orcahouse/dbuser_ro"
+  # default     = "orcahouse/orcavault/psa_rw"
   default     = "orcabus/sequence_run_manager/rds-login-credential"
 }
