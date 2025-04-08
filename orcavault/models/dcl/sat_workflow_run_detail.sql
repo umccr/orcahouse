@@ -30,7 +30,7 @@ with source as (
     from {{ source('ods', 'workflow_manager_workflowrun') }} wfr
         join {{ source('ods', 'workflow_manager_workflow') }} wfl on wfl.orcabus_id = wfr.workflow_id
         join {{ source('ods', 'workflow_manager_state') }} stt on stt.workflow_run_id = wfr.orcabus_id
-        join {{ source('ods', 'workflow_manager_payload') }} pld on pld.orcabus_id = stt.payload_id
+        full join {{ source('ods', 'workflow_manager_payload') }} pld on pld.orcabus_id = stt.payload_id
     {% if is_incremental() %}
     where
         cast(stt.timestamp as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
