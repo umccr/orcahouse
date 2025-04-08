@@ -3,10 +3,13 @@ version: 2
 models:
 
   - name: lims
-    description: Listing of Centre genomic sequencing LIMS metadata in flat table model
+    description: Listing of Centre genomic sequencing LIMS metadata in flat table model.
 
   - name: fastq
-    description: Listing of Centre genomic sequencing unaligned read level FASTQ S3 locations in flat table model
+    description: Listing of Centre genomic sequencing unaligned read level file FASTQ S3 locations in flat table model.
 
   - name: fastq_history
-    description: Listing of Centre genomic sequencing unaligned read level FASTQ S3 historical locations. Filter by library_id in WHERE clause.
+    description: Listing of Centre genomic sequencing unaligned read level file FASTQ S3 historical locations.
+
+  - name: bam
+    description: Listing of Centre genomic sequencing aligned read level file BAM and BAI S3 locations in flat table model.
