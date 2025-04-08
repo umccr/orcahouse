@@ -43,6 +43,8 @@ detailed as (
 
 merged as (
 
+    {# Potentially move this logic into DCL business vault. See https://github.com/umccr/orcahouse/pull/90 #}
+
     select
         hub.portal_run_id as portal_run_id,
         case
