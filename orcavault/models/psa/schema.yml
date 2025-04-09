@@ -125,3 +125,28 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
+  - name: fastq_list_row_change_events
+    columns:
+      - name: event_time
+        data_type: varchar
+      - name: fqr_id
+        data_type: varchar
+      - name: instrument_run_id
+        data_type: varchar
+      - name: library
+        data_type: varchar
+      - name: lane
+        data_type: varchar
+      - name: is_valid
+        data_type: varchar
+      - name: fqr_date
+        data_type: varchar
+      - name: readset_r1
+        data_type: varchar
+      - name: readset_r2
+        data_type: varchar
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)

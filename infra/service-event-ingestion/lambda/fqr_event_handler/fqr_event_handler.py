@@ -1,5 +1,6 @@
 import os
 import json
+import datetime
 import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -11,6 +12,7 @@ from os.path import join
 
 FQR_DETAIL_TYPE = "FastqListRowUpdated"
 FQR_EVENT_SOURCE = "orcabus.fastqmanager"
+RECORD_SOURCE = f"{FQR_EVENT_SOURCE}:{FQR_DETAIL_TYPE}"
 # Get the secret name from environment variables
 DB_SECRET_NAME = os.environ['DB_SECRET_NAME']
 
@@ -178,7 +180,9 @@ def parse_event(event):
         "is_valid": is_valid,
         "fqr_date": fqr_date,
         "readset_r1": readset_r1,
-        "readset_r2": readset_r2
+        "readset_r2": readset_r2,
+        "load_datetime": datetime.datetime.now().isoformat(),
+        "record_source": RECORD_SOURCE
     }
     print(f"Extracted data: {fqr_data}")
 
