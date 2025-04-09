@@ -33,6 +33,17 @@ with effective_sequencing_run as (
 
 ),
 
+effsat_library_external_subject as (
+
+    select
+        lnk.*
+    from {{ ref('link_library_external_subject') }} lnk
+        join {{ ref('effsat_library_external_subject') }} effsat on effsat.library_external_subject_hk = lnk.library_external_subject_hk
+    where
+        effsat.is_current = 1
+
+),
+
 effective_link_library_experiment as (
 
     select
@@ -86,7 +97,7 @@ transformed as (
             left join {{ ref('link_library_internal_subject') }} lnk2 on lib.library_hk = lnk2.library_hk
             left join {{ ref('hub_internal_subject') }} int_sbj on lnk2.internal_subject_hk = int_sbj.internal_subject_hk
 
-            left join {{ ref('link_library_external_subject') }} lnk3 on lib.library_hk = lnk3.library_hk
+            left join effsat_library_external_subject lnk3 on lib.library_hk = lnk3.library_hk
             left join {{ ref('hub_external_subject') }} ext_sbj on lnk3.external_subject_hk = ext_sbj.external_subject_hk
 
             left join {{ ref('link_library_sample') }} lnk4 on lib.library_hk = lnk4.library_hk
