@@ -24,6 +24,15 @@ PGPASSWORD=dev psql -h 0.0.0.0 -d orcavault -U dev <<EOF
 \copy ods.metadata_manager_libraryprojectlink from '/data/orcavault_ods_metadata_manager_libraryprojectlink.csv' with (format csv, header true, delimiter ',');
 \copy ods.metadata_manager_contact from '/data/orcavault_ods_metadata_manager_contact.csv' with (format csv, header true, delimiter ',');
 \copy ods.metadata_manager_projectcontactlink from '/data/orcavault_ods_metadata_manager_projectcontactlink.csv' with (format csv, header true, delimiter ',');
+\copy ods.metadata_manager_historicalcontact from '/data/orcavault_ods_metadata_manager_historicalcontact.csv' with (format csv, header true, delimiter ',');
+\copy ods.metadata_manager_historicalindividual from '/data/orcavault_ods_metadata_manager_historicalindividual.csv' with (format csv, header true, delimiter ',');
+\copy ods.metadata_manager_historicallibrary from '/data/orcavault_ods_metadata_manager_historicallibrary.csv' with (format csv, header true, delimiter ',');
+\copy ods.metadata_manager_historicallibraryprojectlink from '/data/orcavault_ods_metadata_manager_historicallibraryprojectlink.csv' with (format csv, header true, delimiter ',');
+\copy ods.metadata_manager_historicalproject from '/data/orcavault_ods_metadata_manager_historicalproject.csv' with (format csv, header true, delimiter ',');
+\copy ods.metadata_manager_historicalprojectcontactlink from '/data/orcavault_ods_metadata_manager_historicalprojectcontactlink.csv' with (format csv, header true, delimiter ',');
+\copy ods.metadata_manager_historicalsample from '/data/orcavault_ods_metadata_manager_historicalsample.csv' with (format csv, header true, delimiter ',');
+\copy ods.metadata_manager_historicalsubject from '/data/orcavault_ods_metadata_manager_historicalsubject.csv' with (format csv, header true, delimiter ',');
+\copy ods.metadata_manager_historicalsubjectindividuallink from '/data/orcavault_ods_metadata_manager_historicalsubjectindividuallink.csv' with (format csv, header true, delimiter ',');
 \copy ods.workflow_manager_library from '/data/orcavault_ods_workflow_manager_library.csv' with (format csv, header true, delimiter ',');
 \copy ods.workflow_manager_libraryassociation from '/data/orcavault_ods_workflow_manager_libraryassociation.csv' with (format csv, header true, delimiter ',');
 \copy ods.workflow_manager_payload from '/data/orcavault_ods_workflow_manager_payload.csv' with (format csv, header true, delimiter ',');

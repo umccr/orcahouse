@@ -336,6 +336,115 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_projectcontactlink
     project_orcabus_id varchar not null
 );
 
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_historicalcontact
+(
+    orcabus_id            varchar                  not null,
+    contact_id            varchar,
+    name                  varchar,
+    description           varchar,
+    email                 varchar(254),
+    history_id            integer primary key,
+    history_date          timestamp with time zone not null,
+    history_change_reason varchar(100),
+    history_type          varchar(1)               not null,
+    history_user_id       varchar
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_historicalindividual
+(
+    orcabus_id            varchar                  not null,
+    individual_id         varchar,
+    source                varchar,
+    history_id            integer primary key,
+    history_date          timestamp with time zone not null,
+    history_change_reason varchar(100),
+    history_type          varchar(1)               not null,
+    history_user_id       varchar
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_historicallibrary
+(
+    orcabus_id            varchar                  not null,
+    library_id            varchar,
+    phenotype             varchar,
+    workflow              varchar,
+    quality               varchar,
+    type                  varchar,
+    assay                 varchar,
+    coverage              double precision,
+    history_id            integer primary key,
+    history_date          timestamp with time zone not null,
+    history_change_reason varchar(100),
+    history_type          varchar(1)               not null,
+    sample_orcabus_id     varchar,
+    subject_orcabus_id    varchar,
+    history_user_id       varchar
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_historicallibraryprojectlink
+(
+    id                 bigint  not null,
+    m2m_history_id     integer primary key,
+    history_id         integer not null,
+    library_orcabus_id varchar,
+    project_orcabus_id varchar
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_historicalproject
+(
+    orcabus_id            varchar                  not null,
+    project_id            varchar,
+    name                  varchar,
+    description           varchar,
+    history_id            integer primary key,
+    history_date          timestamp with time zone not null,
+    history_change_reason varchar(100),
+    history_type          varchar(1)               not null,
+    history_user_id       varchar
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_historicalprojectcontactlink
+(
+    id                 bigint  not null,
+    m2m_history_id     integer primary key,
+    contact_orcabus_id varchar,
+    history_id         integer not null,
+    project_orcabus_id varchar
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_historicalsample
+(
+    orcabus_id            varchar                  not null,
+    sample_id             varchar,
+    external_sample_id    varchar,
+    source                varchar,
+    history_id            integer primary key,
+    history_date          timestamp with time zone not null,
+    history_change_reason varchar(100),
+    history_type          varchar(1)               not null,
+    history_user_id       varchar
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_historicalsubject
+(
+    orcabus_id            varchar                  not null,
+    subject_id            varchar,
+    history_id            integer primary key,
+    history_date          timestamp with time zone not null,
+    history_change_reason varchar(100),
+    history_type          varchar(1)               not null,
+    history_user_id       varchar
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_historicalsubjectindividuallink
+(
+    id                    bigint  not null,
+    m2m_history_id        integer primary key,
+    history_id            integer not null,
+    individual_orcabus_id varchar,
+    subject_orcabus_id    varchar
+);
+
 CREATE TABLE IF NOT EXISTS orcavault.ods.data_portal_s3object
 (
     id                 bigint       not null,
