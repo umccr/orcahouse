@@ -24,12 +24,16 @@
 
 with effective_sequencing_run as (
 
+    {# FIXME this only solves recent Runs. implement proper effectivity satellite that consider all upstream sources #}
+
     select distinct
         hub.sequencing_run_hk,
         hub.sequencing_run_id,
         sat.status
     from {{ ref('hub_sequencing_run') }} hub
-        join {{ ref('sat_sequencing_run_detail') }} sat on hub.sequencing_run_hk = sat.sequencing_run_hk
+        left join {{ ref('sat_sequencing_run_detail') }} sat on hub.sequencing_run_hk = sat.sequencing_run_hk
+    where
+        sat.status = 'SUCCEEDED' or sat.status is null
 
 ),
 
@@ -92,7 +96,7 @@ transformed as (
         {{ ref('hub_library') }} lib
 
             left join {{ ref('link_library_sequencing_run') }} lnk1 on lib.library_hk = lnk1.library_hk
-            left join effective_sequencing_run sqr on lnk1.sequencing_run_hk = sqr.sequencing_run_hk and sqr.status <> 'FAILED'
+            left join effective_sequencing_run sqr on lnk1.sequencing_run_hk = sqr.sequencing_run_hk
 
             left join {{ ref('link_library_internal_subject') }} lnk2 on lib.library_hk = lnk2.library_hk
             left join {{ ref('hub_internal_subject') }} int_sbj on lnk2.internal_subject_hk = int_sbj.internal_subject_hk
