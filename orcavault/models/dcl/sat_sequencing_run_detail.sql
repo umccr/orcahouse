@@ -21,9 +21,11 @@ with source as (
         sequence_run_id as basespace_run_id,
         experiment_name
     from {{ source('ods', 'sequence_run_manager_sequence') }}
-    {% if is_incremental() %}
     where
-        cast(start_time as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
+        end_time is not null
+    {% if is_incremental() %}
+    and
+        cast(end_time as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
     {% endif %}
 
 ),
