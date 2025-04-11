@@ -1,0 +1,6 @@
+# exclude temporary build folder
+.temp/
+
+# exclude TF state as it contains downloaded secrets
+terraform.tfstate
+terraform.tfstate.backup
