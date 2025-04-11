@@ -47,7 +47,7 @@ def get_db_connection(credentials):
     host = credentials.get('host')
     port = credentials.get('port')
     dbname = credentials.get('dbname')
-    print(f"Connecting to {host}:{port} as {username}...")        
+    print("Connecting to the database...")        
 
     conn = psycopg2.connect(
         host=host,
