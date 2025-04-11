@@ -112,14 +112,14 @@ def parse_event(event):
             "readSet": {
                 "r1": {
                     "gzipCompressionSizeInBytes": 17725167693,
-                    "rawMd5sum": "471e6caeed74802a8f38b4c1307ed85d",
+                    "rawMd5sum": "471e6caeed74802a8f38b4c1307ed85d", # pragma: allowlist secret
                     "ingestId": "0195f74f-bbff-7a31-9fcd-695f1ecb5ca2",
                     "s3Uri": "s3://pipeline-prod-cache-503977275616-ap-southeast-2/byob-icav2/production/ora-compression/250228_A00130_0359_AHCCNCDSXF/202504027941308e/Samples/Lane_2/L2500156/L2500156_S12_L002_R1_001.fastq.ora",
                     "storageClass": "Standard"
                 },
                 "r2": {
                     "gzipCompressionSizeInBytes": 18783837974,
-                    "rawMd5sum": "30cb6f04cf33349c37155fed430994e6",
+                    "rawMd5sum": "30cb6f04cf33349c37155fed430994e6", # pragma: allowlist secret
                     "ingestId": "0195f74f-d023-7b03-bb48-1e44f14e51ce",
                     "s3Uri": "s3://pipeline-prod-cache-503977275616-ap-southeast-2/byob-icav2/production/ora-compression/250228_A00130_0359_AHCCNCDSXF/202504027941308e/Samples/Lane_2/L2500156/L2500156_S12_L002_R2_001.fastq.ora",
                     "storageClass": "Standard"
