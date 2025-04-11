@@ -1,5 +1,4 @@
 locals {
-  database_name  = "orcavault"
   psa_stack_name = "OrcaVaultRDSSecretRotationPSA"
 }
 
