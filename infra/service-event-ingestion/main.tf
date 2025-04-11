@@ -28,24 +28,29 @@ provider "aws" {
 }
 
 locals {
-  warehouse_name = "orcahouse"
-  rds_security_group_id = "sg-069849c9157d4fb66"
+  # warehouse_name = "orcahouse"
+  # rds_security_group_id = "sg-069849c9157d4fb66"
   python_version = "3.13"
-  orcabus_bus_name = "OrcaBusMain"
+  # orcabus_bus_name = "OrcaBusMain"
   iam_path = "/orcavault/serviceingestion/"
+  # orcahouse_db_sg_id = {
+  #   dev  = ""
+  #   prod = "sg-013b6e66086adc6a6"
+  #   stg  = ""
+  # }
+}
+
+module "common" {
+  source = "../common/config"
 }
 
 ################################################################################
 # VPC / Networking
 
-data "aws_vpc" "main_vpc" {
-  tags = var.vpc_tags
-}
-
 data "aws_subnets" "private" {
   filter {
     name   = "vpc-id"
-    values = [data.aws_vpc.main_vpc.id]
+    values = [module.common.main_vpc_id]
   }
   
   tags = {

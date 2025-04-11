@@ -98,7 +98,7 @@ resource "aws_lambda_function" "srm_event_handler" {
 
   vpc_config {
     subnet_ids         = data.aws_subnets.private.ids
-    security_group_ids = [local.rds_security_group_id]
+    security_group_ids = [module.common.orcahouse_db_sg_id[terraform.workspace]]
   }
 
   environment {
@@ -117,7 +117,7 @@ resource "aws_cloudwatch_event_rule" "srm_event_ingestion" {
   name        = "srm_event_ingestion"
   description = "Forward SRM events to an ingestion Lambda for ingestion into the OrcaHouse Vault"
 
-  event_bus_name = local.orcabus_bus_name
+  event_bus_name = module.common.orcabus_bus_name
 
   event_pattern = jsonencode({
     detail-type = [
@@ -131,7 +131,7 @@ resource "aws_cloudwatch_event_rule" "srm_event_ingestion" {
 
 resource "aws_cloudwatch_event_target" "srm_lambda" {
   target_id = "SendToSRMLambda"
-  event_bus_name = local.orcabus_bus_name
+  event_bus_name = module.common.orcabus_bus_name
   rule      = aws_cloudwatch_event_rule.srm_event_ingestion.name
   arn       = aws_lambda_function.srm_event_handler.arn
 
