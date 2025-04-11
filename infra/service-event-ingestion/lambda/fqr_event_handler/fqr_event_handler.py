@@ -22,7 +22,7 @@ SQL_INSERT = f"INSERT INTO {TABLE_NAME} (%s) SELECT %s WHERE NOT EXISTS (SELECT 
 
 def get_secret(secret_name):
     """Retrieve secret from AWS Secrets Manager"""
-    print(f"Retrieving DB credentials from Secrets Manager ({secret_name})...")
+    print("Retrieving DB credentials from Secrets Manager...")
     session = boto3.session.Session()
     client = boto3.client('secretsmanager')
     
