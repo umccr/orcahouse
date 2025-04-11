@@ -72,3 +72,18 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.spreadsheet_google_lims
     load_datetime       timestamptz,
     record_source       varchar(255)
 );
+
+CREATE TABLE IF NOT EXISTS orcavault.psa.fastq_list_row_change_events
+(
+    event_time          varchar,
+    fqr_id              varchar,
+    instrument_run_id   varchar,
+    library             varchar,
+    lane                varchar,
+    is_valid            varchar,
+    fqr_date            varchar,
+    readset_r1          varchar,
+    readset_r2          varchar,
+    load_datetime       timestamptz,
+    record_source       varchar(255)
+);
