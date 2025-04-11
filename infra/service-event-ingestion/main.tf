@@ -28,16 +28,8 @@ provider "aws" {
 }
 
 locals {
-  # warehouse_name = "orcahouse"
-  # rds_security_group_id = "sg-069849c9157d4fb66"
   python_version = "3.13"
-  # orcabus_bus_name = "OrcaBusMain"
   iam_path = "/orcavault/serviceingestion/"
-  # orcahouse_db_sg_id = {
-  #   dev  = ""
-  #   prod = "sg-013b6e66086adc6a6"
-  #   stg  = ""
-  # }
 }
 
 module "common" {

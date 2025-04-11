@@ -6,17 +6,19 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2.extensions import AsIs
 from os.path import join
-from os.path import join
-from os.path import join
 
 
+TABLE_NAME = "psa.fastq_list_row_change_events"
 FQR_DETAIL_TYPE = "FastqListRowUpdated"
 FQR_EVENT_SOURCE = "orcabus.fastqmanager"
 RECORD_SOURCE = f"{FQR_EVENT_SOURCE}:{FQR_DETAIL_TYPE}"
 # Get the secret name from environment variables
 DB_SECRET_NAME = os.environ['DB_SECRET_NAME']
 
-SQL_INSERT = "INSERT INTO FastqListRows (%s) VALUES %s;"
+# SQL_INSERT = "INSERT INTO psa.fastq_list_row_change_events (%s) VALUES %s;"
+# Prevent inserts of the same event record multiple times
+# TODO: consider hashing the event values and only insert records that differ
+SQL_INSERT = f"INSERT INTO {TABLE_NAME} (%s) SELECT %s WHERE NOT EXISTS (SELECT 1 FROM {TABLE_NAME} WHERE event_id = %s);"
 
 def get_secret(secret_name):
     """Retrieve secret from AWS Secrets Manager"""
@@ -68,30 +70,17 @@ def handler(event, context):
     print("Lambda function invoked!")
     print(f"Event: {event}")
     try:
-        # Get database connection
-        
-        # test_case()
         fdata = parse_event(event)
         push_to_db(fdata)
-
-
-        # # Clean up
-        # cur.close()
-        # conn.close()
         
         print("Returning results.")
         return {
             'statusCode': 200,
-            'body': json.dumps(results_list)
         }
         
     except Exception as e:
         print(f"An error occurred: {e}")
         raise e
-        # return {
-        #     'statusCode': 500,
-        #     'body': json.dumps({'error': str(e)})
-        # }
 
 def parse_event(event):
     # Parse the event and extract the FQR code
@@ -149,11 +138,13 @@ def parse_event(event):
     detail_type = event.get('detail-type')
     event_source = event.get('source')
 
+    # make sure we have an expected event type
     if detail_type != FQR_DETAIL_TYPE:
         raise ValueError(f"Invalid event type. Expected '{FQR_DETAIL_TYPE}' but got '{detail_type}'")
     if event_source != FQR_EVENT_SOURCE:
         raise ValueError(f"Invalid event source. Expected '{FQR_EVENT_SOURCE}' but got '{event_source}'")
 
+    event_id = event.get('id')
     event_time = event.get('time')
     detail = event.get('detail')
 
@@ -172,6 +163,7 @@ def parse_event(event):
         readset_r2 = readset.get('r2').get('ingestId')
 
     fqr_data = {
+        "event_id": event_id,
         "event_time": event_time,
         "fqr_id": fqr_id,
         "instrument_run_id": instrument_run_id,
@@ -193,9 +185,10 @@ def push_to_db(data):
     print("Pushing data to database...")
     with DB_CONNECTION:
         with DB_CONNECTION.cursor() as cur:
-            sql = cur.mogrify(SQL_INSERT, (AsIs(','.join(data.keys())), tuple(data.values())))
+            values = str(tuple(data.values()))[1:-1]  # strip off tuple brackets
+            sql = cur.mogrify(SQL_INSERT, (AsIs(','.join(data.keys())), AsIs(values), data['event_id']))
             print(f"SQL to execute: {sql}")
-            # cur.execute(sql)
+            cur.execute(sql)
 
     print("Data pushed to database!")
 
@@ -205,7 +198,7 @@ def test_case():
     print("Executing query...")
     with DB_CONNECTION:
         with DB_CONNECTION.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM django_migrations LIMIT 5")
+            cur.execute(f"SELECT * FROM {TABLE_NAME} LIMIT 5")
             results = cur.fetchall()
     
     # Convert results to JSON-serializable format

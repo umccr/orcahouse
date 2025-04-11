@@ -7,6 +7,8 @@ sources:
     tables:
       - name: fastq_list_row_change_events
         columns:
+          - name: event_id
+            data_type: varchar
           - name: event_time
             data_type: varchar
           - name: fqr_id

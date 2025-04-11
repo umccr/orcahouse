@@ -4,6 +4,7 @@
 venv/
 .env/
 .env
+.temp/
 
 # exclude any local dev data
 dev/data/*

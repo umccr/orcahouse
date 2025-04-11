@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.spreadsheet_google_lims
 
 CREATE TABLE IF NOT EXISTS orcavault.psa.fastq_list_row_change_events
 (
+    event_id            varchar,
     event_time          varchar,
     fqr_id              varchar,
     instrument_run_id   varchar,
