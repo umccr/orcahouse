@@ -1,12 +1,12 @@
 terraform {
   required_version = ">= 1.10.0"
 
-  # backend "s3" {
-  #   bucket         = "umccr-terraform-states"
-  #   key            = "orcahouse-event-ingestion/terraform.tfstate"
-  #   region         = "ap-southeast-2"
-  #   dynamodb_table = "terraform-state-lock"
-  # }
+  backend "s3" {
+    bucket         = "umccr-terraform-states"
+    key            = "orcahouse-event-ingestion/terraform.tfstate"
+    region         = "ap-southeast-2"
+    dynamodb_table = "terraform-state-lock"
+  }
 
   required_providers {
     aws = {
