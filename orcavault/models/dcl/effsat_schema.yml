@@ -61,3 +61,93 @@ models:
         data_type: timestamptz
       - name: is_current
         data_type: smallint
+
+  - name: effsat_library_external_sample
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_external_sample_hk, hash_diff, load_datetime ]
+      - type: foreign_key
+        columns: [ library_external_sample_hk ]
+        to: ref('link_library_external_sample')
+        to_columns: [ library_external_sample_hk ]
+    columns:
+      - name: library_external_sample_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: library_id
+        data_type: varchar(255)
+      - name: external_sample_id
+        data_type: varchar(255)
+      - name: effective_from
+        data_type: timestamptz
+      - name: effective_to
+        data_type: timestamptz
+      - name: is_current
+        data_type: smallint
+
+  - name: effsat_library_sample
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_sample_hk, hash_diff, load_datetime ]
+      - type: foreign_key
+        columns: [ library_sample_hk ]
+        to: ref('link_library_sample')
+        to_columns: [ library_sample_hk ]
+    columns:
+      - name: library_sample_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: library_id
+        data_type: varchar(255)
+      - name: sample_id
+        data_type: varchar(255)
+      - name: effective_from
+        data_type: timestamptz
+      - name: effective_to
+        data_type: timestamptz
+      - name: is_current
+        data_type: smallint
+
+  - name: effsat_library_project
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_project_hk, hash_diff, load_datetime ]
+      - type: foreign_key
+        columns: [ library_project_hk ]
+        to: ref('link_library_project')
+        to_columns: [ library_project_hk ]
+    columns:
+      - name: library_project_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: library_id
+        data_type: varchar(255)
+      - name: project_id
+        data_type: varchar(255)
+      - name: effective_from
+        data_type: timestamptz
+      - name: effective_to
+        data_type: timestamptz
+      - name: is_current
+        data_type: smallint

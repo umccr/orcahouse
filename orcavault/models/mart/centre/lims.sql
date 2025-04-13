@@ -37,6 +37,39 @@ with effective_sequencing_run as (
 
 ),
 
+effsat_library_project as (
+
+    select
+        lnk.*
+    from {{ ref('link_library_project') }} lnk
+        join {{ ref('effsat_library_project') }} effsat on effsat.library_project_hk = lnk.library_project_hk
+    where
+        effsat.is_current = 1
+
+),
+
+effsat_library_sample as (
+
+    select
+        lnk.*
+    from {{ ref('link_library_sample') }} lnk
+        join {{ ref('effsat_library_sample') }} effsat on effsat.library_sample_hk = lnk.library_sample_hk
+    where
+        effsat.is_current = 1
+
+),
+
+effsat_library_external_sample as (
+
+    select
+        lnk.*
+    from {{ ref('link_library_external_sample') }} lnk
+        join {{ ref('effsat_library_external_sample') }} effsat on effsat.library_external_sample_hk = lnk.library_external_sample_hk
+    where
+        effsat.is_current = 1
+
+),
+
 effsat_library_external_subject as (
 
     select
@@ -104,16 +137,16 @@ transformed as (
             left join effsat_library_external_subject lnk3 on lib.library_hk = lnk3.library_hk
             left join {{ ref('hub_external_subject') }} ext_sbj on lnk3.external_subject_hk = ext_sbj.external_subject_hk
 
-            left join {{ ref('link_library_sample') }} lnk4 on lib.library_hk = lnk4.library_hk
+            left join effsat_library_sample lnk4 on lib.library_hk = lnk4.library_hk
             left join {{ ref('hub_sample') }} smp on lnk4.sample_hk = smp.sample_hk
 
-            left join {{ ref('link_library_external_sample') }} lnk5 on lib.library_hk = lnk5.library_hk
+            left join effsat_library_external_sample lnk5 on lib.library_hk = lnk5.library_hk
             left join {{ ref('hub_external_sample') }} ext_smp on lnk5.external_sample_hk = ext_smp.external_sample_hk
 
             left join effective_link_library_experiment lnk6 on lib.library_hk = lnk6.library_hk
             left join {{ ref('hub_experiment') }} expr on lnk6.experiment_hk = expr.experiment_hk
 
-            left join {{ ref('link_library_project') }} lnk7 on lib.library_hk = lnk7.library_hk
+            left join effsat_library_project lnk7 on lib.library_hk = lnk7.library_hk
             left join {{ ref('hub_project') }} prj on lnk7.project_hk = prj.project_hk
 
             left join {{ ref('link_library_ownership') }} lnk8 on lib.library_hk = lnk8.library_hk
