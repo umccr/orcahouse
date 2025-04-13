@@ -37,9 +37,12 @@ with incremental as (
 
 history as (
 
+    {# For given all historical changes from CDC source, partition (group) by s3object_hk and event_time daily cut-over #}
+    {# order by event_time (at timestamp level). i.e. take the last changed for the day as effective summary. #}
+
     select
         h.*,
-        row_number() over (partition by h.s3object_hk, cast(h.event_time as date) order by cast(h.event_time as date) desc) as rank_by_daily
+        row_number() over (partition by h.s3object_hk, cast(h.event_time as date) order by h.event_time desc) as rank_by_daily
     from
         {{ ref('sat_s3object_history') }} h
         join incremental i on i.s3object_hk = h.s3object_hk
