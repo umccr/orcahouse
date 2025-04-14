@@ -32,6 +32,36 @@ models:
       - name: is_current
         data_type: smallint
 
+  - name: effsat_library_internal_subject
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_internal_subject_hk, hash_diff, load_datetime ]
+      - type: foreign_key
+        columns: [ library_internal_subject_hk ]
+        to: ref('link_library_internal_subject')
+        to_columns: [ library_internal_subject_hk ]
+    columns:
+      - name: library_internal_subject_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: library_id
+        data_type: varchar(255)
+      - name: internal_subject_id
+        data_type: varchar(255)
+      - name: effective_from
+        data_type: timestamptz
+      - name: effective_to
+        data_type: timestamptz
+      - name: is_current
+        data_type: smallint
+
   - name: effsat_library_external_subject
     config:
       contract: { enforced: true }
@@ -144,6 +174,36 @@ models:
       - name: library_id
         data_type: varchar(255)
       - name: project_id
+        data_type: varchar(255)
+      - name: effective_from
+        data_type: timestamptz
+      - name: effective_to
+        data_type: timestamptz
+      - name: is_current
+        data_type: smallint
+
+  - name: effsat_library_ownership
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ library_owner_hk, hash_diff, load_datetime ]
+      - type: foreign_key
+        columns: [ library_owner_hk ]
+        to: ref('link_library_ownership')
+        to_columns: [ library_owner_hk ]
+    columns:
+      - name: library_owner_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: library_id
+        data_type: varchar(255)
+      - name: owner_id
         data_type: varchar(255)
       - name: effective_from
         data_type: timestamptz

@@ -37,6 +37,17 @@ with effective_sequencing_run as (
 
 ),
 
+effsat_library_ownership as (
+
+    select
+        lnk.*
+    from {{ ref('link_library_ownership') }} lnk
+        join {{ ref('effsat_library_ownership') }} effsat on effsat.library_owner_hk = lnk.library_owner_hk
+    where
+        effsat.is_current = 1
+
+),
+
 effsat_library_project as (
 
     select
@@ -81,7 +92,18 @@ effsat_library_external_subject as (
 
 ),
 
-effective_link_library_experiment as (
+effsat_library_internal_subject as (
+
+    select
+        lnk.*
+    from {{ ref('link_library_internal_subject') }} lnk
+        join {{ ref('effsat_library_internal_subject') }} effsat on effsat.library_internal_subject_hk = lnk.library_internal_subject_hk
+    where
+        effsat.is_current = 1
+
+),
+
+effsat_library_experiment as (
 
     select
         lnk.*
@@ -131,7 +153,7 @@ transformed as (
             left join {{ ref('link_library_sequencing_run') }} lnk1 on lib.library_hk = lnk1.library_hk
             left join effective_sequencing_run sqr on lnk1.sequencing_run_hk = sqr.sequencing_run_hk
 
-            left join {{ ref('link_library_internal_subject') }} lnk2 on lib.library_hk = lnk2.library_hk
+            left join effsat_library_internal_subject lnk2 on lib.library_hk = lnk2.library_hk
             left join {{ ref('hub_internal_subject') }} int_sbj on lnk2.internal_subject_hk = int_sbj.internal_subject_hk
 
             left join effsat_library_external_subject lnk3 on lib.library_hk = lnk3.library_hk
@@ -143,13 +165,13 @@ transformed as (
             left join effsat_library_external_sample lnk5 on lib.library_hk = lnk5.library_hk
             left join {{ ref('hub_external_sample') }} ext_smp on lnk5.external_sample_hk = ext_smp.external_sample_hk
 
-            left join effective_link_library_experiment lnk6 on lib.library_hk = lnk6.library_hk
+            left join effsat_library_experiment lnk6 on lib.library_hk = lnk6.library_hk
             left join {{ ref('hub_experiment') }} expr on lnk6.experiment_hk = expr.experiment_hk
 
             left join effsat_library_project lnk7 on lib.library_hk = lnk7.library_hk
             left join {{ ref('hub_project') }} prj on lnk7.project_hk = prj.project_hk
 
-            left join {{ ref('link_library_ownership') }} lnk8 on lib.library_hk = lnk8.library_hk
+            left join effsat_library_ownership lnk8 on lib.library_hk = lnk8.library_hk
             left join {{ ref('hub_owner') }} owner on lnk8.owner_hk = owner.owner_hk
 
             left join effective_sat_library sat on lib.library_hk = sat.library_hk and sat.rank = 1
