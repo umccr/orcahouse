@@ -72,7 +72,7 @@ resource "aws_serverlessapplicationrepository_cloudformation_stack" "this" {
 
 # Create a secret in AWS Secrets Manager for the DB user
 resource "aws_secretsmanager_secret" "secret" {
-  name                    = "${var.stack_name}/${data.aws_ssm_parameter.db_username.value}"
+  name                    = var.secret_name
   recovery_window_in_days = 7
 }
 
