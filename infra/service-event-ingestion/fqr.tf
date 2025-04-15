@@ -97,7 +97,7 @@ resource "aws_lambda_function" "fqr_event_handler" {
   source_code_hash = data.archive_file.fqr_lambda_package.output_base64sha256
 
   vpc_config {
-    subnet_ids         = data.aws_subnets.private.ids
+    subnet_ids         = module.common.main_vpc_private_subnet_ids
     security_group_ids = [module.common.orcahouse_db_sg_id[terraform.workspace]]
   }
 
@@ -122,7 +122,7 @@ resource "aws_cloudwatch_event_rule" "fqr_event_ingestion" {
 
   event_pattern = jsonencode({
     detail-type = [
-      "FastqListRowUpdated"
+      "FastqListRowUpdated", "FastqListRowCreated"
     ],
     source = [
       "orcabus.fastqmanager"

@@ -17,3 +17,11 @@ output "orcahouse_db_sg_id" {
     stg  = ""
   }
 }
+
+output "main_vpc_private_subnet_ids" {
+  value = data.aws_subnets.private.ids
+}
+
+output "lambda_vpc_access_policy_arn" {
+  value = data.aws_iam_policy.lambda_vpc_access.arn
+}
