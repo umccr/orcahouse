@@ -9,9 +9,9 @@
 
 with source as (
 
-    select project_name as project_id, project_owner as owner_id from {{ source('ods', 'data_portal_labmetadata') }}
+    select project_name as project_id, project_owner as owner_id from {{ source('legacy', 'data_portal_labmetadata') }}
     union
-    select project_name as project_id, project_owner as owner_id from {{ source('ods', 'data_portal_limsrow') }}
+    select project_name as project_id, project_owner as owner_id from {{ source('legacy', 'data_portal_limsrow') }}
     union
     select project_id, contact_id as owner_id from {{ source('ods', 'metadata_manager_project') }} as prj
         join {{ source('ods', 'metadata_manager_projectcontactlink') }} as lnk on lnk.project_orcabus_id = prj.orcabus_id

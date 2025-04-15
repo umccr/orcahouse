@@ -9,9 +9,9 @@
 
 with source as (
 
-    select library_id, sample_id from {{ source('ods', 'data_portal_limsrow') }}
+    select library_id, sample_id from {{ source('legacy', 'data_portal_limsrow') }}
     union
-    select library_id, sample_id from {{ source('ods', 'data_portal_labmetadata') }}
+    select library_id, sample_id from {{ source('legacy', 'data_portal_labmetadata') }}
     union
     select library_id, smp.sample_id as sample_id from {{ source('ods', 'metadata_manager_library') }} as lib
         join {{ source('ods', 'metadata_manager_sample') }} as smp on lib.sample_orcabus_id = smp.orcabus_id

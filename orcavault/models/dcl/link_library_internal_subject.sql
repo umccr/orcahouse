@@ -9,9 +9,9 @@
 
 with source as (
 
-    select library_id, subject_id as internal_subject_id from {{ source('ods', 'data_portal_labmetadata') }}
+    select library_id, subject_id as internal_subject_id from {{ source('legacy', 'data_portal_labmetadata') }}
     union
-    select library_id, subject_id as internal_subject_id from {{ source('ods', 'data_portal_limsrow') }}
+    select library_id, subject_id as internal_subject_id from {{ source('legacy', 'data_portal_limsrow') }}
     union
     select library_id, subject_id as internal_subject_id from {{ ref('spreadsheet_library_tracking_metadata') }}
     union

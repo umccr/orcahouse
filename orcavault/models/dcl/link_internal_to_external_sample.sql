@@ -9,9 +9,9 @@
 
 with source as (
 
-    select sample_id, external_sample_id from {{ source('ods', 'data_portal_labmetadata') }}
+    select sample_id, external_sample_id from {{ source('legacy', 'data_portal_labmetadata') }}
     union
-    select sample_id, external_sample_id from {{ source('ods', 'data_portal_limsrow') }}
+    select sample_id, external_sample_id from {{ source('legacy', 'data_portal_limsrow') }}
     union
     select sample_id, external_sample_id from {{ source('ods', 'metadata_manager_sample') }}
     union

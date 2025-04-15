@@ -9,9 +9,9 @@
 
 with source as (
 
-    select library_id, project_name as project_id from {{ source('ods', 'data_portal_labmetadata') }}
+    select library_id, project_name as project_id from {{ source('legacy', 'data_portal_labmetadata') }}
     union
-    select library_id, project_name as project_id from {{ source('ods', 'data_portal_limsrow') }}
+    select library_id, project_name as project_id from {{ source('legacy', 'data_portal_limsrow') }}
     union
     select lib.library_id as library_id, prj.project_id as project_id from {{ source('ods', 'metadata_manager_library') }} as lib
         join {{ source('ods', 'metadata_manager_libraryprojectlink') }} as lnk on lnk.library_orcabus_id = lib.orcabus_id

@@ -21,7 +21,7 @@ with source as (
         notes,
         trello
     from
-        {{ source('ods', 'data_portal_limsrow') }}
+        {{ source('legacy', 'data_portal_limsrow') }}
 
 ),
 

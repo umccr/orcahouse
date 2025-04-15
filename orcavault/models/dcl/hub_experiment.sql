@@ -16,7 +16,7 @@
 
 with source as (
 
-    select experiment_id from {{ source('ods', 'data_portal_labmetadata') }}
+    select experiment_id from {{ source('legacy', 'data_portal_labmetadata') }}
     union
     select experiment_id from {{ ref('spreadsheet_library_tracking_metadata') }}
 

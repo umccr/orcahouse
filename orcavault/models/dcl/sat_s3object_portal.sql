@@ -24,7 +24,7 @@ with source as (
         e_tag,
         cast(last_modified_date as timestamptz) as last_modified_date
     from
-        {{ source('ods', 'data_portal_s3object') }}
+        {{ source('legacy', 'data_portal_s3object') }}
     {% if is_incremental() %}
     where
         cast(last_modified_date as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
@@ -80,7 +80,7 @@ union
         cast(t.last_modified_date as timestamptz) as last_modified_date,
         cast((select 1) as smallint) as is_deleted
     from {{ this }} t
-        left join {{ source('ods', 'data_portal_s3object') }} s on s.id = t.id
+        left join {{ source('legacy', 'data_portal_s3object') }} s on s.id = t.id
     where
         s.id is null and t.is_deleted = 0
 {% endif %}

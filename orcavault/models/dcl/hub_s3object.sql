@@ -23,7 +23,7 @@ with source1 as (
         bucket,
         "key"
     from
-        {{ source('ods', 'data_portal_s3object') }}
+        {{ source('legacy', 'data_portal_s3object') }}
     {% if is_incremental() %}
     where
         cast(last_modified_date as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
