@@ -6,7 +6,7 @@ data "aws_partition" "current" {}
 
 data "aws_region" "current" {}
 
-module "common" {
+module "config" {
   source = "../config"
 }
 
@@ -30,13 +30,12 @@ data "aws_secretsmanager_random_password" "this" {
 
 # load the actual DB username from SSM parameter store
 data "aws_ssm_parameter" "db_username" {
-  # name = "/${local.stack_name}/ro_username"
   name = var.db_user_ssm_parameter
 }
 
 # Get details about the DB Cluster
 data "aws_rds_cluster" "orcahouse_db" {
-  cluster_identifier = var.db_cluster_name
+  cluster_identifier = module.config.warehouse_db_cluster_name
 }
 
 ################################################################################
@@ -48,16 +47,16 @@ resource "aws_serverlessapplicationrepository_cloudformation_stack" "this" {
   # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-rotationschedule-hostedrotationlambda.html
   # https://docs.aws.amazon.com/secretsmanager/latest/userguide/asm_access.html#endpoints
 
-  name             = var.stack_name
+  name             = var.rotation_app_name
   application_id   = data.aws_serverlessapplicationrepository_application.this.application_id
   semantic_version = data.aws_serverlessapplicationrepository_application.this.semantic_version
   capabilities     = data.aws_serverlessapplicationrepository_application.this.required_capabilities
 
   parameters = {
     endpoint            = "https://secretsmanager.${data.aws_region.current.name}.${data.aws_partition.current.dns_suffix}"
-    functionName        = var.stack_name
-    vpcSubnetIds        = join(",", sort(module.common.main_vpc_private_subnet_ids))
-    vpcSecurityGroupIds = join(",", sort([module.common.orcahouse_db_sg_id[terraform.workspace]]))
+    functionName        = var.rotation_app_name
+    vpcSubnetIds        = join(",", sort(module.config.main_vpc_private_subnet_ids))
+    vpcSecurityGroupIds = join(",", sort([module.config.orcahouse_db_sg_id[terraform.workspace]]))
   }
 
   # NOTE: _pinned dependency_
@@ -87,7 +86,7 @@ resource "aws_secretsmanager_secret_version" "secret" {
       host     = data.aws_rds_cluster.orcahouse_db.reader_endpoint  # intended
       username = data.aws_ssm_parameter.db_username.value
       password = data.aws_secretsmanager_random_password.this.random_password  # initial password only
-      dbname   = var.db_name
+      dbname = module.config.warehouse_vault_db_name
       port     = 5432
     }
   )

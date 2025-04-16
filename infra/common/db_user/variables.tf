@@ -1,18 +1,6 @@
-variable "stack_name" {
-  description = "Name of the stack"
+variable "rotation_app_name" {
+  description = "Name of the serverless stack deployment managing the secret rotation"
   type        = string
-}
-
-variable "db_cluster_name" {
-  description = "The name of the DB cluster"
-  type = string
-  default = "orcahouse-db"
-}
-
-variable "db_name" {
-  description = "The name of the Database"
-  type        = string
-  default     = "orcavault"
 }
 
 variable "db_user_ssm_parameter" {
