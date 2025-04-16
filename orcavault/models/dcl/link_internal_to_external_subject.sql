@@ -9,9 +9,9 @@
 
 with source as (
 
-    select subject_id as internal_subject_id, external_subject_id from {{ source('ods', 'data_portal_labmetadata') }}
+    select subject_id as internal_subject_id, external_subject_id from {{ source('legacy', 'data_portal_labmetadata') }}
     union
-    select subject_id as internal_subject_id, external_subject_id from {{ source('ods', 'data_portal_limsrow') }}
+    select subject_id as internal_subject_id, external_subject_id from {{ source('legacy', 'data_portal_limsrow') }}
     union
     select idv.individual_id as internal_subject_id, sbj.subject_id as external_subject_id from {{ source('ods', 'metadata_manager_subject') }} as sbj
         join {{ source('ods', 'metadata_manager_subjectindividuallink') }} as lnk on lnk.subject_orcabus_id = sbj.orcabus_id

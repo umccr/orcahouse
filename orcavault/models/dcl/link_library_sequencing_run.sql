@@ -9,9 +9,9 @@
 
 with source as (
 
-    select library_id, instrument_run_id as sequencing_run_id from {{ source('ods', 'data_portal_libraryrun') }}
+    select library_id, instrument_run_id as sequencing_run_id from {{ source('legacy', 'data_portal_libraryrun') }}
     union
-    select library_id, illumina_id as sequencing_run_id from {{ source('ods', 'data_portal_limsrow') }}
+    select library_id, illumina_id as sequencing_run_id from {{ source('legacy', 'data_portal_limsrow') }}
     union
     select library_id, illumina_id as sequencing_run_id from {{ ref('spreadsheet_google_lims') }}
     union

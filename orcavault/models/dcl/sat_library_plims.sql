@@ -19,7 +19,7 @@ with source as (
         quality,
         source
     from
-        {{ source('ods', 'data_portal_limsrow') }}
+        {{ source('legacy', 'data_portal_limsrow') }}
 
 ),
 

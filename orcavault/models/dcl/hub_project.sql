@@ -16,9 +16,9 @@
 
 with source as (
 
-    select project_name as project_id from {{ source('ods', 'data_portal_labmetadata') }}
+    select project_name as project_id from {{ source('legacy', 'data_portal_labmetadata') }}
     union
-    select project_name as project_id from {{ source('ods', 'data_portal_limsrow') }}
+    select project_name as project_id from {{ source('legacy', 'data_portal_limsrow') }}
     union
     select project_id from {{ source('ods', 'metadata_manager_project') }}
     union

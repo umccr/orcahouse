@@ -12,9 +12,9 @@ with source1 as (
     select
         wfr.portal_run_id as portal_run_id,
         lbr.library_id as library_id
-    from {{ source('ods', 'data_portal_workflow') }} wfr
-        join {{ source('ods', 'data_portal_libraryrun_workflows') }} lnk on lnk.workflow_id = wfr.id
-        join {{ source('ods', 'data_portal_libraryrun') }} lbr on lnk.libraryrun_id = lbr.id
+    from {{ source('legacy', 'data_portal_workflow') }} wfr
+        join {{ source('legacy', 'data_portal_libraryrun_workflows') }} lnk on lnk.workflow_id = wfr.id
+        join {{ source('legacy', 'data_portal_libraryrun') }} lbr on lnk.libraryrun_id = lbr.id
     {% if is_incremental() %}
     where
         cast(start as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )

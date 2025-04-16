@@ -5,23 +5,6 @@ sources:
     database: orcavault
     schema: ods
     tables:
-      - name: data_portal_analysisresult
-      - name: data_portal_analysisresult_gdsfiles
-      - name: data_portal_analysisresult_s3objects
-      - name: data_portal_batch
-      - name: data_portal_batchrun
-      - name: data_portal_configuration
-      - name: data_portal_fastqlistrow
-      - name: data_portal_gdsfile
-      - name: data_portal_labmetadata
-      - name: data_portal_libraryrun
-      - name: data_portal_libraryrun_workflows
-      - name: data_portal_limsrow
-      - name: data_portal_s3lims
-      - name: data_portal_s3object
-      - name: data_portal_sequence
-      - name: data_portal_sequencerun
-      - name: data_portal_workflow
       - name: file_manager_s3_object
       - name: metadata_manager_contact
       - name: metadata_manager_historicalcontact
