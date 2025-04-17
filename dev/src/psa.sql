@@ -73,18 +73,46 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.spreadsheet_google_lims
     record_source       varchar(255)
 );
 
-CREATE TABLE IF NOT EXISTS orcavault.psa.fastq_list_row_change_events
+CREATE TABLE IF NOT EXISTS orcavault.psa.fastqmanager_fastqlistrowstatechange
 (
     event_id            varchar,
     event_time          varchar,
-    fqr_id              varchar,
+    orcabus_id          varchar,
+    status              varchar,
     instrument_run_id   varchar,
     library             varchar,
     lane                varchar,
+    index               varchar,
     is_valid            varchar,
-    fqr_date            varchar,
     readset_r1          varchar,
     readset_r2          varchar,
+    load_datetime       timestamptz,
+    record_source       varchar(255)
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.psa.sequencerunmanager_sequencerunstatechange
+(
+    event_id            varchar,
+    event_time          varchar,
+    orcabus_id          varchar,
+    status              varchar,
+    instrument_run_id   varchar,
+    start_time          varchar,
+    end_time            varchar,
+    samplesheet_name    varchar,
+    load_datetime       timestamptz,
+    record_source       varchar(255)
+);
+
+CREATE TABLE IF NOT EXISTS orcavault.psa.sequencerunmanager_sequencerunlibrarylinkingchange
+(
+    event_id            varchar,
+    event_time          varchar,
+    orcabus_id          varchar,
+    instrument_run_id   varchar,
+    sequence_run_id     varchar,
+    timestamp           varchar,
+    libraries           jsonb,
     load_datetime       timestamptz,
     record_source       varchar(255)
 );
