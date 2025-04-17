@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
 PGPASSWORD=dev psql -h 0.0.0.0 -d orcavault -U dev <<EOF
-\copy ods.data_portal_labmetadata from '/data/orcavault_ods_data_portal_labmetadata.csv' with (format csv, header true, delimiter ',');
-\copy ods.data_portal_limsrow from '/data/orcavault_ods_data_portal_limsrow.csv' with (format csv, header true, delimiter ',');
-\copy ods.data_portal_sequence from '/data/orcavault_ods_data_portal_sequence.csv' with (format csv, header true, delimiter ',');
-\copy ods.data_portal_sequencerun from '/data/orcavault_ods_data_portal_sequencerun.csv' with (format csv, header true, delimiter ',');
-\copy ods.data_portal_libraryrun from '/data/orcavault_ods_data_portal_libraryrun.csv' with (format csv, header true, delimiter ',');
-\copy ods.data_portal_libraryrun_workflows from '/data/orcavault_ods_data_portal_libraryrun_workflows.csv' with (format csv, header true, delimiter ',');
-\copy ods.data_portal_workflow from '/data/orcavault_ods_data_portal_workflow.csv' with (format csv, header true, delimiter ',');
-\copy ods.data_portal_s3object from '/data/orcavault_ods_data_portal_s3object.csv' with (format csv, header true, delimiter ',');
+\copy legacy.data_portal_labmetadata from '/data/orcavault_legacy_data_portal_labmetadata.csv' with (format csv, header true, delimiter ',');
+\copy legacy.data_portal_limsrow from '/data/orcavault_legacy_data_portal_limsrow.csv' with (format csv, header true, delimiter ',');
+\copy legacy.data_portal_sequence from '/data/orcavault_legacy_data_portal_sequence.csv' with (format csv, header true, delimiter ',');
+\copy legacy.data_portal_sequencerun from '/data/orcavault_legacy_data_portal_sequencerun.csv' with (format csv, header true, delimiter ',');
+\copy legacy.data_portal_libraryrun from '/data/orcavault_legacy_data_portal_libraryrun.csv' with (format csv, header true, delimiter ',');
+\copy legacy.data_portal_libraryrun_workflows from '/data/orcavault_legacy_data_portal_libraryrun_workflows.csv' with (format csv, header true, delimiter ',');
+\copy legacy.data_portal_workflow from '/data/orcavault_legacy_data_portal_workflow.csv' with (format csv, header true, delimiter ',');
+\copy legacy.data_portal_s3object from '/data/orcavault_legacy_data_portal_s3object.csv' with (format csv, header true, delimiter ',');
 \copy ods.file_manager_s3_object from '/data/orcavault_ods_file_manager_s3_object.csv' with (format csv, header true, delimiter ',');
 \copy ods.sequence_run_manager_comment from '/data/orcavault_ods_sequence_run_manager_comment.csv' with (format csv, header true, delimiter ',');
 \copy ods.sequence_run_manager_libraryassociation from '/data/orcavault_ods_sequence_run_manager_libraryassociation.csv' with (format csv, header true, delimiter ',');

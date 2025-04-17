@@ -18,7 +18,7 @@ with source as (
         source,
         truseqindex
     from
-        {{ source('ods', 'data_portal_labmetadata') }}
+        {{ source('legacy', 'data_portal_labmetadata') }}
 
 ),
 

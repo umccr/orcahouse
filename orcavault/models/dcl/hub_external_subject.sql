@@ -16,9 +16,9 @@
 
 with source as (
 
-    select external_subject_id from {{ source('ods', 'data_portal_labmetadata') }}
+    select external_subject_id from {{ source('legacy', 'data_portal_labmetadata') }}
     union
-    select external_subject_id from {{ source('ods', 'data_portal_limsrow') }}
+    select external_subject_id from {{ source('legacy', 'data_portal_limsrow') }}
     union
     select subject_id as external_subject_id from {{ source('ods', 'metadata_manager_subject') }}
     union

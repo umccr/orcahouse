@@ -27,6 +27,9 @@ ls:
 psql:
 	@(cd ../dev/ && $(MAKE) psql)
 
+legacy:
+	@(cd ../dev/ && $(MAKE) legacy)
+
 ods:
 	@(cd ../dev/ && $(MAKE) ods)
 

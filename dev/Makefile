@@ -23,6 +23,10 @@ ls:
 psql:
 	@docker compose exec -e PGPASSWORD=dev -it postgres psql -h 0.0.0.0 -d orcavault -U dev
 
+legacy:
+	@docker compose cp ./src/legacy.sql postgres:/tmp/legacy.sql
+	@docker compose exec -e PGPASSWORD=dev -it postgres psql -h 0.0.0.0 -d orcavault -U dev -f /tmp/legacy.sql
+
 ods:
 	@docker compose cp ./src/ods.sql postgres:/tmp/ods.sql
 	@docker compose exec -e PGPASSWORD=dev -it postgres psql -h 0.0.0.0 -d orcavault -U dev -f /tmp/ods.sql
@@ -35,7 +39,7 @@ psa:
 	@docker compose cp ./src/psa.sql postgres:/tmp/psa.sql
 	@docker compose exec -e PGPASSWORD=dev -it postgres psql -h 0.0.0.0 -d orcavault -U dev -f /tmp/psa.sql
 
-all: ods tsa psa
+all: legacy ods tsa psa
 
 load:
 	@docker compose cp ./src/load.sh postgres:/tmp/load.sh

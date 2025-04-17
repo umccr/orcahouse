@@ -19,7 +19,7 @@ with source1 as (
     select
         portal_run_id
     from
-        {{ source('ods', 'data_portal_workflow') }}
+        {{ source('legacy', 'data_portal_workflow') }}
     {% if is_incremental() %}
     where
         cast(start as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )

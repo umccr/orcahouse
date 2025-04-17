@@ -16,15 +16,15 @@
 
 with source as (
 
-    select instrument_run_id as sequencing_run_id from {{ source('ods', 'data_portal_libraryrun') }}
+    select instrument_run_id as sequencing_run_id from {{ source('legacy', 'data_portal_libraryrun') }}
     union
-    select instrument_run_id as sequencing_run_id from {{ source('ods', 'data_portal_sequence') }}
+    select instrument_run_id as sequencing_run_id from {{ source('legacy', 'data_portal_sequence') }}
     union
-    select instrument_run_id as sequencing_run_id from {{ source('ods', 'data_portal_sequencerun') }}
+    select instrument_run_id as sequencing_run_id from {{ source('legacy', 'data_portal_sequencerun') }}
     union
     select instrument_run_id as sequencing_run_id from {{ source('ods', 'sequence_run_manager_sequence') }}
     union
-    select illumina_id as sequencing_run_id from {{ source('ods', 'data_portal_limsrow') }}
+    select illumina_id as sequencing_run_id from {{ source('legacy', 'data_portal_limsrow') }}
     union
     select illumina_id as sequencing_run_id from {{ ref('spreadsheet_google_lims') }}
 

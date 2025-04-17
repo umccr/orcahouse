@@ -2,6 +2,14 @@ output "warehouse_name" {
   value = "orcahouse"
 }
 
+output "warehouse_db_cluster_name" {
+  value = "orcahouse-db"
+}
+
+output "warehouse_vault_db_name" {
+  value = "orcavault"
+}
+
 output "orcabus_bus_name" {
   value = "OrcaBusMain"
 }
