@@ -34,10 +34,11 @@ variable "lambda_function_handler" {
   type        = string
 }
 
-variable "lambda_source_dir" {
-  description = "Path to the Lambda source directory"
-  type        = string
+variable "lambda_source_paths" {
+  description = "Paths to include as lambda sources"
+  type        = list(string)
 }
+
 
 variable "lambda_artefact_out_path" {
   description = "Path to the Lambda source directory"

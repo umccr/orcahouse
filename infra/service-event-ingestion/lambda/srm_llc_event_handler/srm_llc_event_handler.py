@@ -8,14 +8,15 @@ from psycopg2.extensions import AsIs
 from os.path import join
 
 
-TABLE_NAME = "psa.sequence_run_library_change_events"
-SRLLC_DETAIL_TYPE = "SequenceRunLibraryLinkingChange"
-SRLLC_EVENT_SOURCE = "orcabus.sequencerunmanager"
-RECORD_SOURCE = f"{SRLLC_EVENT_SOURCE}:{SRLLC_DETAIL_TYPE}"
 # Get the secret name from environment variables
-DB_SECRET_NAME = os.environ["DB_SECRET_NAME"]
+DB_SECRET_NAME = os.environ['DB_SECRET_NAME']
 
-# SQL_INSERT = "INSERT INTO psa.fastq_list_row_change_events (%s) VALUES %s;"
+DB_SCHEMA= "psa"
+TABLE_NAME = "sequencerunmanager_sequencerunlibrarylinkingchange"
+TABLE = f"{DB_SCHEMA}.{TABLE_NAME}"
+DETAIL_TYPE = "SequenceRunLibraryLinkingChange"
+EVENT_SOURCE = "orcabus.sequencerunmanager"
+
 # Prevent inserts of the same event record multiple times
 # TODO: consider hashing the event values and only insert records that differ
 SQL_INSERT = f"INSERT INTO {TABLE_NAME} (%s) SELECT %s WHERE NOT EXISTS (SELECT 1 FROM {TABLE_NAME} WHERE event_id = %s);"
