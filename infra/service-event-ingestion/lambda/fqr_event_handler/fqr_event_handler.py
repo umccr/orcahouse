@@ -13,7 +13,7 @@ from utils import utils
 DB_SECRET_NAME = os.environ["DB_SECRET_NAME"]
 
 DB_SCHEMA = "psa"
-TABLE_NAME = "events___fastq_list_row_state_change"
+TABLE_NAME = "event__fastq_list_row_state_change"
 TABLE = f"{DB_SCHEMA}.{TABLE_NAME}"
 DETAIL_TYPE = "FastqListRowStateChange"
 EVENT_SOURCE = "orcabus.fastqmanager"

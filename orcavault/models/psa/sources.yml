@@ -5,7 +5,7 @@ sources:
     database: orcavault
     schema: psa
     tables:
-      - name: events__fastqmanager_fastqlistrowstatechange
+      - name: event__fastq_list_row_state_change
         columns:
           - name: event_id
             data_type: varchar
@@ -38,7 +38,7 @@ sources:
     database: orcavault
     schema: psa
     tables:
-      - name: events__sequence_run_state_change
+      - name: event__sequence_run_state_change
         columns:
           - name: event_id
             data_type: varchar
@@ -65,7 +65,7 @@ sources:
     database: orcavault
     schema: psa
     tables:
-      - name: events__sequence_run_library_linking_change
+      - name: event__sequence_run_library_linking_change
         columns:
           - name: event_id
             data_type: varchar

@@ -13,7 +13,7 @@ from utils import utils
 DB_SECRET_NAME = os.environ["DB_SECRET_NAME"]
 
 DB_SCHEMA = "psa"
-TABLE_NAME = "events__sequence_run_library_linking_change"
+TABLE_NAME = "event__sequence_run_library_linking_change"
 TABLE = f"{DB_SCHEMA}.{TABLE_NAME}"
 DETAIL_TYPE = "SequenceRunLibraryLinkingChange"
 EVENT_SOURCE = "orcabus.sequencerunmanager"
