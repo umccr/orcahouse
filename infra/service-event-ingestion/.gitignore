@@ -1,6 +1,7 @@
-# exclude temporary build folder
+# exclude temporary build folders
 .temp/
+builds/
 
-# exclude TF state as it contains downloaded secrets
+# exclude TF state as it potentially contains downloaded secrets
 terraform.tfstate
 terraform.tfstate.backup

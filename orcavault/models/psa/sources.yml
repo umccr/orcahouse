@@ -5,13 +5,15 @@ sources:
     database: orcavault
     schema: psa
     tables:
-      - name: fastq_list_row_change_events
+      - name: event__fastq_list_row_state_change
         columns:
           - name: event_id
             data_type: varchar
           - name: event_time
             data_type: varchar
-          - name: fqr_id
+          - name: orcabus_id
+            data_type: varchar
+          - name: status
             data_type: varchar
           - name: instrument_run_id
             data_type: varchar
@@ -19,14 +21,66 @@ sources:
             data_type: varchar
           - name: lane
             data_type: varchar
-          - name: is_valid
+          - name: index
             data_type: varchar
-          - name: fqr_date
+          - name: is_valid
             data_type: varchar
           - name: readset_r1
             data_type: varchar
           - name: readset_r2
             data_type: varchar
+          - name: load_datetime
+            data_type: timestamptz
+          - name: record_source
+            data_type: varchar(255)
+
+  - name: psa
+    database: orcavault
+    schema: psa
+    tables:
+      - name: event__sequence_run_state_change
+        columns:
+          - name: event_id
+            data_type: varchar
+          - name: event_time
+            data_type: varchar
+          - name: orcabus_id
+            data_type: varchar
+          - name: status
+            data_type: varchar
+          - name: instrument_run_id
+            data_type: varchar
+          - name: start_time
+            data_type: varchar
+          - name: end_time
+            data_type: varchar
+          - name: samplesheet_name
+            data_type: varchar
+          - name: load_datetime
+            data_type: timestamptz
+          - name: record_source
+            data_type: varchar(255)
+
+  - name: psa
+    database: orcavault
+    schema: psa
+    tables:
+      - name: event__sequence_run_library_linking_change
+        columns:
+          - name: event_id
+            data_type: varchar
+          - name: event_time
+            data_type: varchar
+          - name: orcabus_id
+            data_type: varchar
+          - name: instrument_run_id
+            data_type: varchar
+          - name: sequence_run_id
+            data_type: varchar
+          - name: timestamp
+            data_type: varchar
+          - name: libraries
+            data_type: jsonb
           - name: load_datetime
             data_type: timestamptz
           - name: record_source
