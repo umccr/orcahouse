@@ -1,5 +1,9 @@
+import os
+import json
 import boto3
 import psycopg2
+
+DEBUG = False
 
 # function to retrieve DB credetials
 def get_secret(secret_name, client):
@@ -50,6 +54,15 @@ def push_to_db(conn, statement, data):
                 (AsIs(",".join(data.keys())), AsIs(values), data["event_id"]),
             )
             print(f"SQL to execute: {sql}")
-            # cur.execute(sql)
+            if DEBUG:
+                print("Debugging, not executing SQL.")
+            else:
+                print("Executing SQL...")
+                cur.execute(sql)
 
     print("Data pushed to database!")
+
+
+def isDebug():
+    return DEBUG
+

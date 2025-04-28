@@ -61,6 +61,8 @@ module "ingest_lambda" {
   vpc_security_group_ids = [module.common.orcahouse_db_sg_id[terraform.workspace]]
   attach_network_policy  = true
 
+  cloudwatch_logs_retention_in_days = var.cloudwatch_logs_retention_in_days
+
 }
 
 # Ingest Lambda Role

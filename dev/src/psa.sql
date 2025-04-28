@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.spreadsheet_google_lims
     record_source       varchar(255)
 );
 
-CREATE TABLE IF NOT EXISTS orcavault.psa.fastqmanager_fastqlistrowstatechange
+CREATE TABLE IF NOT EXISTS orcavault.psa.events___fastq_list_row_state_change
 (
     event_id            varchar,
     event_time          varchar,
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.fastqmanager_fastqlistrowstatechange
     record_source       varchar(255)
 );
 
-CREATE TABLE IF NOT EXISTS orcavault.psa.sequencerunmanager_sequencerunstatechange
+CREATE TABLE IF NOT EXISTS orcavault.psa.events__sequence_run_state_change
 (
     event_id            varchar,
     event_time          varchar,
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.sequencerunmanager_sequencerunstatechan
     record_source       varchar(255)
 );
 
-CREATE TABLE IF NOT EXISTS orcavault.psa.sequencerunmanager_sequencerunlibrarylinkingchange
+CREATE TABLE IF NOT EXISTS orcavault.psa.events__sequence_run_library_linking_change
 (
     event_id            varchar,
     event_time          varchar,

@@ -6,17 +6,18 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2.extensions import AsIs
 from os.path import join
-from utils import get_secret, get_db_connection, push_to_db
+from utils import utils
 
 
 # Get the secret name from environment variables
 DB_SECRET_NAME = os.environ["DB_SECRET_NAME"]
 
 DB_SCHEMA = "psa"
-TABLE_NAME = "sequencerunmanager_sequencerunstatechange"
+TABLE_NAME = "events__sequence_run_state_change"
 TABLE = f"{DB_SCHEMA}.{TABLE_NAME}"
 DETAIL_TYPE = "SequenceRunStateChange"
 EVENT_SOURCE = "orcabus.sequencerunmanager"
+RECORD_SOURCE = f"{EVENT_SOURCE}:{DETAIL_TYPE}"
 
 # Prevent inserts of the same event record multiple times
 # TODO: consider hashing the event values and only insert records that differ
@@ -25,16 +26,16 @@ SQL_INSERT = f"INSERT INTO {TABLE_NAME} (%s) SELECT %s WHERE NOT EXISTS (SELECT 
 # DB connection
 session = boto3.session.Session()
 secretsmanager_client = boto3.client("secretsmanager")
-DB_CREDENTIALS = get_secret(DB_SECRET_NAME, secretsmanager_client)
-DB_CONNECTION = get_db_connection(DB_CREDENTIALS)
+DB_CREDENTIALS = utils.get_secret(DB_SECRET_NAME, secretsmanager_client)
+DB_CONNECTION = utils.get_db_connection(DB_CREDENTIALS)
 
 
 def handler(event, context):
     print("Lambda function invoked!")
     print(f"Event: {event}")
     try:
-        srsc_data = parse_event(event)
-        push_to_db(DB_CONNECTION, SQL_INSERT, srsc_data)
+        data = parse_event(event)
+        utils.push_to_db(DB_CONNECTION, SQL_INSERT, data)
 
         print("Returning results.")
         return {
@@ -77,20 +78,20 @@ def parse_event(event):
     event_source = event.get("source")
 
     # make sure we have an expected event type
-    if detail_type != SRSC_DETAIL_TYPE:
+    if detail_type != DETAIL_TYPE:
         raise ValueError(
-            f"Invalid event type. Expected '{SRSC_DETAIL_TYPE}' but got '{detail_type}'"
+            f"Invalid event type. Expected '{DETAIL_TYPE}' but got '{detail_type}'"
         )
-    if event_source != SRSC_EVENT_SOURCE:
+    if event_source != EVENT_SOURCE:
         raise ValueError(
-            f"Invalid event source. Expected '{SRSC_EVENT_SOURCE}' but got '{event_source}'"
+            f"Invalid event source. Expected '{EVENT_SOURCE}' but got '{event_source}'"
         )
 
     event_id = event.get("id")
     event_time = event.get("time")
     detail = event.get("detail")
 
-    seq_id = detail.get("id")
+    orcabus_id = detail.get("id")
     instrument_run_id = detail.get("instrumentRunId")
     status = detail.get("status")
     start_time = detail.get("startTime")
@@ -100,12 +101,12 @@ def parse_event(event):
     srsc_data = {
         "event_id": event_id,
         "event_time": event_time,
-        "sequence_id": seq_id,
-        "instrument_run_id": instrument_run_id,
+        "orcabus_id": orcabus_id,
         "status": status,
+        "instrument_run_id": instrument_run_id,
         "start_time": start_time,
         "end_time": end_time,
-        "sample_sheet_name": ss_name,
+        "samplesheet_name": ss_name,
         "load_datetime": datetime.datetime.now().isoformat(),
         "record_source": RECORD_SOURCE,
     }

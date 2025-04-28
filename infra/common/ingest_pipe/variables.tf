@@ -50,4 +50,9 @@ variable "lambda_layers" {
   type        = list(string)
 }
 
+variable "cloudwatch_logs_retention_in_days" {
+  description = "Time to retain CloudWatch logs in the log stream"
+  type = number
+  default = 180
+}
 
