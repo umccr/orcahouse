@@ -608,6 +608,38 @@ models:
       - name: is_deleted
         data_type: boolean
 
+  - name: sat_workflow_run
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ workflow_run_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ workflow_run_hk ]
+        to: ref('hub_workflow_run')
+        to_columns: [ workflow_run_hk ]
+    columns:
+      - name: workflow_run_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: workflow_name
+        data_type: varchar(255)
+      - name: workflow_version
+        data_type: varchar(255)
+      - name: workflow_run_status
+        data_type: varchar(255)
+      - name: workflow_run_start
+        data_type: timestamptz
+      - name: workflow_run_end
+        data_type: timestamptz
+      - name: workflow_run_comment
+        data_type: text
+
   - name: sat_s3object_by_run
     config:
       contract: { enforced: true }
