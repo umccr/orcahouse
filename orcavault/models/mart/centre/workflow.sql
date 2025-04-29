@@ -30,8 +30,8 @@ merged as (
 
     select
         *
-    from dcl.hub_workflow_run hub
-        join dcl.sat_workflow_run sat on sat.workflow_run_hk = hub.workflow_run_hk
+    from {{ ref('hub_workflow_run') }} hub
+        join {{ ref('sat_workflow_run') }} sat on sat.workflow_run_hk = hub.workflow_run_hk
 
 ),
 

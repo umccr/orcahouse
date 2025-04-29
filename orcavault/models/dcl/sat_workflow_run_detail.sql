@@ -29,7 +29,7 @@ with source as (
         pld.data as payload_data
     from {{ source('ods', 'workflow_manager_workflowrun') }} wfr
         join {{ source('ods', 'workflow_manager_workflow') }} wfl on wfl.orcabus_id = wfr.workflow_id
-        join {{ source('ods', 'workflow_manager_state') }} stt on stt.workflow_run_id = wfr.orcabus_id
+        full join {{ source('ods', 'workflow_manager_state') }} stt on stt.workflow_run_id = wfr.orcabus_id
         full join {{ source('ods', 'workflow_manager_payload') }} pld on pld.orcabus_id = stt.payload_id
     {% if is_incremental() %}
     where
@@ -42,7 +42,6 @@ transformed as (
 
     select
         encode(sha256(cast(portal_run_id as bytea)), 'hex') as workflow_run_hk,
-        encode(sha256(cast(state_orcabus_id as bytea)), 'hex') as workflow_run_sq,
         cast('{{ run_started_at }}' as timestamptz) as load_datetime,
         (select 'workflow_manager') as record_source,
         encode(sha256(concat(
@@ -89,7 +88,7 @@ final as (
 
     select
         cast(workflow_run_hk as char(64)) as workflow_run_hk,
-        cast(workflow_run_sq as char(64)) as workflow_run_sq,
+        cast(hash_diff as char(64)) as workflow_run_sq,
         cast(load_datetime as timestamptz) as load_datetime,
         cast(record_source as varchar(255)) as record_source,
         cast(hash_diff as char(64)) as hash_diff,
