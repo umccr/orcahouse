@@ -116,3 +116,18 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.event__sequence_run_library_linking_cha
     load_datetime       timestamptz,
     record_source       varchar(255)
 );
+
+CREATE TABLE IF NOT EXISTS orcavault.psa.event__workflow_run_state_change
+(
+    event_id            varchar,
+    event_time          varchar,
+    portal_run_id       varchar,
+    status              varchar,
+    timestamp           varchar,
+    workflow_name       varchar,
+    workflow_version    varchar,
+    workflow_run_name   varchar,
+    libraries           jsonb,
+    load_datetime       timestamptz,
+    record_source       varchar(255)
+);
