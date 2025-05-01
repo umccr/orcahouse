@@ -85,3 +85,32 @@ sources:
             data_type: timestamptz
           - name: record_source
             data_type: varchar(255)
+
+  - name: psa
+    database: orcavault
+    schema: psa
+    tables:
+      - name: event__workflow_run_state_change
+        columns:
+          - name: event_id
+            data_type: varchar
+          - name: event_time
+            data_type: varchar
+          - name: portal_run_id
+            data_type: varchar
+          - name: status
+            data_type: varchar
+          - name: timestamp
+            data_type: varchar
+          - name: workflow_name
+            data_type: varchar
+          - name: workflow_version
+            data_type: varchar
+          - name: workflow_run_name
+            data_type: varchar
+          - name: libraries
+            data_type: jsonb
+          - name: load_datetime
+            data_type: timestamptz
+          - name: record_source
+            data_type: varchar(255)
