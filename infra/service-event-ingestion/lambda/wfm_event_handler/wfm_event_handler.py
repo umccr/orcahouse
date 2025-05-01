@@ -124,7 +124,7 @@ def parse_event(event):
     libraries = detail.get('linkedLibraries', {})
 
 
-    wfr_data = {
+    data = {
         "event_id": event_id,
         "event_time": event_time,
         "portal_run_id": portal_run_id,
@@ -137,9 +137,9 @@ def parse_event(event):
         "load_datetime": datetime.datetime.now().isoformat(),
         "record_source": RECORD_SOURCE
     }
-    print(f"Extracted data: {wfr_data}")
+    print(f"Extracted data: {data}")
 
-    return wfr_data
+    return data
 
 
 def test_case():
