@@ -4,6 +4,8 @@ OrcaVault is a dbt project. It contains data warehouse models.
 
 ## Local Development
 
+- See [dev/README](../dev/README.md) for local dev setup and prerequisites.
+
 ```
 make up
 make ps
@@ -11,12 +13,12 @@ make all
 make psql
 orcavault=> \l
 orcavault=> \dn
-orcavault=> \dn ods
-orcavault=> set search_path to ods;
-orcavault=> \dt
-orcavault=> \d data_portal_labmetadata
-orcavault=> select count(1) from data_portal_labmetadata;
+orcavault=> \dn tsa
 orcavault=> set search_path to tsa;
+orcavault=> \dt
+orcavault=> \d spreadsheet_library_tracking_metadata
+orcavault=> select count(1) from spreadsheet_library_tracking_metadata;
+orcavault=> set search_path to psa;
 orcavault=> \dt
 orcavault=> \d spreadsheet_library_tracking_metadata
 orcavault=> select count(1) from spreadsheet_library_tracking_metadata;
@@ -33,7 +35,7 @@ dbt run
 
 ```
 make psql
-orcavault=> set search_path to raw;
+orcavault=> set search_path to dcl;
 orcavault=> \dt
 orcavault=> \d hub_library
 orcavault=> select count(1) from hub_library;
@@ -42,7 +44,7 @@ orcavault=> \q
 
 ### Make Load
 
-To this point, it is good enough to work with structural changes and transformation from previous section i.e. data model development purpose. If you would like to try ELT process with snapshot test data, you can sync from dev bucket. Steps are as follows.
+To this point, it is good enough to work with structural changes and transformation from a previous section; i.e., data model development purpose. If you would like to try the ELT process with snapshot test data, you can sync from dev bucket. Steps are as follows.
 
 ```
 export AWS_PROFILE=umccr-dev-admin
@@ -50,7 +52,9 @@ make sync
 make load next
 ```
 
-Observe to tables from schema `ods` `tsa` and make some query.
+Now. Observe the tables from schema `ods` `tsa` and make some query. 
+
+Next. Run `dbt` transformation.
 
 ```
 dbt test
@@ -58,13 +62,13 @@ dbt build
 dbt run
 ```
 
-Observe to tables from schema `psa` `raw` and make some query against them.
+After dbt has run, observe the tables created in schema `psa` `dcl`. Make some query against them.
 
-If you would like to reload from scratch then do like so.
+If you would like to reload from the start, then do like so.
 
 ```
 make reload
 dbt run
 ```
 
-Then on, it is just rinse & spin with the dev process. You may rather want to use a better database [IDE](../dev/README.md) alternate at this point.
+Then on, it is just rinse and spin with the local dbt dev process. You may rather want to use a better database [IDE](../dev/README.md) alternate at this point; instead of `psql` CLI.

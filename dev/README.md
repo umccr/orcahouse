@@ -1,29 +1,31 @@
 # Development
 
-We expect the following dev tools be installed and available in your system PATH. We provide [Brewfile](Brewfile) as an example on macOS and you can run `brew bundle` to install them. You can manage these dev tools in any other way as see fit for your local dev setup and suits to your OS.
+We expect the following dev tools are installed and available in your system PATH. We provide [Brewfile](Brewfile) as an example on macOS and you can run `brew bundle` to install them. You can manage these dev tools in any other way as see fit for your local dev setup and suits to your OS.
 
 Tools:
-- Docker Desktop (or equivalent)
-- Python3 and prefer way to manage virtual environment
+- Docker Desktop _(or equivalent)_
+- Python3 _(pick your preferred way to manage the virtual environment)_
 - Makefile _(Optional `make` binary to execute [Makefile](Makefile) targets. You can directly call those commands and scripts, otherwise.)_
 - dbt-core CLI - https://github.com/dbt-labs/dbt-core
 
 Example:
 
-From project root directory, setup like so.
+From the project root directory, do like so.
 ```
 uv venv --python 3.13
 source .venv/bin/activate
 uv pip install -r dev/requirements.txt
 ```
 
-Note that we use Python3 virtual environment (conda, uv, venv or any equivalent) for managing dbt-core CLI and other commandline tools (if any). No Python development nor syntax familiarity is expected. We are SQL shop! See next section.
+Note that we use Python3 virtual environment (conda, uv, venv or any equivalent) for managing dbt-core CLI and other commandline tools (if any). No Python development nor syntax familiarity is expected. We are SQL shop! See the next section.
 
 ## Skills
 
+Please do read all the documentation at https://github.com/umccr/orcahouse-doc
+
 Dev:
 
-- SQL (intermediate to advanced - CTE, CTAS, JOIN, WINDOW, PARTITION, RANK, ROW_NUMBER, CASE/WHEN, etc.)
+- SQL (intermediate to advanced—CTE, CTAS, JOIN, WINDOW, PARTITION, RANK, ROW_NUMBER, CASE/WHEN, etc.)
 - dbt
 - PostgreSQL (data type, built-in functions, PL/pgSQL and stored procedure, view, trigger, etc.)
 - Fundamental in database design and data modelling concepts 
@@ -35,11 +37,11 @@ Dev:
 
 Infra:
 
-- AWS (RDS Aurora, Redshift, Athena, Glue)
+- AWS (RDS Aurora, Redshift, Athena, Glue, ECS, Lambda, EC2, EventBridge)
 - Datalake (S3)
 - Terraform
 - Git and GitHub
-- Database Administration - DBA (query pref, tuning, backup, snapshot, proxy, tunnel, etc.)
+- Database Administration—DBA (query pref, tuning, backup, snapshot, proxy, tunnel, etc.)
 - DataBricks, BigQuery (optionally building data mart layer when applicable)
 
 
