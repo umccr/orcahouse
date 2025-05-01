@@ -106,6 +106,7 @@ resource "aws_rds_cluster" "this" {
   manage_master_user_password = true
   db_subnet_group_name        = aws_db_subnet_group.this.name
   backup_retention_period     = 7
+  copy_tags_to_snapshot       = true
   deletion_protection         = true
   storage_encrypted           = true
   enable_http_endpoint        = true
