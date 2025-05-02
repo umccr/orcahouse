@@ -4,9 +4,8 @@ import datetime
 import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from psycopg2.extensions import AsIs
 from os.path import join
-from utils import utils
+import utils
 
 
 # Get the secret name from environment variables
@@ -21,7 +20,7 @@ RECORD_SOURCE = f"{EVENT_SOURCE}:{DETAIL_TYPE}"
 
 # Prevent inserts of the same event record multiple times
 # TODO: consider hashing the event values and only insert records that differ
-SQL_INSERT = f"INSERT INTO {TABLE_NAME} (%s) SELECT %s WHERE NOT EXISTS (SELECT 1 FROM {TABLE_NAME} WHERE event_id = %s);"
+SQL_INSERT = f"INSERT INTO {TABLE} (%s) SELECT %s WHERE NOT EXISTS (SELECT 1 FROM {TABLE} WHERE event_id = %s);"
 
 # DB connection
 session = boto3.session.Session()
@@ -95,8 +94,8 @@ def parse_event(event):
     instrument_run_id = detail.get("instrumentRunId")
     status = detail.get("status")
     start_time = detail.get("startTime")
-    end_time = detail.get("endTime")
-    ss_name = detail.get("sampleSheetName")
+    end_time = detail.get("endTime", "")
+    ss_name = detail.get("sampleSheetName", "")
 
     srsc_data = {
         "event_id": event_id,

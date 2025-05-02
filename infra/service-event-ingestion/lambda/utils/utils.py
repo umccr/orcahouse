@@ -2,6 +2,7 @@ import os
 import json
 import boto3
 import psycopg2
+from psycopg2.extensions import AsIs
 
 DEBUG = False
 
