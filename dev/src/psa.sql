@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.event__workflow_run_state_change
     event_time          varchar,
     portal_run_id       varchar,
     status              varchar,
-    timestamp           varchar,
+    state_timestamp     varchar,
     workflow_name       varchar,
     workflow_version    varchar,
     workflow_run_name   varchar,
