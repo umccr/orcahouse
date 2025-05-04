@@ -84,12 +84,8 @@ data "aws_rds_cluster" "orcahouse_db" {
   cluster_identifier = "orcahouse-db"
 }
 
-data "aws_ssm_parameter" "ro_username" {
-  name = "/${local.stack_name}/ro_username"
-}
-
 data "aws_secretsmanager_secret" "ro" {
-  name = "${local.stack_name}/${data.aws_ssm_parameter.ro_username.value}"
+  name = "orcahouse/orcavault/athena"
 }
 
 data "aws_serverlessapplicationrepository_application" "this" {
