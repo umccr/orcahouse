@@ -100,7 +100,7 @@ sources:
             data_type: varchar
           - name: status
             data_type: varchar
-          - name: timestamp
+          - name: state_timestamp
             data_type: varchar
           - name: workflow_name
             data_type: varchar
