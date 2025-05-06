@@ -17,7 +17,8 @@ with source as (
         assay,
         quality,
         source,
-        truseq_index
+        truseq_index,
+        load_datetime
     from
         {{ ref('spreadsheet_library_tracking_metadata') }}
 
@@ -27,7 +28,7 @@ cleaned as (
 
     select
         record_source,
-        row_number() over (partition by library_id order by phenotype) as rank,
+        row_number() over (partition by library_id order by load_datetime desc, phenotype) as rank,
         trim(regexp_replace(library_id, E'[\\n\\r]+', '', 'g')) as library_id,
         trim(regexp_replace(workflow, E'[\\n\\r]+', '', 'g')) as workflow,
         trim(regexp_replace(phenotype, E'[\\n\\r]+', '', 'g')) as phenotype,
