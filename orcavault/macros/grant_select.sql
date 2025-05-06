@@ -1,5 +1,6 @@
 {% macro grant_select(role) %}
 {% set sql %}
+    {# role is passed by dbt run exec via ECS task env var at infra deploy time. See infra/ecs/orcavault-dbt/main.tf #}
     GRANT USAGE ON SCHEMA mart TO {{ role }};
     GRANT SELECT ON ALL tables IN SCHEMA mart TO {{ role }};
 

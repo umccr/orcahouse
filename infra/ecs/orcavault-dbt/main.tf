@@ -66,5 +66,9 @@ data "aws_rds_cluster" "orcahouse_db" {
 }
 
 data "aws_ssm_parameter" "ro_username" {
-  name = "/${local.stack_name}/ro_username"
+  # For daily scheduled dbt run; we have to run post-ELT hook grant select
+  # to Athena db ro user for mart schema. We pass this ro username via ECS
+  # task definition env var at terraform deploy time.
+  # See orcavault/macros/grant_select.sql
+  name = "/${local.stack_name}/${local.database_name}/athena_username"
 }
