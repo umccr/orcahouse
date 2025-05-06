@@ -56,14 +56,6 @@ data "aws_subnets" "database_subnets_ids" {
   }
 }
 
-variable "portal_compute_sg_id" {
-  default = {
-    dev  = ""
-    prod = "sg-01a1e6678bc643a56"
-    stg  = ""
-  }
-}
-
 variable "orcabus_compute_sg_id" {
   default = {
     dev  = ""
@@ -119,8 +111,7 @@ resource "aws_rds_cluster" "this" {
 
   vpc_security_group_ids = [
     aws_security_group.this.id,
-    var.orcabus_compute_sg_id[terraform.workspace],
-    var.portal_compute_sg_id[terraform.workspace]
+    var.orcabus_compute_sg_id[terraform.workspace]
   ]
 
   serverlessv2_scaling_configuration {
