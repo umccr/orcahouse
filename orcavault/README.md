@@ -42,7 +42,7 @@ orcavault=> select count(1) from hub_library;
 orcavault=> \q
 ```
 
-### Make Load
+## Make Load
 
 To this point, it is good enough to work with structural changes and transformation from a previous section; i.e., data model development purpose. If you would like to try the ELT process with snapshot test data, you can sync from dev bucket. Steps are as follows.
 
@@ -72,3 +72,15 @@ dbt run
 ```
 
 Then on, it is just rinse and spin with the local dbt dev process. You may rather want to use a better database [IDE](../dev/README.md) alternate at this point; instead of `psql` CLI.
+
+## Hooks
+
+See dbt documentation for post-ELT hook to perform dbt run operation [macros](macros).
+- https://docs.getdbt.com/docs/build/hooks-operations
+- https://docs.getdbt.com/reference/commands/run-operation
+
+e.g.
+```
+export RO_USERNAME=dev
+dbt run-operation grant_select --args "{role: $RO_USERNAME}" --target dev
+```
