@@ -2,6 +2,11 @@
 ################################################################################
 # Lambda for Workflow Manager event handling
 
+locals {
+  wfm = {
+    function_name = "wfm_event_handler"
+  }
+}
 
 module "wfm_sc" {
   source = "../common/ingest_pipe"
@@ -19,13 +24,12 @@ module "wfm_sc" {
     ]
   }
 
-  lambda_function_name     = "wfm_event_handler"
-  lambda_function_handler  = "wfm_event_handler.handler"
+  lambda_function_name     = local.wfm.function_name
+  lambda_function_handler  = "${local.wfm.function_name}.handler"
   lambda_source_paths      = [
-    "lambda/wfm_event_handler",
+    "lambda/${local.wfm.function_name}",
     "lambda/utils/utils.py"
     ]
-  lambda_artefact_out_path = ".temp/lambda/wfm_event_handler.zip"
+  lambda_artefact_out_path = ".temp/lambda/${local.wfm.function_name}.zip"
   lambda_layers            = [aws_lambda_layer_version.psycopg2_layer.arn]
 }
-

@@ -1,6 +1,13 @@
 ################################################################################
 # Lambda for Sequence Run Manager event handling
 
+locals {
+  srm = {
+    sc_function_name  = "srm_sc_event_handler"
+    llc_function_name = "srm_llc_event_handler"
+  }
+}
+
 # Sequence Run State Change
 module "srm_sc" {
   source = "../common/ingest_pipe"
@@ -18,13 +25,13 @@ module "srm_sc" {
     ]
   }
 
-  lambda_function_name     = "srm_sc_event_handler"
-  lambda_function_handler  = "srm_sc_event_handler.handler"
+  lambda_function_name     = local.srm.sc_function_name
+  lambda_function_handler  = "${local.srm.sc_function_name}.handler"
   lambda_source_paths      = [
-    "lambda/srm_sc_event_handler",
+    "lambda/${local.srm.sc_function_name}",
     "lambda/utils/utils.py"
     ]
-  lambda_artefact_out_path = ".temp/lambda/srm_sc_event_handler.zip"
+  lambda_artefact_out_path = ".temp/lambda/${local.srm.sc_function_name}.zip"
   lambda_layers            = [aws_lambda_layer_version.psycopg2_layer.arn]
 }
 
@@ -46,13 +53,13 @@ module "srm_llc" {
     ]
   }
 
-  lambda_function_name = "srm_llc_event_handler"
-  lambda_function_handler = "srm_llc_event_handler.handler"
+  lambda_function_name = local.srm.llc_function_name
+  lambda_function_handler = "${local.srm.llc_function_name}.handler"
   lambda_source_paths = [ 
-    "lambda/srm_llc_event_handler",
+    "lambda/${local.srm.llc_function_name}",
     "lambda/utils/utils.py" 
     ]
-  lambda_artefact_out_path = ".temp/lambda/srm_llc_event_handler.zip"
+  lambda_artefact_out_path = ".temp/lambda/${local.srm.llc_function_name}.zip"
   lambda_layers = [aws_lambda_layer_version.psycopg2_layer.arn]
 }
 

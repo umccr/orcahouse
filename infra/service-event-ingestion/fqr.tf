@@ -2,6 +2,12 @@
 ################################################################################
 # Lambda for FASTQ Manager event handling
 
+locals {
+  fqr = {
+    function_name = "fqr_event_handler"
+  }
+}
+
 
 module "fqr_sc" {
   source = "../common/ingest_pipe"
@@ -19,13 +25,13 @@ module "fqr_sc" {
     ]
   }
 
-  lambda_function_name     = "fqr_event_handler"
-  lambda_function_handler  = "fqr_event_handler.handler"
+  lambda_function_name     = local.fqr.function_name
+  lambda_function_handler  = "${local.fqr.function_name}.handler"
   lambda_source_paths      = [
-    "lambda/fqr_event_handler",
+    "lambda/${local.fqr.function_name}",
     "lambda/utils/utils.py"
     ]
-  lambda_artefact_out_path = ".temp/lambda/fqr_event_handler.zip"
+  lambda_artefact_out_path = ".temp/lambda/${local.fqr.function_name}.zip"
   lambda_layers            = [aws_lambda_layer_version.psycopg2_layer.arn]
 }
 
