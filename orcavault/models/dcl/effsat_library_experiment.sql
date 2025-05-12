@@ -20,6 +20,18 @@
 
 with incremental as (
 
+    select distinct
+        library_hk
+    from {{ ref('link_library_experiment') }} lnk
+    {% if is_incremental() %}
+    where
+        cast(lnk.load_datetime as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
+    {% endif %}
+
+),
+
+history as (
+
     select
         hl.library_hk as library_hk,
         hl.library_id as library_id,
@@ -31,10 +43,7 @@ with incremental as (
     from {{ ref('hub_library') }} hl
         join {{ ref('link_library_experiment') }} lnk on lnk.library_hk = hl.library_hk
         join {{ ref('hub_experiment') }} he on he.experiment_hk = lnk.experiment_hk
-    {% if is_incremental() %}
-    where
-        cast(lnk.load_datetime as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
-    {% endif %}
+        join incremental i on i.library_hk = lnk.library_hk
 
 ),
 
@@ -59,7 +68,7 @@ transformed as (
             end as effective_to,
         case when (rank = 1) then 1 else 0 end as is_current
     from
-        incremental
+        history
 
 ),
 
