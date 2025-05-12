@@ -35,6 +35,9 @@ module "lambda_error_alarms" {
     },
     "srm_llc_lambda" = {
       FunctionName = local.srm.llc_function_name
+    },
+    "mm_lib_lambda" = {
+      FunctionName = local.mm.lib_function_name
     }
   }
 

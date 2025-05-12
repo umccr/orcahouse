@@ -131,3 +131,23 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.event__workflow_run_state_change
     load_datetime       timestamptz,
     record_source       varchar(255)
 );
+
+CREATE TABLE IF NOT EXISTS orcavault.psa.event__metadata_state_change_library
+(
+    event_id                varchar,
+    event_time              varchar,
+    orcabus_id              varchar,
+    action                  varchar,
+    library_id              varchar,
+    phenotype               varchar,
+    workflow                varchar,
+    quality                 varchar,
+    type                    varchar,
+    assay                   varchar,
+    coverage                varchar,
+    override_cycles          varchar,
+    sample_orcabus_id       varchar,
+    subject_orcabus_id      varchar,
+    load_datetime           timestamptz,
+    record_source           varchar(255)
+);
