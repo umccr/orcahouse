@@ -143,7 +143,7 @@ sources:
             data_type: varchar
           - name: coverage
             data_type: varchar
-          - name: overrideCycles
+          - name: override_cycles
             data_type: varchar
           - name: sample_orcabus_id
             data_type: varchar

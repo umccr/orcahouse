@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.event__metadata_state_change_library
     type                    varchar,
     assay                   varchar,
     coverage                varchar,
-    overrideCycles          varchar,
+    override_cycles          varchar,
     sample_orcabus_id       varchar,
     subject_orcabus_id      varchar,
     load_datetime           timestamptz,

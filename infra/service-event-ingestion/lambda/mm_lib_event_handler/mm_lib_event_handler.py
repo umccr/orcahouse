@@ -117,7 +117,7 @@ def parse_event(event):
     lib_type = event_data.get("type")
     assay = event_data.get("assay")
     coverage = event_data.get("coverage")
-    overrideCycles = event_data.get("overrideCycles")
+    override_cycles = event_data.get("overrideCycles")
     sample_id = event_data.get("sample")
     subject_id = event_data.get("subject")
 
@@ -133,7 +133,7 @@ def parse_event(event):
         "type": lib_type,
         "assay": assay,
         "coverage": coverage,
-        "overrideCycles": overrideCycles,
+        "override_cycles": override_cycles,
         "sample_orcabus_id": sample_id,
         "subject_orcabus_id": subject_id,
         "load_datetime": datetime.datetime.now().isoformat(),
