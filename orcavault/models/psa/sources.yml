@@ -114,3 +114,42 @@ sources:
             data_type: timestamptz
           - name: record_source
             data_type: varchar(255)
+
+  - name: psa
+    database: orcavault
+    schema: psa
+    tables:
+      - name: event__metadata_state_change_library
+        columns:
+          - name: event_id
+            data_type: varchar
+          - name: event_time
+            data_type: varchar
+          - name: orcabus_id
+            data_type: varchar
+          - name: action
+            data_type: varchar
+          - name: library_id
+            data_type: varchar
+          - name: phenotype
+            data_type: varchar
+          - name: workflow
+            data_type: varchar
+          - name: quality
+            data_type: varchar
+          - name: type
+            data_type: varchar
+          - name: assay
+            data_type: varchar
+          - name: coverage
+            data_type: varchar
+          - name: overrideCycles
+            data_type: varchar
+          - name: sample_orcabus_id
+            data_type: varchar
+          - name: subject_orcabus_id
+            data_type: varchar
+          - name: load_datetime
+            data_type: varchar
+          - name: record_source
+            data_type: varchar
