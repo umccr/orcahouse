@@ -62,7 +62,7 @@ locals {
   list_resolver_file_path = "./resolvers/list.js"
 
   rds_cluster_arn = "arn:aws:rds:ap-southeast-2:472057503814:cluster:orcahouse-db"
-  rds_secret_arn  = "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-bT5oGK"
+  rds_secret_arn  = "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-bT5oGK" # pragma: allowlist secret
 }
 
 # ------------------------------------------------------------------------------
@@ -219,7 +219,7 @@ resource "aws_appsync_domain_name_api_association" "appsync_domain_name_associat
   domain_name = aws_appsync_domain_name.appsync_domain_name.domain_name
 }
 
-resource "aws_route53_record" "lims_appsync_domain_name_record" {
+resource "aws_route53_record" "appsync_domain_name_record" {
   zone_id = data.aws_ssm_parameter.hosted_zone_id.value
   name    = local.lims_domain
   type    = "CNAME"
