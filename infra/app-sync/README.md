@@ -61,10 +61,7 @@ Resolvers are located in the `./resolvers/` directory. For each resolver:
 ### 4. Update Terraform Configuration
 
 1. Open `main.tf`.
-2. Update the following:
-   - `api_name` and related identifiers to match the new endpoint.
-   - The `schema_path` to point to your new `schema.graphql` file.
-   - The resolver list to include only what’s needed for your schema.
+2. Update the relevant local variables and configurations to match your new API.
 
 ---
 
