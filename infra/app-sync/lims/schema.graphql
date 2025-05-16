@@ -50,17 +50,6 @@ input TableAWSDateFilterInput {
   attributeExists: Boolean
 }
 
-# input TableAWSTimestampFilterInput {
-#   ne: AWSTimestamp
-#   eq: AWSTimestamp
-#   le: AWSTimestamp
-#   lt: AWSTimestamp
-#   ge: AWSTimestamp
-#   gt: AWSTimestamp
-#   between: [AWSTimestamp]
-#   attributeExists: Boolean
-# }
-
 type Lims {
   load_datetime: String
   sequencing_run_date: AWSDate

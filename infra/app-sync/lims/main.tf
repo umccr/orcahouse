@@ -57,7 +57,9 @@ locals {
   database_name   = "orcavault"
   lims_domain     = "lims.vault.prod.umccr.org"
   list_query_name = "listLims"
-  get_query_name  = "getLims"
+
+  schema_file_path        = "schema.graphql"
+  list_resolver_file_path = "./resolvers/list.js"
 
   rds_cluster_arn = "arn:aws:rds:ap-southeast-2:472057503814:cluster:orcahouse-db"
   rds_secret_arn  = "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-bT5oGK"
@@ -117,7 +119,7 @@ resource "aws_appsync_graphql_api" "orcabus_metadata" {
   authentication_type  = "AMAZON_COGNITO_USER_POOLS"
   api_type             = "GRAPHQL"
   introspection_config = "ENABLED"
-  schema               = file("schema.graphql")
+  schema               = file(local.schema_file_path)
 
   user_pool_config {
     user_pool_id   = data.aws_ssm_parameter.cognito_user_pool_id.value
@@ -134,7 +136,7 @@ resource "aws_iam_role" "appsync_role" {
   name = "metadata-appsync-role"
 
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17",
+    Version = "2012-10-17",
     Statement = [
       {
         Action    = "sts:AssumeRole",
@@ -149,7 +151,7 @@ resource "aws_iam_role_policy" "appsync_policy" {
   role = aws_iam_role.appsync_role.id
 
   policy = jsonencode({
-    Version   = "2012-10-17",
+    Version = "2012-10-17",
     Statement = [
       {
         Effect   = "Allow",
@@ -195,7 +197,7 @@ resource "aws_appsync_resolver" "list_resolver" {
   field       = local.list_query_name
   kind        = "UNIT"
   data_source = aws_appsync_datasource.rds_datasource.name
-  code        = file("./resolvers/list.js")
+  code        = file(local.list_resolver_file_path)
 
   runtime {
     name            = "APPSYNC_JS"

@@ -7,6 +7,11 @@ import {
   typeHint,
 } from "@aws-appsync/utils/rds";
 
+/* ********************
+ * Modify the following code to match your database schema.
+ * ********************
+ */
+
 const TABLE_NAME = "lims";
 // Map each type to a list of field names
 const FIELD_TYPE_MAP = {
@@ -14,6 +19,8 @@ const FIELD_TYPE_MAP = {
   timestamp: ["load_datetime"],
   decimal: [],
 };
+
+/* ******************** */
 
 // Helper: get field type from the map
 function getFieldType(field) {
@@ -26,7 +33,6 @@ function getFieldType(field) {
 // Casting function based on type
 function castValue(val, type) {
   if (type === "date") {
-    
     return Array.isArray(val)
       ? val.map(function (v) {
           return typeHint.DATE(v);

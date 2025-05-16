@@ -1,87 +1,80 @@
-# AppSync GraphQL API Setup Guide
+# AppSync GraphQL API
 
-This guide explains how to create a new AppSync GraphQL API by cloning an existing configuration, downloading and transforming the schema, and applying the Terraform setup.
+This project sets up a GraphQL endpoint using **AWS AppSync**.
+
+Use the `lims` setup as a reference to create new endpoints based on other RDS data sources.
 
 ---
 
 ## Steps to Create a New AppSync GraphQL API
 
-### 1. Clone the Existing API Configuration
+### 1. Duplicate the Existing Configuration
 
-1. Navigate to the `apis/` directory:
-
-    ```sh
-    cd apis/
-    ```
-
-2. Clone the metadata folder to create a new subfolder for your API:
-
-    ```sh
-    cp -r metadata <new_api_name>
-    ```
-
-Replace `<new_api_name>` with the desired name of your new API.
+1. Copy the `lims` folder and rename it for your new API (e.g., `myapi`).
+2. Update the contents of `rds-data-config.json` to match the configuration for the new data source.
 
 ---
 
+### 2. Generate the GraphQL Schema
 
-### 2. Configure the configuration
+Use the `generate_schema.py` script to introspect the model and output a GraphQL SDL schema.
 
-In the ./rds-data-config.json reconfigure so it is suitable for the databse where it will connect.
-
-
----
-
-
-### 2. Download the Schema
-
-Run the `download_schema.sh` script to fetch the schema for your new API.
-
-Replace the placeholders with your specific values:
-
-- `<model_name>` — name of your model (e.g., `app_user`)
-- `<new_api_name>` — name of your new API
+#### Script Usage
 
 ```sh
-./download_schema.sh some_model_name ./apis/{REPLACE_API_NAME}/rds-data-config.json ./apis/{REPLACE_API_NAME}/introspection-schema.json
+usage: generate_schema.py [-h] [--introspection-id INTROSPECTION_ID] --model-name MODEL_NAME --config-file CONFIG_FILE --schema-out-file SCHEMA_OUT_FILE [-o GRAPHQL_OUT_FILE]
 
+Generate GraphQL schema from JSON model using AWS AppSync introspection.
+
+options:
+  -h, --help            show this help message and exit
+  --introspection-id INTROSPECTION_ID
+                        If provided, skips starting introspection and uses this ID directly.
+  --model-name MODEL_NAME
+                        Name of the model to introspect (e.g., 'lims').
+  --config-file CONFIG_FILE
+                        Path to the RDS config file (e.g., ./rds-data-config.json).
+  --schema-out-file SCHEMA_OUT_FILE
+                        Where to save the downloaded model JSON (e.g., introspection-schema.json).
+  -o, --graphql-out-file GRAPHQL_OUT_FILE
+                        Where to write the GraphQL output schema.
 ```
 
----
-
-### 3. Transform the Schema
-
-Use the `transform_to_graphql.py` script to convert the introspection schema to a standard GraphQL schema:
+Example (for lims API)
 
 ```sh
-python3 transform_to_graphql.py ./apis/{REPLACE_API_NAME}/introspection-schema.json ./apis/{REPLACE_API_NAME}/schema.graphql
+python3 generate_schema.py --model-name lims --config-file ./lims/rds-data-config.json --schema-out-file ./lims/introspection-schema.json -o ./lims/schema.graphql
 ```
 
----
+### 3. Modify the Resolvers
 
+Resolvers are located in the `./resolvers/` directory. For each resolver:
 
-### 3. Modify resolvers
-
-The function in the ./resolvers has the variable to idenift which table it should query from. modify appropriately
-
----
-
-### 4. Update the Terraform Configuration
-
-1. Open the `main.tf` file located in `apis/<new_api_name>/`.
-
-2. Update the local configuration with details specific to your new API:
-   - Change `api_name`, resolvers, and any relevant variables.
-   - Ensure the `schema.graphql` file path is correct.
+- Update the variable that specifies the target table.
+- Adjust the resolver type and schema references to reflect your database structure.
+- Look for the comment:  
+  `# Modify the following code to match your database schema.`  
+  and make changes accordingly.
 
 ---
 
-### 5. Apply the Terraform Configuration
+### 4. Update Terraform Configuration
 
-Run the following commands:
+1. Open `main.tf`.
+2. Update the following:
+   - `api_name` and related identifiers to match the new endpoint.
+   - The `schema_path` to point to your new `schema.graphql` file.
+   - The resolver list to include only what’s needed for your schema.
+
+---
+
+### 5. Deploy with Terraform
+
+Run the following commands from the project root:
 
 ```sh
 terraform init
 terraform plan
 terraform apply
+
 ```
