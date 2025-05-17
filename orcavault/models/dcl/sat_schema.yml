@@ -581,13 +581,15 @@ models:
       contract: { enforced: true }
     constraints:
       - type: primary_key
-        columns: [ workflow_run_hk, load_datetime ]
+        columns: [ workflow_run_hk, workflow_run_sq, load_datetime ]
       - type: foreign_key
         columns: [ workflow_run_hk ]
         to: ref('hub_workflow_run')
         to_columns: [ workflow_run_hk ]
     columns:
       - name: workflow_run_hk
+        data_type: char(64)
+      - name: workflow_run_sq
         data_type: char(64)
       - name: load_datetime
         data_type: timestamptz
