@@ -1,0 +1,151 @@
+{
+  "name": "lims",
+  "fields": [
+    {
+      "name": "load_datetime",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 0
+    },
+    {
+      "name": "sequencing_run_date",
+      "type": {
+        "kind": "Scalar",
+        "name": "AWSDate"
+      },
+      "length": 0
+    },
+    {
+      "name": "sequencing_run_id",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "library_id",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "internal_subject_id",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "external_subject_id",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "sample_id",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "external_sample_id",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "experiment_id",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "project_id",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "owner_id",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "workflow",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "phenotype",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "type",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "assay",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "quality",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "source",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    },
+    {
+      "name": "truseq_index",
+      "type": {
+        "kind": "Scalar",
+        "name": "String"
+      },
+      "length": 255
+    }
+  ],
+  "indexes": [],
+  "sdl": "type lims\n{\nload_datetime: String\n\nsequencing_run_date: AWSDate\n\nsequencing_run_id: String\n\nlibrary_id: String\n\ninternal_subject_id: String\n\nexternal_subject_id: String\n\nsample_id: String\n\nexternal_sample_id: String\n\nexperiment_id: String\n\nproject_id: String\n\nowner_id: String\n\nworkflow: String\n\nphenotype: String\n\ntype: String\n\nassay: String\n\nquality: String\n\nsource: String\n\ntruseq_index: String\n}\n"
+}
