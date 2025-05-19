@@ -21,3 +21,5 @@ logs/
 .user.yml
 
 *.log
+
+.DS_Store
