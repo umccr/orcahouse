@@ -8,16 +8,32 @@ Use the `lims` setup as a reference to create new endpoints based on other RDS d
 
 ## Steps to Create a New AppSync GraphQL API
 
+You can generate a GraphQL schema from an Aurora RDS database using [AppSync RDS Introspection](https://docs.aws.amazon.com/appsync/latest/devguide/rds-introspection.html). This process outputs a JSON representation of your schema in SDL format. A custom script is then used to enhance this schema with query functions that support basic filtering and sorting.
+
+The script will:
+
+- Read the introspection-generated GraphQL SDL (in JSON format).
+- Add a `list` query function for the specified table.
+- Generate argument types to support filtering and sorting.
+
+> **Note:** This process currently supports only single-table models.
+
 ### 1. Duplicate the Existing Configuration
 
-1. Copy the `lims` folder and rename it for your new API (e.g., `myapi`).
-2. Update the contents of `rds-data-config.json` to match the configuration for the new data source.
+1. Copy the existing `lims` folder and rename it for your new API (e.g., `myapi`).
+2. Update `rds-data-config.json` with the configuration details for your new RDS data source.
 
 ---
 
 ### 2. Generate the GraphQL Schema
 
-Use the `generate_schema.py` script to introspect the model and output a GraphQL SDL schema.
+Use the `generate_schema.py` script to enhance the introspected schema with list queries and argument types.
+
+The AppSync introspection process produces a GraphQL SDL schema in JSON format (`schema-out-file`). The script reads this file and generates a new SDL schema (`graphql-out-file`) that includes:
+
+- Basic `list<TableName>` queries
+- Input types for filtering and sorting
+- Support for scalar types: `AWSDate`, `Float`, `String`, and `Int`
 
 #### Script Usage
 

@@ -1,16 +1,13 @@
-input ModelSizeInput {
-  ne: Int
-  eq: Int
-  le: Int
-  lt: Int
-  ge: Int
-  gt: Int
-  between: [Int]
-}
 
-enum ModelSortDirection {
-  ASC
-  DESC
+input TableAWSDateFilterInput {
+  ne: AWSDate
+  eq: AWSDate
+  le: AWSDate
+  lt: AWSDate
+  ge: AWSDate
+  gt: AWSDate
+  between: [AWSDate]
+  attributeExists: Boolean
 }
 
 input TableFloatFilterInput {
@@ -39,16 +36,32 @@ input TableStringFilterInput {
   size: ModelSizeInput
 }
 
-input TableAWSDateFilterInput {
-  ne: AWSDate
-  eq: AWSDate
-  le: AWSDate
-  lt: AWSDate
-  ge: AWSDate
-  gt: AWSDate
-  between: [AWSDate]
+input ModelSizeInput {
+  ne: Int
+  eq: Int
+  le: Int
+  lt: Int
+  ge: Int
+  gt: Int
+  between: [Int]
+}
+
+input TableIntFilterInput {
+  ne: Int
+  eq: Int
+  le: Int
+  lt: Int
+  ge: Int
+  gt: Int
+  between: [Int]
   attributeExists: Boolean
 }
+
+enum ModelSortDirection {
+  ASC
+  DESC
+}
+
 
 type Lims {
   load_datetime: String
@@ -78,7 +91,6 @@ type LimsConnection {
 
 input OrderByLimsInput {
   load_datetime: ModelSortDirection
-  sequencing_run_date: ModelSortDirection
   sequencing_run_id: ModelSortDirection
   library_id: ModelSortDirection
   internal_subject_id: ModelSortDirection
@@ -95,11 +107,11 @@ input OrderByLimsInput {
   quality: ModelSortDirection
   source: ModelSortDirection
   truseq_index: ModelSortDirection
+  sequencing_run_date: ModelSortDirection
 }
 
 input TableLimsFilterInput {
   load_datetime: TableStringFilterInput
-  sequencing_run_date: TableAWSDateFilterInput
   sequencing_run_id: TableStringFilterInput
   library_id: TableStringFilterInput
   internal_subject_id: TableStringFilterInput
@@ -116,6 +128,8 @@ input TableLimsFilterInput {
   quality: TableStringFilterInput
   source: TableStringFilterInput
   truseq_index: TableStringFilterInput
+  sequencing_run_date: TableAWSDateFilterInput
+
   and: [TableLimsFilterInput]
   or: [TableLimsFilterInput]
   not: [TableLimsFilterInput]
