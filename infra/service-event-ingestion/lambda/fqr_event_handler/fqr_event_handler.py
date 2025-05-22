@@ -117,50 +117,54 @@ def parse_event(event):
     event_time = event.get('time')
     detail = event.get('detail')
 
-    orcabus_id = detail.get('id')
-    status = detail.get('status', "")
-    instrument_run_id = detail.get('instrumentRunId', "")
-    library = detail.get('library').get('libraryId', "")
-    lane = detail.get('lane', "")
-    is_valid = detail.get('isValid', "")
-    index = detail.get('index', "")
-
-    readset = detail.get('readSet')
-    readset_r1 = ""
-    readset_r2 = ""
-    if readset:
-        readset_r1 = readset.get('r1').get('ingestId', "")
-        readset_r2 = readset.get('r2').get('ingestId', "")
-
+    # extract the event data into a flat dict for easy ingestion into DB
     fqr_data = {
         "event_id": event_id,
         "event_time": event_time,
-        "orcabus_id": orcabus_id,
-        "status": status,
-        "instrument_run_id": instrument_run_id,
-        "library": library,
-        "lane": str(lane),
-        "index": index,
-        "is_valid": str(is_valid),
-        "readset_r1": readset_r1,
-        "readset_r2": readset_r2,
         "load_datetime": datetime.datetime.now().isoformat(),
         "record_source": RECORD_SOURCE
     }
+    add_detail_data(fqr_data, detail)
+
     print(f"Extracted data: {fqr_data}")
 
     return fqr_data
 
 
-def test_case():
-    # Execute example query
-    print("Executing query...")
-    with DB_CONNECTION:
-        with DB_CONNECTION.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(f"SELECT * FROM {TABLE_NAME} LIMIT 5")
-            results = cur.fetchall()
-    
-    # Convert results to JSON-serializable format
-    print("Query executed successfully!")
-    results_list = [dict(row) for row in results]
-    print(f"Results: {results_list}")
+def add_detail_data(fqr_data, detail):
+
+    fqr_data["orcabus_id"] = detail.get('id')
+    fqr_data["status"] = detail.get('status', "")
+    fqr_data["instrument_run_id"] = detail.get('instrumentRunId', "")
+    fqr_data["library"] = detail.get('library').get('libraryId', "")
+    fqr_data["lane"] = str(detail.get('lane', ""))  # might be interpreted as integer, so casting
+    fqr_data["index"] = detail.get('index', "")
+    fqr_data["is_valid"] = str(detail.get('isValid', ""))  # might be interpreted as boolean, so casting
+    fqr_data["platform"] = detail.get('platform', "")
+    fqr_data["center"] = detail.get('center', "")
+    fqr_data["read_count"] = str(detail.get('readCount', ""))
+    fqr_data["base_count_est"] = str(detail.get('baseCountEst', ""))
+
+    readset = detail.get('readSet')
+    if readset:
+        r1 = readset.get('r1')
+        if r1:
+            fqr_data["readset_r1"] = r1.get('ingestId', "")
+            fqr_data["readset_r1_rawmd5"] = r1.get('rawMd5sum', "")
+            fqr_data["readset_r1_gzbytes"] = str(r1.get('gzipCompressionSizeInBytes', ""))  # might be interpreted as integer, so casting
+        r2 = readset.get('r2')
+        if r2:
+            fqr_data["readset_r2"] = r2.get('ingestId', "")
+            fqr_data["readset_r2_rawmd5"] = r2.get('rawMd5sum', "")
+            fqr_data["readset_r2_gzbytes"] = str(r2.get('gzipCompressionSizeInBytes', ""))  # might be interpreted as integer, so casting
+
+    qc = detail.get('qc')
+    if qc:
+        # usually numbers/metrics, so casting to string
+        fqr_data["qc_insert_size_estimate"] = str(qc.get('insertSizeEstimate', ""))
+        fqr_data["qc_raw_wgs_coverage_estimate"] = str(qc.get('rawWgsCoverageEstimate', ""))
+        fqr_data["qc_r1Q20_fraction"] = str(qc.get('r1Q20Fraction', ""))
+        fqr_data["qc_r2Q20_fraction"] = str(qc.get('r2Q20Fraction', ""))
+        fqr_data["qc_r1Gc_fraction"] = str(qc.get('r1GcFraction', ""))
+        fqr_data["qc_r2Gc_fraction"] = str(qc.get('r2GcFraction', ""))
+        fqr_data["qc_duplication_fraction_estimate"] = str(qc.get('duplicationFractionEstimate', ""))

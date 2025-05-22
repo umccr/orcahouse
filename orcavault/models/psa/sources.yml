@@ -29,6 +29,36 @@ sources:
             data_type: varchar
           - name: readset_r2
             data_type: varchar
+          - name: platform
+            data_type: varchar
+          - name: center
+            data_type: varchar
+          - name: read_count
+            data_type: varchar
+          - name: base_count_est
+            data_type: varchar
+          - name: readset_r1_rawmd5
+            data_type: varchar
+          - name: readset_r1_gzbytes
+            data_type: varchar
+          - name: readset_r2_rawmd5
+            data_type: varchar
+          - name: readset_r2_gzbytes
+            data_type: varchar
+          - name: qc_insert_size_estimate
+            data_type: varchar
+          - name: qc_raw_wgs_coverage_estimate
+            data_type: varchar
+          - name: qc_r1Q20_fraction
+            data_type: varchar
+          - name: qc_r2Q20_fraction
+            data_type: varchar
+          - name: qc_r1Gc_fraction
+            data_type: varchar
+          - name: qc_r2Gc_fraction
+            data_type: varchar
+          - name: qc_duplication_fraction_estimate
+            data_type: varchar
           - name: load_datetime
             data_type: timestamptz
           - name: record_source
