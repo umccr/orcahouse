@@ -75,19 +75,34 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.spreadsheet_google_lims
 
 CREATE TABLE IF NOT EXISTS orcavault.psa.event__fastq_list_row_state_change
 (
-    event_id            varchar,
-    event_time          varchar,
-    orcabus_id          varchar,
-    status              varchar,
-    instrument_run_id   varchar,
-    library             varchar,
-    lane                varchar,
-    index               varchar,
-    is_valid            varchar,
-    readset_r1          varchar,
-    readset_r2          varchar,
-    load_datetime       timestamptz,
-    record_source       varchar(255)
+    event_id                            varchar,
+    event_time                          varchar,
+    orcabus_id                          varchar,
+    status                              varchar,
+    instrument_run_id                   varchar,
+    library                             varchar,
+    lane                                varchar,
+    index                               varchar,
+    is_valid                            varchar,
+    readset_r1                          varchar,
+    readset_r2                          varchar,
+    platform                            varchar,
+    center                              varchar,
+    read_count                          varchar,
+    base_count_est                      varchar,
+    readset_r1_rawmd5                   varchar,
+    readset_r1_gzbytes                  varchar,
+    readset_r2_rawmd5                   varchar,
+    readset_r2_gzbytes                  varchar,
+    qc_insert_size_estimate             varchar,
+    qc_raw_wgs_coverage_estimate        varchar,
+    qc_r1Q20_fraction                   varchar,
+    qc_r2Q20_fraction                   varchar,
+    qc_r1Gc_fraction                    varchar,
+    qc_r2Gc_fraction                    varchar,
+    qc_duplication_fraction_estimate    varchar,
+    load_datetime                       timestamptz,
+    record_source                       varchar(255)
 );
 
 CREATE TABLE IF NOT EXISTS orcavault.psa.event__sequence_run_state_change
