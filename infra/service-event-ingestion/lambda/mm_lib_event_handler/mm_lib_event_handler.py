@@ -99,7 +99,7 @@ def parse_event(event):
     detail = event.get("detail")
 
     event_model = detail.get('model', "")
-    if not event_model.lower() = SUB_TYPE.lower():
+    if not event_model.lower() == SUB_TYPE.lower():
         raise ValueError(
             f"Invalid event model type. Expected '{SUB_TYPE}' but got '{event_model}'"
         )
@@ -110,16 +110,16 @@ def parse_event(event):
     if not event_data:
         raise ValueError("Expected event payload data, but got nothing.")
 
-    library_id = event_data.get("libraryId")
-    phenotype = event_data.get("phenotype")
-    workflow = event_data.get("workflow")
-    quality = event_data.get("quality")
-    lib_type = event_data.get("type")
-    assay = event_data.get("assay")
-    coverage = event_data.get("coverage")
-    override_cycles = event_data.get("overrideCycles")
-    sample_id = event_data.get("sample")
-    subject_id = event_data.get("subject")
+    library_id = event_data.get("libraryId", "")
+    phenotype = event_data.get("phenotype", "")
+    workflow = event_data.get("workflow", "")
+    quality = event_data.get("quality", "")
+    lib_type = event_data.get("type", "")
+    assay = event_data.get("assay", "")
+    coverage = event_data.get("coverage", "")
+    override_cycles = event_data.get("overrideCycles", "")
+    sample_id = event_data.get("sample", "")
+    subject_id = event_data.get("subject", "")
 
     mm_data = {
         "event_id": event_id,
