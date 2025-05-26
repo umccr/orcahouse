@@ -133,15 +133,15 @@ def parse_event(event):
 
 def add_detail_data(fqr_data, detail):
 
-    fqr_data["orcabus_id"] = detail.get('id')
-    fqr_data["status"] = detail.get('status', "")
-    fqr_data["instrument_run_id"] = detail.get('instrumentRunId', "")
-    fqr_data["library"] = detail.get('library').get('libraryId', "")
+    fqr_data["orcabus_id"] = str(detail.get('id'))
+    fqr_data["status"] = str(detail.get('status', ""))
+    fqr_data["instrument_run_id"] = str(detail.get('instrumentRunId', ""))
+    fqr_data["library"] = str(detail.get('library').get('libraryId', ""))
     fqr_data["lane"] = str(detail.get('lane', ""))  # might be interpreted as integer, so casting
-    fqr_data["index"] = detail.get('index', "")
+    fqr_data["index"] = str(detail.get('index', ""))
     fqr_data["is_valid"] = str(detail.get('isValid', ""))  # might be interpreted as boolean, so casting
-    fqr_data["platform"] = detail.get('platform', "")
-    fqr_data["center"] = detail.get('center', "")
+    fqr_data["platform"] = str(detail.get('platform', ""))
+    fqr_data["center"] = str(detail.get('center', ""))
     fqr_data["read_count"] = str(detail.get('readCount', ""))
     fqr_data["base_count_est"] = str(detail.get('baseCountEst', ""))
 
@@ -149,13 +149,13 @@ def add_detail_data(fqr_data, detail):
     if readset:
         r1 = readset.get('r1')
         if r1:
-            fqr_data["readset_r1"] = r1.get('ingestId', "")
-            fqr_data["readset_r1_rawmd5"] = r1.get('rawMd5sum', "")
+            fqr_data["readset_r1"] = str(r1.get('ingestId', ""))
+            fqr_data["readset_r1_rawmd5"] = str(r1.get('rawMd5sum', ""))
             fqr_data["readset_r1_gzbytes"] = str(r1.get('gzipCompressionSizeInBytes', ""))  # might be interpreted as integer, so casting
         r2 = readset.get('r2')
         if r2:
-            fqr_data["readset_r2"] = r2.get('ingestId', "")
-            fqr_data["readset_r2_rawmd5"] = r2.get('rawMd5sum', "")
+            fqr_data["readset_r2"] = str(r2.get('ingestId', ""))
+            fqr_data["readset_r2_rawmd5"] = str(r2.get('rawMd5sum', ""))
             fqr_data["readset_r2_gzbytes"] = str(r2.get('gzipCompressionSizeInBytes', ""))  # might be interpreted as integer, so casting
 
     qc = detail.get('qc')
