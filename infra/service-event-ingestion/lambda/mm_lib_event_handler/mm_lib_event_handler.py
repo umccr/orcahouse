@@ -104,22 +104,22 @@ def parse_event(event):
             f"Invalid event model type. Expected '{SUB_TYPE}' but got '{event_model}'"
         )
 
-    orcabus_id = detail.get("refId")  # TODO: check against 'data.orcabusId' ?
-    event_action = detail.get("action")
+    orcabus_id = str(detail.get("refId"))  # TODO: check against 'data.orcabusId' ?
+    event_action = str(detail.get("action"))
     event_data = detail.get("data")
     if not event_data:
         raise ValueError("Expected event payload data, but got nothing.")
 
-    library_id = event_data.get("libraryId", "")
-    phenotype = event_data.get("phenotype", "")
-    workflow = event_data.get("workflow", "")
-    quality = event_data.get("quality", "")
-    lib_type = event_data.get("type", "")
-    assay = event_data.get("assay", "")
-    coverage = event_data.get("coverage", "")
-    override_cycles = event_data.get("overrideCycles", "")
-    sample_id = event_data.get("sample", "")
-    subject_id = event_data.get("subject", "")
+    library_id = str(event_data.get("libraryId", ""))
+    phenotype = str(event_data.get("phenotype", ""))
+    workflow = str(event_data.get("workflow", ""))
+    quality = str(event_data.get("quality", ""))
+    lib_type = str(event_data.get("type", ""))
+    assay = str(event_data.get("assay", ""))
+    coverage = str(event_data.get("coverage", ""))
+    override_cycles = str(event_data.get("overrideCycles", ""))
+    sample_id = str(event_data.get("sample", ""))
+    subject_id = str(event_data.get("subject", ""))
 
     mm_data = {
         "event_id": event_id,

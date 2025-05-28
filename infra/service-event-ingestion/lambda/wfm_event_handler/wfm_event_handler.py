@@ -114,12 +114,12 @@ def parse_event(event):
     event_time = event.get('time')
     detail = event.get('detail')
 
-    portal_run_id = detail.get('portalRunId')
-    status = detail.get('status', "")
-    state_timestamp = detail.get('timestamp', "")
-    workflow_name = detail.get('workflowName', "")
-    workflow_version = detail.get('workflowVersion', "")
-    workflow_run_name = detail.get('workflowRunName', "")
+    portal_run_id = str(detail.get('portalRunId', ""))
+    status = str(detail.get('status', ""))
+    state_timestamp = str(detail.get('timestamp', ""))
+    workflow_name = str(detail.get('workflowName', ""))
+    workflow_version = str(detail.get('workflowVersion', ""))
+    workflow_run_name = str(detail.get('workflowRunName', ""))
     libraries = detail.get('linkedLibraries', {})
 
 

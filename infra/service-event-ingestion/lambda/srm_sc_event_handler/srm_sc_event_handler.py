@@ -90,12 +90,12 @@ def parse_event(event):
     event_time = event.get("time")
     detail = event.get("detail")
 
-    orcabus_id = detail.get("id")
-    instrument_run_id = detail.get("instrumentRunId")
-    status = detail.get("status")
-    start_time = detail.get("startTime")
-    end_time = detail.get("endTime", "")
-    ss_name = detail.get("sampleSheetName", "")
+    orcabus_id = str(detail.get("id", ""))
+    instrument_run_id = str(detail.get("instrumentRunId", ""))
+    status = str(detail.get("status", ""))
+    start_time = str(detail.get("startTime", ""))
+    end_time = str(detail.get("endTime", ""))
+    ss_name = str(detail.get("sampleSheetName", ""))
 
     srsc_data = {
         "event_id": event_id,
