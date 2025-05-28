@@ -91,10 +91,10 @@ def parse_event(event):
     event_time = event.get("time")
     detail = event.get("detail")
 
-    orcabus_id = detail.get("sequenceOrcabusId")
-    instrument_run_id = detail.get("instrumentRunId", "")
-    sequence_run_id = detail.get("sequenceRunId", "")
-    timestamp = detail.get("timeStamp", "")
+    orcabus_id = str(detail.get("sequenceOrcabusId", "")
+    instrument_run_id = str(detail.get("instrumentRunId", ""))
+    sequence_run_id = str(detail.get("sequenceRunId", ""))
+    timestamp = str(detail.get("timeStamp", ""))
     libraries = detail.get("linkedLibrary", {})
     
 
