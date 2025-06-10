@@ -1,7 +1,8 @@
 {{
     config(
         materialized='incremental',
-        incremental_strategy='append',
+        incremental_strategy='merge',
+        unique_key='workflow_run_hk',
         on_schema_change='fail'
     )
 }}
