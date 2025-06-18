@@ -129,7 +129,7 @@ transformed as (
 
         sqr.sequencing_run_id as sequencing_run_id,
         cast((regexp_match(sqr.sequencing_run_id, '(?:^)(\d{6})(?:_A\d{5}_\d{4}_[A-Z0-9]{10})'))[1] as date) as sequencing_run_date,
-        lib.library_id as library_id,
+        lib.library_id as original_library_id,
         int_sbj.internal_subject_id as internal_subject_id,
         ext_sbj.external_subject_id as external_subject_id,
         smp.sample_id as sample_id,
@@ -178,12 +178,35 @@ transformed as (
 
 ),
 
+applied_library_alias as (
+
+    select
+        (regexp_match(t.original_library_id, '(?:L\d{7}|L(?:PRJ|CCR|MDX|TGX)\d{6})'))[1] as library_id,
+        sal.alias_library_id as alias_library_id,
+        sal.base_library_id as base_library_id,
+        t.*
+    from transformed t
+        full join {{ ref('sal_library') }} sal on sal.alias_library_id = t.original_library_id
+
+),
+
+ranked_libraryrun as (
+
+    select
+        row_number() over (partition by library_id, sequencing_run_id order by length(alias_library_id) desc nulls last) as rank,
+        *
+    from
+        applied_library_alias
+
+),
+
 final as (
 
     select
         cast(sequencing_run_id as varchar(255)) as sequencing_run_id,
         cast(sequencing_run_date as date) as sequencing_run_date,
         cast(library_id as varchar(255)) as library_id,
+        cast(alias_library_id as varchar(255)) as alias_library_id,
         cast(internal_subject_id as varchar(255)) as internal_subject_id,
         cast(external_subject_id as varchar(255)) as external_subject_id,
         cast(sample_id as varchar(255)) as sample_id,
@@ -200,9 +223,10 @@ final as (
         cast(truseq_index as varchar(255)) as truseq_index,
         cast(load_datetime as timestamptz) as load_datetime
     from
-        transformed
+        ranked_libraryrun
     where
-        sequencing_run_id is not null
+        rank = 1
+        and sequencing_run_id is not null
     order by sequencing_run_date desc nulls last, library_id desc
 
 )
