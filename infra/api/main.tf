@@ -3,7 +3,7 @@ terraform {
 
   backend "s3" {
     bucket         = "umccr-terraform-states"
-    key            = "orcahouse-api/terraform.tfstate"
+    key            = "orcahouse/api/terraform.tfstate"
     region         = "ap-southeast-2"
     dynamodb_table = "terraform-state-lock"
   }
@@ -64,6 +64,10 @@ data "aws_ssm_parameter" "hosted_zone_id" {
   name = "/hosted_zone/umccr/id"
 }
 
+data "aws_ssm_parameter" "acm_cert_arn" {
+  name = "cert_apse2_arn"
+}
+
 data "aws_vpc" "main_vpc" {
   # Using tags filter on networking stack to get main-vpc
   tags = {
@@ -100,11 +104,11 @@ variable "db_name" {
 
 locals {
   stack_name  = "orcahouse"
-  lims_domain = "lims.vault.prod.umccr.org"
+  mart_domain = "mart.prod.umccr.org"
 
-  # rds_secret_arn = "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-bT5oGK" # pragma: allowlist secret
-  rds_secret_arn = "arn:aws:secretsmanager:ap-southeast-2:843407916570:secret:orcabus/workflow_manager/rds-login-credential-JBj8kY" # pragma: allowlist secret
-  function_name  = "orcahouse-api-${var.db_name}"
+  rds_secret_arn = "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-bT5oGK" # pragma: allowlist secret
+  # rds_secret_arn = "arn:aws:secretsmanager:ap-southeast-2:843407916570:secret:orcabus/master-rds-Fne1fB" # pragma: allowlist secret
+  function_name = "orcahouse-api-${var.db_name}"
 
   orcahouse_db_sg_id = {
     dev  = "sg-03abb47eba799e044"
@@ -149,7 +153,10 @@ resource "aws_lambda_function" "api" {
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.lambda_logs,
+    aws_iam_role_policy_attachment.lambda_basic_execution,
+    aws_iam_role_policy_attachment.lambda_vpc_access_execution,
+    aws_iam_role_policy_attachment.lambda_secret_access,
+
     aws_cloudwatch_log_group.lambda_api
   ]
 }
@@ -177,24 +184,14 @@ resource "aws_iam_role" "api_lambda_role" {
   })
 }
 
-# CloudWatch Logs policy
-resource "aws_iam_policy" "lambda_logging" {
-  description = "IAM policy for logging from Lambda"
+resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  role       = aws_iam_role.api_lambda_role.name
+}
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = ["arn:aws:logs:*:*:*"]
-      }
-    ]
-  })
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access_execution" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+  role       = aws_iam_role.api_lambda_role.name
 }
 
 resource "aws_iam_policy" "db_secret_access" {
@@ -214,10 +211,6 @@ resource "aws_iam_policy" "db_secret_access" {
 
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_logs" {
-  role       = aws_iam_role.api_lambda_role.name
-  policy_arn = aws_iam_policy.lambda_logging.arn
-}
 
 resource "aws_iam_role_policy_attachment" "lambda_secret_access" {
   role       = aws_iam_role.api_lambda_role.name
@@ -233,6 +226,18 @@ resource "aws_iam_role_policy_attachment" "lambda_secret_access" {
 resource "aws_apigatewayv2_api" "http_api" {
   name          = "orcahouse-${var.db_name}"
   protocol_type = "HTTP"
+}
+
+resource "aws_apigatewayv2_authorizer" "data_portal" {
+  api_id           = aws_apigatewayv2_api.http_api.id
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+  name             = "PortalAuthorizer"
+
+  jwt_configuration {
+    audience = [data.aws_ssm_parameter.orcaui_cognito_app_client_id.value]
+    issuer   = "https://cognito-idp.ap-southeast-2.amazonaws.com/${data.aws_ssm_parameter.cognito_user_pool_id.value}"
+  }
 }
 
 resource "aws_apigatewayv2_integration" "lambda_server_integration" {
@@ -257,7 +262,7 @@ resource "aws_apigatewayv2_route" "post_handler" {
 
 }
 
-resource "aws_apigatewayv2_stage" "example" {
+resource "aws_apigatewayv2_stage" "mart" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
   auto_deploy = true
@@ -273,15 +278,35 @@ resource "aws_lambda_permission" "api_gw" {
 }
 
 
-resource "aws_apigatewayv2_authorizer" "data_portal" {
-  api_id           = aws_apigatewayv2_api.http_api.id
-  authorizer_type  = "JWT"
-  identity_sources = ["$request.header.Authorization"]
-  name             = "PortalAuthorizer"
+# ------------------------------------------------------------------------------
+# HTTP API Gateway
+# ------------------------------------------------------------------------------
 
-  jwt_configuration {
-    audience = [data.aws_ssm_parameter.orcaui_cognito_app_client_id.value]
-    issuer   = "https://cognito-idp.ap-southeast-2.amazonaws.com/${data.aws_ssm_parameter.cognito_user_pool_id.value}"
+resource "aws_apigatewayv2_domain_name" "mart_domain_name" {
+  domain_name = local.mart_domain
+
+  domain_name_configuration {
+    certificate_arn = data.aws_ssm_parameter.acm_cert_arn.value
+    endpoint_type   = "REGIONAL"
+    security_policy = "TLS_1_2"
   }
 }
 
+resource "aws_apigatewayv2_api_mapping" "example" {
+  api_id      = aws_apigatewayv2_api.http_api.id
+  domain_name = aws_apigatewayv2_domain_name.mart_domain_name.domain_name
+  stage       = aws_apigatewayv2_stage.mart.id
+}
+
+resource "aws_route53_record" "mart_domain_record" {
+  zone_id = data.aws_ssm_parameter.hosted_zone_id.value
+  name    = local.mart_domain
+  type    = "A"
+  
+  alias {
+    name                   = aws_apigatewayv2_domain_name.mart_domain_name.domain_name_configuration[0].target_domain_name
+    zone_id                = aws_apigatewayv2_domain_name.mart_domain_name.domain_name_configuration[0].hosted_zone_id
+    evaluate_target_health = false
+  }
+
+}

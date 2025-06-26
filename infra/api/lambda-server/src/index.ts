@@ -53,7 +53,7 @@ async function createApp({
         subscriptions: false,
         dynamicJson: true,
         setofFunctionsContainNulls: false,
-        ignoreRBAC: false,
+        ignoreRBAC: true,
         disableDefaultMutations: true,
         simpleCollections: "only",
       }),
@@ -61,7 +61,7 @@ async function createApp({
     pgServices: [
       makePgService({
         connectionString: databaseConnectionString,
-        schemas: ["public"],
+        schemas: ["mart"],
       }),
     ],
     grafast: {
@@ -86,12 +86,13 @@ async function createApp({
 const start = async () => {
   const fastify = await createApp({
     databaseConnectionString:
-      "postgres://orcabus:orcabus@localhost:5432/metadata_manager", // pragma: allowlist secret`
+      "postgres://metadata_manager:123@localhost:5432/metadata_manager", // pragma: allowlist secret`
+      // "postgres://orcabus:orcabus@localhost:5432/metadata_manager", // pragma: allowlist secret`
   });
 
   try {
     await fastify.listen({ port: 5000 });
-    console.log(`Server is running at http://localhost:5000`);
+    console.log(`Server is running at http://localhost:5000/graphiql`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
