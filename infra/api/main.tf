@@ -92,8 +92,7 @@ locals {
   stack_name  = "orcahouse"
   mart_domain = "mart.prod.umccr.org"
 
-  rds_secret_arn = "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-bT5oGK" # pragma: allowlist secret
-  # rds_secret_arn = "arn:aws:secretsmanager:ap-southeast-2:843407916570:secret:orcabus/master-rds-Fne1fB" # pragma: allowlist secret
+  rds_secret_arn = "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-rfopB6" # pragma: allowlist secret
   function_name = "orcahouse-api-${var.db_name}"
 
   orcahouse_db_sg_id = {

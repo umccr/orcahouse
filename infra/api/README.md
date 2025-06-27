@@ -2,7 +2,30 @@
 
 This Terraform module deploys a PostGraphile server on AWS Lambda, accessible via the custom domain `mart.prod.umccr.org`. The server automatically introspects the configured PostgreSQL schema, as defined in the `main.tf` locals and variables.
 
-The module exposes a `db_name` variable to specify the target database name for the Lambda function to connect to, using the provided user credentials.
+The module exposes a `db_name` variable to specify the target database name for the Lambda function to connect to, using
+the provided user credentials.
+
+## GraphiQL
+
+The GraphiQL endpoint is available at `/graphiql` (e.g., [`https://mart.prod.umccr.org/graphiql`](https://mart.prod.umccr.org/graphiql)).  
+To use GraphiQL, you must set the Authorization header with your JWT token.
+
+**How to set up GraphiQL authentication:**
+
+1. Click the "Headers" tab or section.
+2. Add the following JSON to set your Authorization header:
+
+    ```json
+    {
+      "Authorization": "Bearer YOUR_JWT_TOKEN"
+    }
+    ```
+
+    Replace `YOUR_JWT_TOKEN` with your actual token.
+
+3. Hit the refresh button (double circular arrow) near the bottom left
+
+![GraphiQL API Setup](./docs/setup-graphiql.png)
 
 ## Deployment
 
