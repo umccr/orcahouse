@@ -12,3 +12,9 @@ variable "secret_name" {
 	description = "Name of the secret that will hold the DB credentials"
 	type = string
 }
+
+variable "pw_exclude_chars" {
+	description = "value"
+	type = string
+	default = "\"#$%&'()*+,-./:;<=>?[\\]^_`{|}~."
+}

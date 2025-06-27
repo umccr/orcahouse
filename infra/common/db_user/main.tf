@@ -25,7 +25,7 @@ data "aws_serverlessapplicationrepository_application" "this" {
 # Generate a random password
 data "aws_secretsmanager_random_password" "this" {
   password_length    = 50
-  exclude_characters = "\"#$%&'()*+,-./:;<=>?[\\]^_`{|}~."
+  exclude_characters = var.pw_exclude_chars
 }
 
 # load the actual DB username from SSM parameter store
@@ -57,6 +57,7 @@ resource "aws_serverlessapplicationrepository_cloudformation_stack" "this" {
     functionName        = var.rotation_app_name
     vpcSubnetIds        = join(",", sort(module.config.main_vpc_private_subnet_ids))
     vpcSecurityGroupIds = join(",", sort([module.config.orcahouse_db_sg_id[terraform.workspace]]))
+    excludeCharacters   = var.pw_exclude_chars
   }
 
   # NOTE: _pinned dependency_
