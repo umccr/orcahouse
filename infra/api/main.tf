@@ -33,20 +33,6 @@ provider "aws" {
   }
 }
 
-# provider "aws" {
-#   alias  = "use1" # US-East-1
-#   region = "us-east-1"
-
-#   default_tags {
-#     tags = {
-#       "umccr-org:Product" = "OrcaHouse"
-#       "umccr-org:Creator" = "Terraform"
-#       "umccr-org:Service" = "OrcaHouse"
-#       "umccr-org:Source"  = "https://github.com/umccr/orcahouse"
-#     }
-#   }
-# }
-
 
 # ------------------------------------------------------------------------------
 # Data Sources
@@ -248,13 +234,13 @@ resource "aws_apigatewayv2_integration" "lambda_server_integration" {
 
 resource "aws_apigatewayv2_route" "get_handler" {
   api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /{PROXY+}"
+  route_key = "GET /graphiql"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_server_integration.id}"
 }
 
 resource "aws_apigatewayv2_route" "post_handler" {
   api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /{PROXY+}"
+  route_key = "POST /graphql"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_server_integration.id}"
 
   authorization_type = "JWT"
