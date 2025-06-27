@@ -21,7 +21,7 @@ To use GraphiQL, you must set the Authorization header with your JWT token.
     }
     ```
 
-    Replace `YOUR_JWT_TOKEN` with your actual token.
+    Replace `YOUR_JWT_TOKEN` with your actual token from `orcaui.umccr.org`.
 
 3. Hit the refresh button (double circular arrow) near the bottom left
 
