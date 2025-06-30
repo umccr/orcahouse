@@ -62,7 +62,7 @@ locals {
   list_resolver_file_path = "./resolvers/list.js"
 
   rds_cluster_arn = "arn:aws:rds:ap-southeast-2:472057503814:cluster:orcahouse-db"
-  rds_secret_arn  = "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-bT5oGK" # pragma: allowlist secret
+  rds_secret_arn  = "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-rfopB6" # pragma: allowlist secret
 }
 
 # ------------------------------------------------------------------------------
