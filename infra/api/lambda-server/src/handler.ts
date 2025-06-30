@@ -25,6 +25,11 @@ exports.handler = async (event: any, context: any) => {
     throw new Error("DATABASE_NAME environment variable is not set");
   }
 
+  // Although the config for graphqlOverGET is set to false in the postgraphile config,
+  // we will ensure that the event does not contain any query string parameters
+  event["rawQueryString"] = "";
+  event["queryStringParameters"] = {};
+
   const secretString = await getSecretManagerValue();
   const secretJson = JSON.parse(secretString);
   const dbConnectionString = constructDatabaseConnectionString({

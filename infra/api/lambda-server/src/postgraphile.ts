@@ -49,6 +49,8 @@ export async function createApp({
     grafserv: {
       graphqlPath: "/graphql",
       graphiqlPath: "/graphiql",
+      // Disable GraphQL over GET requests
+      // This query params is also removed in the handler.ts
       graphqlOverGET: false,
       graphiql: true,
       // Recommended to set maxRequestLength to prevent DoS attacks (postgraphile docs)

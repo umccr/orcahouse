@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "ts-node src/local.ts",
+    "start": "cross-env GRAPHILE_ENV=development ts-node src/local.ts",
     "prebuild": "rm -rf dist",
     "build": "esbuild src/handler.ts --bundle --minify --sourcemap --platform=node --target=es2020 --outfile=dist/index.js",
     "postbuild": "cd dist && zip -r index.zip index.js*"
@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.150",
+    "cross-env": "^7.0.3",
     "esbuild": "^0.25.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
