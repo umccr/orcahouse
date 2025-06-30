@@ -1,0 +1,35 @@
+{
+  "name": "lambda-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "cross-env GRAPHILE_ENV=development ts-node src/local.ts",
+    "prebuild": "rm -rf dist",
+    "build": "esbuild src/handler.ts --bundle --minify --sourcemap --platform=node --target=es2020 --outfile=dist/index.js",
+    "postbuild": "cd dist && zip -r index.zip index.js*"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@10.6.2",
+  "dependencies": {
+    "@dataplan/json": "0.0.1-beta.31",
+    "@dataplan/pg": "0.0.1-beta.33",
+    "@fastify/aws-lambda": "^5.1.4",
+    "fastify": "4",
+    "graphile-build": "5.0.0-beta.34",
+    "graphile-build-pg": "5.0.0-beta.40",
+    "pg-sql2": "^5.0.0-beta.9",
+    "postgraphile": "5.0.0-beta.42",
+    "postgraphile-plugin-connection-filter": "3.0.0-beta.8"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.150",
+    "cross-env": "^7.0.3",
+    "esbuild": "^0.25.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
