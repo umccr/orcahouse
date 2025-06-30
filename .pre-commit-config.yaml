@@ -21,4 +21,4 @@ repos:
       - id: detect-secrets
         name: detect secrets
         args: [ '--baseline', '.secrets.baseline' ]
-        exclude: ^(.venv/|.local/|.terraform/|terraform.tfstate.d/|dbt_packages/|logs/)|package-lock.yml
+        exclude: ^(.venv/|.local/|.terraform/|terraform.tfstate.d/|dbt_packages/|logs/)|package-lock.yml|pnpm-lock.yaml
