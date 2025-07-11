@@ -35,12 +35,29 @@ export async function createApp({
         ignoreRBAC: true,
         disableDefaultMutations: true,
         simpleCollections: "omit",
+        graphileBuildOptions: {
+          // https://github.com/graphile-contrib/postgraphile-plugin-connection-filter#plugin-options
+          connectionFilterAllowedOperators: [
+            "isNull",
+            "equalTo",
+            "notEqualTo",
+            "greaterThan",
+            "lessThan",
+            "greaterThanOrEqualTo",
+            "lessThanOrEqualTo",
+          ],
+          connectionFilterArrays: false,
+          connectionFilterComputedColumns: false,
+          connectionFilterLogicalOperators: true,
+          connectionFilterAllowNullInput: false,
+          connectionFilterAllowEmptyObjectInput: false,
+        },
       }),
     ],
     pgServices: [
       makePgService({
         connectionString: databaseConnectionString,
-        schemas: ["mart"],
+        schemas: [process.env.SCHEMA_NAME || "public"],
       }),
     ],
     grafast: {

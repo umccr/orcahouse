@@ -84,6 +84,11 @@ variable "db_name" {
   type        = string
 }
 
+variable "schema_name" {
+  description = "The schema name to introspect in the database"
+  type        = string
+}
+
 # ------------------------------------------------------------------------------
 # Locals
 # ------------------------------------------------------------------------------
@@ -93,7 +98,8 @@ locals {
   mart_domain = "mart.prod.umccr.org"
 
   rds_secret_arn = "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-rfopB6" # pragma: allowlist secret
-  function_name = "orcahouse-api-${var.db_name}"
+  function_name  = "orcahouse-api-${var.db_name}"
+  schema_name    = var.schema_name
 
   orcahouse_db_sg_id = {
     dev  = "sg-03abb47eba799e044"
@@ -134,6 +140,7 @@ resource "aws_lambda_function" "api" {
       DATABASE_NAME = var.db_name
       GRAPHILE_ENV  = "production"
       SECRET_ARN    = local.rds_secret_arn
+      SCHEMA_NAME   = local.schema_name
     }
   }
 
@@ -211,6 +218,21 @@ resource "aws_iam_role_policy_attachment" "lambda_secret_access" {
 resource "aws_apigatewayv2_api" "http_api" {
   name          = "orcahouse-${var.db_name}"
   protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_headers = [
+      "content-type",
+      "content-disposition",
+      "authorization",
+      "x-amz-date",
+      "x-api-key",
+      "x-amz-security-token",
+      "x-amz-user-agent",
+    ]
+    allow_methods = ["GET", "POST", "OPTIONS"]
+    allow_origins = ["https://orcaui.umccr.org", "https://orcaui.prod.umccr.org"]
+    max_age = 86400
+  }
 }
 
 resource "aws_apigatewayv2_authorizer" "data_portal" {
@@ -287,7 +309,7 @@ resource "aws_route53_record" "mart_domain_record" {
   zone_id = data.aws_ssm_parameter.hosted_zone_id.value
   name    = local.mart_domain
   type    = "A"
-  
+
   alias {
     name                   = aws_apigatewayv2_domain_name.mart_domain_name.domain_name_configuration[0].target_domain_name
     zone_id                = aws_apigatewayv2_domain_name.mart_domain_name.domain_name_configuration[0].hosted_zone_id
