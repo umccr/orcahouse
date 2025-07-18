@@ -1,7 +1,0 @@
-{
-  "rdsDataApiConfig": {
-    "databaseName": "orcavault",
-    "resourceArn": "arn:aws:rds:ap-southeast-2:472057503814:cluster:orcahouse-db",
-    "secretArn": "arn:aws:secretsmanager:ap-southeast-2:472057503814:secret:orcahouse/dbuser_ro-bT5oGK"
-  }
-}
