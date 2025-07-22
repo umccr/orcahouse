@@ -1,4 +1,4 @@
-.PHONY: build
+.PHONY: build logs
 
 build:
 	@(cd docker && bash build.sh)
