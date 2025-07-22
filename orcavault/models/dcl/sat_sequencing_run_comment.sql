@@ -17,7 +17,7 @@ with source as (
         cmt.is_deleted as is_deleted,
         cmt.comment as comment
     from {{ source('ods', 'sequence_run_manager_sequence') }} seq
-        join {{ source('ods', 'sequence_run_manager_comment') }} cmt on cmt.association_id = seq.orcabus_id
+        join {{ source('ods', 'sequence_run_manager_comment') }} cmt on cmt.target_id = seq.orcabus_id
     {% if is_incremental() %}
     where
         cast(cmt.created_at as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )

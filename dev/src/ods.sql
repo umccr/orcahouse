@@ -72,18 +72,18 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.workflow_manager_libraryassociation
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_sequence
 (
-    orcabus_id        varchar(26)              not null primary key,
+    orcabus_id        varchar(26)  not null primary key,
     instrument_run_id varchar(255),
-    run_volume_name   text                     not null,
+    run_volume_name   text,
     run_folder_path   text,
-    run_data_uri      text                     not null,
-    status            varchar(255)             not null,
-    start_time        timestamp with time zone not null,
+    run_data_uri      text,
+    status            varchar(255),
+    start_time        timestamp with time zone,
     end_time          timestamp with time zone,
     reagent_barcode   varchar(255),
     flowcell_barcode  varchar(255),
-    sample_sheet_name varchar(255)             not null,
-    sequence_run_id   varchar(255)             not null,
+    sample_sheet_name varchar(255) not null,
+    sequence_run_id   varchar(255) not null,
     sequence_run_name varchar(255),
     v1pre3_id         varchar(255),
     ica_project_id    varchar(255),
@@ -121,13 +121,14 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_libraryassociation
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_comment
 (
-    orcabus_id     varchar(26)              not null primary key,
-    comment        text                     not null,
-    association_id varchar(26)              not null,
-    created_at     timestamp with time zone not null,
-    created_by     varchar(255)             not null,
-    updated_at     timestamp with time zone not null,
-    is_deleted     boolean                  not null
+    orcabus_id  varchar(26)              not null primary key,
+    comment     text                     not null,
+    target_id   varchar(26)              not null,
+    created_at  timestamp with time zone not null,
+    created_by  varchar(255)             not null,
+    updated_at  timestamp with time zone not null,
+    is_deleted  boolean                  not null,
+    target_type varchar(255)             not null
 );
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.metadata_manager_library
