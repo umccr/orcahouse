@@ -42,7 +42,7 @@ locals {
   }
 
   orcahouse_staging_bucket = {
-    dev  = ""
+    dev  = "orcahouse-staging-data-843407916570"
     prod = "orcahouse-staging-data-472057503814"
     stg  = ""
   }
