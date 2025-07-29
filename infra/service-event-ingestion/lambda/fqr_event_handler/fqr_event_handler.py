@@ -14,7 +14,7 @@ DB_SECRET_NAME = os.environ["DB_SECRET_NAME"]
 DB_SCHEMA = "psa"
 TABLE_NAME = "event__fastq_list_row_state_change"
 TABLE = f"{DB_SCHEMA}.{TABLE_NAME}"
-DETAIL_TYPE = "FastqListRowStateChange"
+DETAIL_TYPE = "FastqStateChange"
 EVENT_SOURCE = "orcabus.fastqmanager"
 RECORD_SOURCE = f"{EVENT_SOURCE}:{DETAIL_TYPE}"
 
@@ -50,11 +50,11 @@ def parse_event(event):
     # Parse the event and extract the FQR code
     # This is a placeholder function and should be implemented based on the actual event structure
     """
-    Example FastqListRowStateChange event:
+    Example FastqStateChange event:
     {
         "version": "0",
         "id": "8ab8bc9e-aa0a-4bdd-4aa3-b16031df2205",
-        "detail-type": "FastqListRowStateChange",
+        "detail-type": "FastqStateChange",
         "source": "orcabus.fastqmanager",
         "account": "843407916570",
         "time": "2025-04-15T23:40:29Z",

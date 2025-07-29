@@ -18,7 +18,7 @@ module "fqr_sc" {
 
   event_pattern = {
     detail-type = [
-      "FastqListRowStateChange"
+      "FastqStateChange"
     ],
     source = [
       "orcabus.fastqmanager"
