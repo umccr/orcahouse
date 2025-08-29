@@ -28,18 +28,16 @@ provider "aws" {
   }
 }
 
+module "config" {
+  source = "../common/config"
+}
+
 locals {
   stack_name = "orcahouse"
 
   sorted_private_subnets = sort(data.aws_subnets.private_subnets_ids.ids)
 
   selected_private_subnet_id = local.sorted_private_subnets[0]
-
-  orcahouse_db_sg_id = {
-    dev  = ""
-    prod = "sg-013b6e66086adc6a6"
-    stg  = ""
-  }
 
   orcahouse_staging_bucket = {
     dev  = "orcahouse-staging-data-843407916570"

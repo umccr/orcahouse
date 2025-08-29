@@ -32,15 +32,11 @@ locals {
   stack_name = "orcahouse"
 }
 
-# ---
-
-variable "orcahouse_rds_sg_id" {
-  default = {
-    dev  = ""
-    prod = "sg-013b6e66086adc6a6"
-    stg  = ""
-  }
+module "config" {
+  source = "../common/config"
 }
+
+# ---
 
 variable "orcabus_compute_sg_id" {
   default = {
@@ -134,7 +130,7 @@ resource "aws_instance" "mgmt" {
   vpc_security_group_ids = [
     data.aws_security_group.main_vpc_sg_ssh_from_eice.id,
     data.aws_security_group.main_vpc_sg_outbound.id,
-    var.orcahouse_rds_sg_id[terraform.workspace],
+    module.config.orcahouse_db_sg_id[terraform.workspace],
     var.orcabus_compute_sg_id[terraform.workspace],
   ]
 

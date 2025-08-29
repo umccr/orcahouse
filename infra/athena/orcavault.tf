@@ -16,7 +16,7 @@ resource "aws_serverlessapplicationrepository_cloudformation_stack" "orcavault" 
     LambdaFunctionName      = local.catalog_name
     SecretNamePrefix        = data.aws_secretsmanager_secret.ro.name
     SpillBucket             = data.aws_s3_bucket.staging_data.bucket
-    SecurityGroupIds        = local.orcahouse_db_sg_id[terraform.workspace]
+    SecurityGroupIds        = module.config.orcahouse_db_sg_id[terraform.workspace],
 
     SubnetIds = join(",", data.aws_subnets.private_subnets_ids.ids)
   }

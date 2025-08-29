@@ -58,7 +58,7 @@ data "aws_subnets" "database_subnets_ids" {
 
 variable "orcabus_compute_sg_id" {
   default = {
-    dev  = ""
+    dev  = "sg-03abb47eba799e044"
     prod = "sg-02e363a39220c955f"
     stg  = ""
   }
