@@ -68,6 +68,7 @@ resource "aws_glue_job" "spreadsheet_library_tracking_metadata" {
     "--job-language" = "python"
     "--python-modules-installer-option" = "-r"
     "--additional-python-modules" = "s3://${data.aws_s3_bucket.glue_script_bucket.bucket}/${aws_s3_object.requirements_txt.key}"
+    "--bucket" = data.aws_s3_bucket.glue_script_bucket.bucket
   }
 }
 
@@ -116,6 +117,7 @@ resource "aws_glue_job" "spreadsheet_google_lims" {
     "--job-language" = "python"
     "--python-modules-installer-option" = "-r"
     "--additional-python-modules" = "s3://${data.aws_s3_bucket.glue_script_bucket.bucket}/${aws_s3_object.requirements_txt.key}"
+    "--bucket" = data.aws_s3_bucket.glue_script_bucket.bucket
   }
 }
 

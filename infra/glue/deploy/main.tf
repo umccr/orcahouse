@@ -36,11 +36,12 @@ locals {
   selected_private_subnet_id = local.sorted_private_subnets[0]
 
   orcahouse_db_sg_id = {
-    dev  = ""
+    dev  = "sg-000a9854f4f3e564e"
     prod = "sg-013b6e66086adc6a6"
     stg  = ""
   }
 
+  # These buckets are manually created and managed via AWS Console
   orcahouse_staging_bucket = {
     dev  = "orcahouse-staging-data-843407916570"
     prod = "orcahouse-staging-data-472057503814"
