@@ -1,5 +1,13 @@
 # Glue
 
+<!-- TOC -->
+* [Glue](#glue)
+  * [Local Development](#local-development)
+  * [Deploy](#deploy)
+  * [Run](#run)
+  * [Query](#query)
+<!-- TOC -->
+
 We use AWS Glue to drive all structure/semi-structure data from sources into warehouse staging layer.
 
 ## Local Development
@@ -45,26 +53,32 @@ cd deploy
 ```
 
 ```
-terraform workspace list
-  default
-* prod
+export AWS_PROFILE=umccr-dev-admin
 ```
 
 ```
-export AWS_PROFILE=umccr-prod-admin && terraform workspace select prod && terraform plan
+terraform workspace list
+  default
+* dev
+  prod
+```
+
+```
+export AWS_PROFILE=umccr-dev-admin && terraform workspace select dev && terraform plan
 terraform apply
 ```
 
 ## Run
 
 ```
-export AWS_PROFILE=umccr-prod-admin
+export AWS_PROFILE=umccr-dev-admin
 ```
 
 ```
 aws glue list-jobs
 {
     "JobNames": [
+        "orcahouse-spreadsheet-google-lims-job",
         "orcahouse-spreadsheet-library-tracking-metadata-job"
     ]
 }
@@ -73,30 +87,29 @@ aws glue list-jobs
 ```
 aws glue start-job-run --job-name orcahouse-spreadsheet-library-tracking-metadata-job
 {
-    "JobRunId": "jr_ec42af440ad35b948b2af17b88459a31a2248275f464c6a353638349f9d178d1"
+    "JobRunId": "jr_c2038f07ebe8dde73da0c9d2fdef2b14a9ff64fe90a29ac244e76464d52bebe1"
 }
 ```
 
 ```
-aws glue get-job-run --job-name orcahouse-spreadsheet-library-tracking-metadata-job --run-id jr_ec42af440ad35b948b2af17b88459a31a2248275f464c6a353638349f9d178d1
+aws glue get-job-run --job-name orcahouse-spreadsheet-library-tracking-metadata-job --run-id jr_c2038f07ebe8dde73da0c9d2fdef2b14a9ff64fe90a29ac244e76464d52bebe1
 {
     "JobRun": {
-        "Id": "jr_ec42af440ad35b948b2af17b88459a31a2248275f464c6a353638349f9d178d1",
+        "Id": "jr_c2038f07ebe8dde73da0c9d2fdef2b14a9ff64fe90a29ac244e76464d52bebe1",
         "Attempt": 0,
         "JobName": "orcahouse-spreadsheet-library-tracking-metadata-job",
         "JobMode": "SCRIPT",
         "JobRunQueuingEnabled": false,
-        "StartedOn": "2025-01-11T17:12:49.739000+11:00",
-        "LastModifiedOn": "2025-01-11T17:14:48.111000+11:00",
-        "CompletedOn": "2025-01-11T17:14:48.111000+11:00",
-        "JobRunState": "SUCCEEDED",
+        "StartedOn": "2025-09-03T14:15:09.917000+10:00",
+        "LastModifiedOn": "2025-09-03T14:15:13.843000+10:00",
+        "JobRunState": "RUNNING",
         "PredecessorRuns": [],
-        "AllocatedCapacity": 1,
-        "ExecutionTime": 106,
+        "AllocatedCapacity": 2,
+        "ExecutionTime": 0,
         "Timeout": 15,
-        "MaxCapacity": 1.0,
-        "WorkerType": "Standard",
-        "NumberOfWorkers": 1,
+        "MaxCapacity": 2.0,
+        "WorkerType": "G.1X",
+        "NumberOfWorkers": 2,
         "LogGroupName": "/aws-glue/jobs",
         "GlueVersion": "5.0"
     }
@@ -104,3 +117,13 @@ aws glue get-job-run --job-name orcahouse-spreadsheet-library-tracking-metadata-
 ```
 
 Or, use UI AWS Glue Console.
+
+
+## Query
+
+You can query via [OrcaHouse Athena](https://github.com/umccr/orcahouse-doc/tree/main/athena) (only in DEV) or via [db tunnel setup](../ec2/README.md) for TSA schema tables.  
+
+```sql
+select * from tsa.spreadsheet_library_tracking_metadata;
+select * from tsa.spreadsheet_google_lims;
+```

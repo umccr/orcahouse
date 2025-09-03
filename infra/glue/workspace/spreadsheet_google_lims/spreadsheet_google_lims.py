@@ -29,7 +29,6 @@ OUT_NAME_DOT = f"{DB_NAME}.{SCHEMA_NAME}.{BASE_NAME}"
 OUT_NAME = f"{DB_NAME}_{SCHEMA_NAME}_{BASE_NAME}"
 OUT_PATH = f"/tmp/{OUT_NAME}"
 
-S3_BUCKET = "orcahouse-staging-data-472057503814"
 S3_MID_PATH = f"glue/{BASE_NAME}"
 
 REGION_NAME = "ap-southeast-2"
@@ -148,7 +147,7 @@ def transform():
     print(sql_schema)
 
 
-def load(spark: SparkSession):
+def load(spark: SparkSession, s3_bucket_name: str):
     # load staging data from the temporary location by naming convention
     csv_file, sql_file = f"{OUT_PATH}.csv", f"{OUT_PATH}.sql"
 
@@ -161,8 +160,8 @@ def load(spark: SparkSession):
 
     s3_client = libs3.s3_client()
 
-    s3_client.upload_file(csv_file, S3_BUCKET, csv_s3_object_name)
-    s3_client.upload_file(sql_file, S3_BUCKET, sql_s3_object_name)
+    s3_client.upload_file(csv_file, s3_bucket_name, csv_s3_object_name)
+    s3_client.upload_file(sql_file, s3_bucket_name, sql_s3_object_name)
 
     # load data into database
 
@@ -180,7 +179,6 @@ def load(spark: SparkSession):
 
         jdbc_url = f"jdbc:postgresql://{db_host}:{db_port}/{db_name}"
         table_name = f"{SCHEMA_NAME}.{BASE_NAME}"
-        bucket_name = S3_BUCKET
         csv_file_path = csv_s3_object_name
 
         # truncate the table
@@ -204,7 +202,7 @@ def load(spark: SparkSession):
                 '{table_name}',
                 '',
                 '(FORMAT csv, HEADER true, DELIMITER ",")',
-                '{bucket_name}',
+                '{s3_bucket_name}',
                 '{csv_file_path}',
                 '{REGION_NAME}'
             )
@@ -234,13 +232,18 @@ def clean_up():
 class GlueGoogleLIMS(Job):
     def __init__(self, glue_context):
         super().__init__(glue_context)
-        params = []
+
+        # Pass-in parameters
+        params = ['bucket']
+
         if '--JOB_NAME' in sys.argv:
             params.append('JOB_NAME')
         args = getResolvedOptions(sys.argv, params)
 
         self.job = Job(glue_context)
         self.spark: SparkSession = glue_context.spark_session
+
+        self.s3_bucket_name = args['bucket']
 
         if 'JOB_NAME' in args:
             job_name = args['JOB_NAME']
@@ -254,7 +257,7 @@ class GlueGoogleLIMS(Job):
 
         transform()
 
-        load(self.spark)
+        load(self.spark, self.s3_bucket_name)
 
         clean_up()
 
