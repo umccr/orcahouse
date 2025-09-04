@@ -16,3 +16,6 @@ models:
 
   - name: workflow
     description: Listing of Centre genomic sequencing analysis workflow run details in flat table model.
+
+  - name: accreditation_lims
+    description: Listing of Centre genomic sequencing Accreditation LIMS metadata in flat table model.
