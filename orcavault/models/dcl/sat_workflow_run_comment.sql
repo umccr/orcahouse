@@ -20,7 +20,7 @@ with source as (
         join {{ source('ods', 'workflow_manager_workflowruncomment') }} cmt on cmt.workflow_run_id = wfr.orcabus_id
     {% if is_incremental() %}
     where
-        cast(cmt.created_at as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
+        cast(cmt.created_at as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ ref('hub_workflow_run') }} )
     {% endif %}
 
 ),
