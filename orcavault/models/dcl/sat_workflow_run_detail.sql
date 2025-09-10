@@ -33,7 +33,7 @@ with source as (
         full join {{ source('ods', 'workflow_manager_payload') }} pld on pld.orcabus_id = stt.payload_id
     {% if is_incremental() %}
     where
-        cast(stt.timestamp as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
+        cast(stt.timestamp as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ ref('hub_workflow_run') }} )
     {% endif %}
 
 ),
