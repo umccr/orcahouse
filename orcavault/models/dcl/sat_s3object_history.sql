@@ -23,7 +23,7 @@ with source as (
         {{ source('ods', 'file_manager_s3_object') }}
     {% if is_incremental() %}
     where
-        cast(event_time as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ ref('hub_s3object') }} )
+        cast(event_time as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
     {% endif %}
 
 ),
