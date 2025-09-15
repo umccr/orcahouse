@@ -28,7 +28,7 @@ with transformed as (
         (regexp_match(hub.key, '(?<=byob-icav2\/).+?(?=\/)'))[1] as cohort_id,
         hub.bucket as bucket,
         hub.key as "key",
-        (regexp_match(sat.filename, '(?:L\d{7}|L(?:PRJ|CCR|MDX|TGX)\d{6}|Undetermined)'))[1] as library_id,
+        (regexp_match(hub.key, '(?:L\d{7}|L(?:PRJ|CCR|MDX|TGX)\d{6}|Undetermined)'))[1] as library_id,
         sat.filename as filename,
         sat.ext1 as format,
         cur.size as "size",
