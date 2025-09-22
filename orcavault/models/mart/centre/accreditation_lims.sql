@@ -357,6 +357,16 @@ control_somatic as (
 
 ),
 
+control_somatic_external as (
+
+    select
+        *, 'control_somatic' as label
+    from
+        {{ ref('external_lims') }}
+    where
+        library_id in ('LTGX240001', 'LTGX240002')
+
+),
 
 ptc_list as (
 
@@ -406,6 +416,8 @@ transformed as (
         union all 
     select * from control_somatic
         union all 
+    select * from control_somatic_external
+        union all
     select * from ptc_list
     
 ),
