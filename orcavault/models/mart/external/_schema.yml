@@ -1,0 +1,6 @@
+version: 2
+
+models:
+
+  - name: external_lims
+    description: Listing of externally sequenced LIMS metadata in flat table model
