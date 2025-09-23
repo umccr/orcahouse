@@ -49,6 +49,7 @@ final as (
         cast(sequencing_run_id as varchar(255)) as sequencing_run_id,
         cast(sequencing_run_date as date) as sequencing_run_date,
         cast(library_id as varchar(255)) as library_id,
+        cast(alias_library_id as varchar(255)) as alias_library_id,
         cast(internal_subject_id as varchar(255)) as internal_subject_id,
         cast(external_subject_id as varchar(255)) as external_subject_id,
         cast(sample_id as varchar(255)) as sample_id,

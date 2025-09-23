@@ -35,7 +35,7 @@ with transformed as (
         and assay is not null
         and assay not like '%10X%'
         and assay not in ('BM-5L', 'BM-6L', 'CRISPR', 'MeDIP', 'Takara')
-        and workflow in ('research', 'clinical', 'control', 'manual')
+        and workflow in ('research', 'clinical', 'control', 'manual', 'germline only')
 ),
 
 final as (
@@ -44,6 +44,7 @@ final as (
         cast(sequencing_run_id as varchar(255)) as sequencing_run_id,
         cast(sequencing_run_date as date) as sequencing_run_date,
         cast(library_id as varchar(255)) as library_id,
+        cast(alias_library_id as varchar(255)) as alias_library_id,
         cast(internal_subject_id as varchar(255)) as internal_subject_id,
         cast(external_subject_id as varchar(255)) as external_subject_id,
         cast(sample_id as varchar(255)) as sample_id,
