@@ -1,0 +1,9 @@
+version: 2
+
+models:
+
+  - name: em_library_services
+    description: Listing of the Centre sequenced libray availability in OrcaBus services
+
+  - name: em_library_aliases
+    description: Listing of the Centre sequenced libray aliases with run comments by lab team
