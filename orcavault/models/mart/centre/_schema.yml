@@ -2,20 +2,23 @@ version: 2
 
 models:
 
+  - name: catalog
+    description: Data mart table catalog
+
   - name: lims
-    description: Listing of Centre genomic sequencing LIMS metadata in flat table model.
+    description: Listing of the Centre genomic sequencing LIMS metadata in flat table model
 
   - name: fastq
-    description: Listing of Centre genomic sequencing unaligned read level file FASTQ S3 locations in flat table model.
+    description: Listing of the Centre genomic sequencing unaligned read level file FASTQ S3 locations in flat table model
 
   - name: fastq_history
-    description: Listing of Centre genomic sequencing unaligned read level file FASTQ S3 historical locations.
+    description: Listing of the Centre genomic sequencing unaligned read level file FASTQ S3 historical locations.
 
   - name: bam
-    description: Listing of Centre genomic sequencing aligned read level file BAM and BAI S3 locations in flat table model.
+    description: Listing of the Centre genomic sequencing aligned read level file BAM and BAI S3 locations in flat table model
 
   - name: workflow
-    description: Listing of Centre genomic sequencing analysis workflow run details in flat table model.
+    description: Listing of the Centre genomic sequencing analysis workflow run details in flat table model
 
   - name: accreditation_lims
-    description: Listing of Centre genomic sequencing Accreditation LIMS metadata in flat table model.
+    description: Listing of the Centre genomic sequencing Accreditation LIMS metadata in flat table model

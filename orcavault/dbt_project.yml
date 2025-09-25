@@ -27,3 +27,7 @@ models:
     mart:
       +schema: mart
       +materialized: table
+
+seeds:
+  orcavault:
+    +schema: dcl

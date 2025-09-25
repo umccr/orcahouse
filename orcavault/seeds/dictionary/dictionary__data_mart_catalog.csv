@@ -1,0 +1,16 @@
+table_name,table_description,table_remark
+lims,Listing of the Centre genomic sequencing LIMS metadata in flat table model,STABLE
+fastq,Listing of the Centre genomic sequencing unaligned read level file FASTQ S3 locations in flat table model,STABLE
+fastq_history,Listing of the Centre genomic sequencing unaligned read level file FASTQ S3 historical locations,STABLE
+bam,Listing of the Centre genomic sequencing aligned read level file BAM and BAI S3 locations in flat table model,STABLE
+workflow,Listing of the Centre genomic sequencing analysis workflow run details in flat table model,STABLE
+accreditation_lims,Listing of the Centre genomic sequencing Accreditation LIMS metadata in flat table model,STABLE
+external_lims,Listing of the Externally sequenced LIMS metadata in flat table model,STABLE
+em_library_services,Listing of the Centre sequenced libray availability in OrcaBus services,STABLE
+em_library_aliases,Listing of the Centre sequenced libray aliases with run comments by lab team,STABLE
+curation_lims,Listing of the Centre Curation Team LIMS metadata in flat table model,DEMO
+grimmond_lims,Listing of Grimmond Research Group LIMS metadata in flat table model,DEMO
+dawson_lims,Listing of Dawson Research Group LIMS metadata in flat table model,DEMO
+dawson_fastq,Listing of Dawson Research Group primary read level FASTQ S3 locations in flat table model,DEMO
+tothill_lims,Listing of Tothill Research Group LIMS metadata in flat table model,DEMO
+tothill_fastq,Listing of Tothill Research Group primary read level FASTQ S3 locations in flat table model,DEMO
