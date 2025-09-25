@@ -30,6 +30,7 @@ dbt debug
 dbt clean
 dbt deps
 dbt build
+dbt seed
 dbt run
 ```
 
@@ -59,6 +60,7 @@ Next. Run `dbt` transformation.
 ```
 dbt test
 dbt build
+dbt seed
 dbt run
 ```
 
@@ -68,6 +70,7 @@ If you would like to reload from the start, then do like so.
 
 ```
 make reload
+dbt seed
 dbt run
 ```
 

@@ -1,0 +1,10 @@
+version: 2
+
+seeds:
+
+  - name: dictionary__data_mart_catalog
+    config:
+      column_types:
+        table_name: varchar
+        table_description: varchar
+        table_remark: varchar
