@@ -19,7 +19,7 @@ data "aws_secretsmanager_secret_version" "db_secret_current" {
 # IAM Policy allowing access to Secrets Manager secret
 resource "aws_iam_policy" "db_secret_access" {
   name_prefix = "${var.service_id}_DbSecretAccess"
-  path = var.iam_path
+  path        = var.iam_path
   description = "Policy to allow access to the DB secret in Secrets Manager"
 
   policy = jsonencode({
@@ -40,6 +40,11 @@ resource "aws_iam_policy" "db_secret_access" {
 ################################################################################
 # Lambda for Sequence Run Manager event handling
 
+# DLQ for ingest lambda
+resource "aws_sqs_queue" "dlq" {
+  name = "${var.lambda_function_name}_dlq"
+}
+
 # Create the actual Lambda function using a 3rd party module
 module "ingest_lambda" {
   source = "terraform-aws-modules/lambda/aws"
@@ -56,6 +61,8 @@ module "ingest_lambda" {
   environment_variables = {
     DB_SECRET_NAME = data.aws_secretsmanager_secret.db_secret.name
   }
+
+  dead_letter_target_arn = aws_sqs_queue.dlq.arn
 
   vpc_subnet_ids         = module.common.main_vpc_private_subnet_ids
   vpc_security_group_ids = [module.common.orcahouse_db_sg_id[terraform.workspace]]
@@ -132,7 +139,7 @@ resource "aws_iam_policy" "ingest_lambda_vpc_access_restriction" {
 }
 resource "aws_iam_role_policy_attachment" "ingest_lambda_vpc_access_restriction" {
   # role       = aws_iam_role.ingest_lambda_role.name
-  role = module.ingest_lambda.lambda_role_name
+  role       = module.ingest_lambda.lambda_role_name
   policy_arn = aws_iam_policy.ingest_lambda_vpc_access_restriction.arn
 }
 
@@ -194,15 +201,15 @@ resource "aws_cloudwatch_event_target" "ingest_lambda" {
   event_bus_name = module.common.orcabus_bus_name
   rule           = aws_cloudwatch_event_rule.ingest_event_ingestion.name
   # arn            = aws_lambda_function.ingest_event_handler.arn
-  arn            = module.ingest_lambda.lambda_function_arn
+  arn = module.ingest_lambda.lambda_function_arn
 
   # depends_on = [aws_lambda_function.ingest_event_handler, aws_cloudwatch_event_rule.ingest_event_ingestion]
   depends_on = [module.ingest_lambda, aws_cloudwatch_event_rule.ingest_event_ingestion]
 }
 
 resource "aws_lambda_permission" "ingest_event_allow_invoke" {
-  statement_id  = "AllowExecutionFromEventBridgeRule"
-  action        = "lambda:InvokeFunction"
+  statement_id = "AllowExecutionFromEventBridgeRule"
+  action       = "lambda:InvokeFunction"
   # function_name = aws_lambda_function.ingest_event_handler.function_name
   function_name = module.ingest_lambda.lambda_function_name
   principal     = "events.amazonaws.com"
