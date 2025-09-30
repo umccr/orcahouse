@@ -6,4 +6,7 @@ models:
     description: Listing of the Centre sequenced libray availability in OrcaBus services
 
   - name: em_library_aliases
-    description: Listing of the Centre sequenced libray aliases with run comments by lab team
+    description: Listing of the Centre sequenced libray aliases with run comments by the lab team
+
+  - name: em_library_dns
+    description: Listing of the Centre do not sequence (dns) libray with run comments by the lab team
