@@ -7,7 +7,8 @@ workflow,Listing of the Centre genomic sequencing analysis workflow run details 
 accreditation_lims,Listing of the Centre genomic sequencing Accreditation LIMS metadata in flat table model,STABLE
 external_lims,Listing of the Externally sequenced LIMS metadata in flat table model,STABLE
 em_library_services,Listing of the Centre sequenced libray availability in OrcaBus services,STABLE
-em_library_aliases,Listing of the Centre sequenced libray aliases with run comments by lab team,STABLE
+em_library_aliases,Listing of the Centre sequenced libray aliases with run comments by the lab team,STABLE
+em_library_dns,Listing of the Centre do not sequence (dns) libray with run comments by the lab team,STABLE
 curation_lims,Listing of the Centre Curation Team LIMS metadata in flat table model,DEMO
 grimmond_lims,Listing of Grimmond Research Group LIMS metadata in flat table model,DEMO
 dawson_lims,Listing of Dawson Research Group LIMS metadata in flat table model,DEMO
