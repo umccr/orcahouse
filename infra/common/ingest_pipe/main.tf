@@ -44,6 +44,25 @@ resource "aws_iam_policy" "db_secret_access" {
 resource "aws_sqs_queue" "dlq" {
   name = "${var.lambda_function_name}_dlq"
 }
+resource "aws_iam_policy" "dlq" {
+  name_prefix = "${var.lambda_function_name}_DLQAccess"
+  path        = var.iam_path
+  description = "Policy to allow ingest lambda to send messages to its DLQ"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:SendMessage"
+        ]
+        Resource = [aws_sqs_queue.dlq.arn]
+      }
+    ]
+  })
+}
+
 
 # Create the actual Lambda function using a 3rd party module
 module "ingest_lambda" {
@@ -97,6 +116,14 @@ resource "aws_iam_role_policy_attachment" "ingest_secrets_policy_attachment" {
   role       = module.ingest_lambda.lambda_role_name
   policy_arn = aws_iam_policy.db_secret_access.arn
 }
+
+# Attach a policy to the Lambda role to allow messages to be send to the DLQ
+resource "aws_iam_role_policy_attachment" "ingest_dlq_attachment" {
+  role       = module.ingest_lambda.lambda_role_name
+  policy_arn = aws_iam_policy.dlq.arn
+}
+
+
 # Attach VPC access policy 
 # TODO: handled by the lambda module
 # resource "aws_iam_role_policy_attachment" "ingest_lambda_vpc_access" {
