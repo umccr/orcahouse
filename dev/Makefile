@@ -55,4 +55,5 @@ next:
 	@docker compose exec -it postgres bash /tmp/next.sh
 
 sync:
-	@aws s3 sync s3://orcabus-test-data-843407916570-ap-southeast-2/orcavault/data/ data/
+	@rm -rf data/*.csv
+	@aws s3 sync s3://orcabus-dev-backup-843407916570-ap-southeast-2/orcavault/data/ data/

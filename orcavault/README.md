@@ -50,7 +50,10 @@ To this point, it is good enough to work with structural changes and transformat
 ```
 export AWS_PROFILE=umccr-dev-admin
 make sync
-make load next
+make down
+make up
+make all
+make load
 ```
 
 Now. Observe the tables from schema `ods` `tsa` and make some query. 
