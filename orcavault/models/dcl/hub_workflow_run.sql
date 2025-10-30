@@ -32,8 +32,8 @@ source2 as (
     select
         portal_run_id
     from {{ source('ods', 'workflow_manager_workflowrun') }} wfr
-        join {{ source('ods', 'workflow_manager_state') }} stt on stt.workflow_run_id = wfr.orcabus_id
     {% if is_incremental() %}
+        join {{ source('ods', 'workflow_manager_state') }} stt on stt.workflow_run_id = wfr.orcabus_id
     where
         cast(stt.timestamp as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
     {% endif %}
