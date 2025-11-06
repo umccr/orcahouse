@@ -29,16 +29,32 @@ with transformed as (
     from
         {{ ref('lims') }}
     where
-        owner_id = 'Tothill'
-        and project_id in (
-            select
-                distinct prj.project_id
-            from
-                {{ ref('hub_project') }} prj
-                    join {{ ref('link_project_ownership') }} lnk on prj.project_hk = lnk.project_hk
-                    join {{ ref('hub_owner') }} owner on lnk.owner_hk = owner.owner_hk
-            where
-                owner.owner_id = 'Tothill'
+        (
+            owner_id = 'Tothill'
+            and project_id in (
+                select
+                    distinct prj.project_id
+                from
+                    {{ ref('hub_project') }} prj
+                        join {{ ref('link_project_ownership') }} lnk on prj.project_hk = lnk.project_hk
+                        join {{ ref('hub_owner') }} owner on lnk.owner_hk = owner.owner_hk
+                where
+                    owner.owner_id = 'Tothill'
+            )
+        )
+        or lower(project_id) like '%tothill%'
+
+),
+
+related as (
+
+    select
+        *
+    from
+        {{ ref('lims') }}
+    where
+        library_id in (
+            select distinct library_id from transformed
         )
 
 ),
@@ -66,7 +82,7 @@ final as (
         cast(truseq_index as varchar(255)) as truseq_index,
         cast(load_datetime as timestamptz) as load_datetime
     from
-        transformed
+        related
     order by sequencing_run_date desc nulls last, library_id desc
 
 )
