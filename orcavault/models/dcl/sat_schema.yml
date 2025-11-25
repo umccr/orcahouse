@@ -555,6 +555,10 @@ models:
         data_type: varchar(255)
       - name: workflow_version
         data_type: varchar(255)
+      - name: workflow_code_version
+        data_type: varchar(255)
+      - name: workflow_validation_state
+        data_type: varchar(255)
       - name: workflow_execution_engine
         data_type: varchar(255)
       - name: workflow_execution_engine_pipeline_id
@@ -632,6 +636,10 @@ models:
       - name: workflow_name
         data_type: varchar(255)
       - name: workflow_version
+        data_type: varchar(255)
+      - name: workflow_code_version
+        data_type: varchar(255)
+      - name: workflow_validation_state
         data_type: varchar(255)
       - name: workflow_run_status
         data_type: varchar(255)
