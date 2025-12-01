@@ -12,10 +12,21 @@
     )
 }}
 
-with location1 as (
+with buckets as (
 
     select
-        (select 1) as source_location,
+        distinct bucket
+    from {{ ref('hub_s3object') }} hub
+            join {{ ref('sat_s3object_current') }} hist on hist.s3object_hk = hub.s3object_hk
+    where
+        hist.is_current = 1 and
+        hist.is_deleted = 0
+
+),
+
+location1 as (
+
+    select
         sat.portal_run_id as portal_run_id,
         hub.bucket as bucket,
         min(regexp_substr(hub.key, '.*\d{8}\w{8}\/')) as prefix,
@@ -24,6 +35,8 @@ with location1 as (
         join {{ ref('sat_s3object_by_run') }} sat on sat.s3object_hk = hub.s3object_hk
         join {{ ref('sat_s3object_current') }} hist on hist.s3object_hk = hub.s3object_hk
     where
+        hub.key ~*'(^v1|^byob-icav2/.*/(analysis|primary))/.*\d{8}\w{8}/' and
+        hub.key !~*'.*iap_xaccount_test.tmp' and
         hist.is_current = 1 and
         hist.is_deleted = 0
     group by sat.portal_run_id, hub.bucket
@@ -33,7 +46,6 @@ with location1 as (
 location2 as (
 
     select
-        (select 2) as source_location,
         sat.portal_run_id as portal_run_id,
         hub.bucket as bucket,
         min(regexp_substr(hub.key, '.*\d{8}\w{8}\/')) as prefix,
@@ -42,6 +54,7 @@ location2 as (
         join {{ ref('sat_s3object_by_run') }} sat on sat.s3object_hk = hub.s3object_hk
         join {{ ref('sat_s3object_portal') }} hist on hist.s3object_hk = hub.s3object_hk
     where
+        hub.bucket not in ( select distinct bucket from buckets ) and
         hist.is_deleted = 0
     group by sat.portal_run_id, hub.bucket
 
@@ -49,9 +62,7 @@ location2 as (
 
 merged as (
 
-    select *, row_number() over (partition by portal_run_id order by source_location) as source_rank from (
-        select * from location1 union all select * from location2
-    ) as t
+    select * from location1 union select * from location2
 
 ),
 
@@ -65,8 +76,6 @@ transformed as (
         key_count
     from
         merged
-    where
-        source_rank = 1
 
 ),
 
