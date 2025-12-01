@@ -15,6 +15,7 @@
 with location1 as (
 
     select
+        (select 1) as source_location,
         sat.portal_run_id as portal_run_id,
         hub.bucket as bucket,
         min(regexp_substr(hub.key, '.*\d{8}\w{8}\/')) as prefix,
@@ -32,6 +33,7 @@ with location1 as (
 location2 as (
 
     select
+        (select 2) as source_location,
         sat.portal_run_id as portal_run_id,
         hub.bucket as bucket,
         min(regexp_substr(hub.key, '.*\d{8}\w{8}\/')) as prefix,
@@ -47,7 +49,9 @@ location2 as (
 
 merged as (
 
-    select * from location1 union select * from location2
+    select *, row_number() over (partition by portal_run_id order by source_location) as source_rank from (
+        select * from location1 union all select * from location2
+    ) as t
 
 ),
 
@@ -61,6 +65,8 @@ transformed as (
         key_count
     from
         merged
+    where
+        source_rank = 1
 
 ),
 
