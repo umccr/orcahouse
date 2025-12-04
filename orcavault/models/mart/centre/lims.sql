@@ -128,7 +128,7 @@ transformed as (
     select
 
         sqr.sequencing_run_id as sequencing_run_id,
-        cast((regexp_match(sqr.sequencing_run_id, '(?:^)(\d{6})(?:_A\d{5}_\d{4}_[A-Z0-9]{10})'))[1] as date) as sequencing_run_date,
+        {{ extract_sequencing_run_date("sqr.sequencing_run_id") }} as sequencing_run_date,
         lib.library_id as original_library_id,
         int_sbj.internal_subject_id as internal_subject_id,
         ext_sbj.external_subject_id as external_subject_id,

@@ -23,7 +23,7 @@ with transformed as (
 
     select
         sat.sequencing_run_id as sequencing_run_id,
-        cast((regexp_match(sat.sequencing_run_id, '(?:^)(\d{6})(?:_A\d{5}_\d{4}_[A-Z0-9]{10})'))[1] as date) as sequencing_run_date,
+        {{ extract_sequencing_run_date("sat.sequencing_run_id") }} as sequencing_run_date,
         sat.portal_run_id as portal_run_id,
         (regexp_match(hub.key, '(?<=byob-icav2\/).+?(?=\/)'))[1] as cohort_id,
         hub.bucket as bucket,
