@@ -15,7 +15,7 @@ with transformed as (
         effsat.is_deleted as is_deleted,
         effsat.reason as reason,
         effsat.storage_class as storage_class,
-        (regexp_match(hub."key", '(?:/)(\d{8}[a-zA-Z0-9]{8})(?:/)'))[1] as portal_run_id,
+        {{ extract_portal_run_id("hub.key") }} as portal_run_id,
         (regexp_match(hub.key, '(?<=byob-icav2\/).+?(?=\/)'))[1] as cohort_id,
         {{ extract_sequencing_run_id("key") }} as sequencing_run_id,
         sat.library_id as library_id,
