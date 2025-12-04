@@ -36,6 +36,7 @@ location1 as (
         join {{ ref('sat_s3object_current') }} hist on hist.s3object_hk = hub.s3object_hk
     where
         hub.key ~*'(^v1|^byob-icav2/.*/(analysis|primary))/.*\d{8}\w{8}/' and
+        hub.key !~*'^byob-icav2/.*/logs/*' and
         hub.key !~*'.*iap_xaccount_test.tmp' and
         hist.is_current = 1 and
         hist.is_deleted = 0
