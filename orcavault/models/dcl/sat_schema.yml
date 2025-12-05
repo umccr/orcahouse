@@ -827,13 +827,15 @@ models:
       contract: { enforced: true }
     constraints:
       - type: primary_key
-        columns: [ library_sequencing_run_hk, load_datetime ]
+        columns: [ library_sequencing_run_hk, library_sequencing_run_sq, load_datetime ]
       - type: foreign_key
         columns: [ library_sequencing_run_hk ]
         to: ref('link_library_sequencing_run')
         to_columns: [ library_sequencing_run_hk ]
     columns:
       - name: library_sequencing_run_hk
+        data_type: char(64)
+      - name: library_sequencing_run_sq
         data_type: char(64)
       - name: load_datetime
         data_type: timestamptz

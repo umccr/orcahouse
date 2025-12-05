@@ -47,6 +47,7 @@ final as (
 
     select
         cast(encode(sha256(concat(sequencing_run_hk, library_hk)::bytea), 'hex') as char(64)) as library_sequencing_run_hk,
+        cast(hash_diff as char(64)) as library_sequencing_run_sq,
         cast(load_datetime as timestamptz) as load_datetime,
         cast(record_source as varchar(255)) as record_source,
         cast(hash_diff as char(64)) as hash_diff,
