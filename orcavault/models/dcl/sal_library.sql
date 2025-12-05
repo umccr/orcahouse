@@ -29,7 +29,7 @@ filtered as (
     select
         library_hk as alias_library_hk,
         library_id as alias_library_id,
-        (regexp_match(library_id, '(?:L\d{7}|L(?:PRJ|CCR|MDX|TGX)\d{6})'))[1] as base_library_id,
+        {{ extract_library_id("library_id") }} as base_library_id,
         record_source
     from
         source
