@@ -19,7 +19,7 @@ with source as (
 
     select
         s3object_hk,
-        (regexp_matches("key", '(?:L\d{7}|L(?:PRJ|CCR|MDX|TGX)\d{6}|Undetermined)', 'g'))[1] as library_id,
+        {{ extract_all_library_id("key") }} as library_id,
         regexp_replace("key", '^.+[/\\]', '') as filename,
         split_part(regexp_replace("key", '^.+[/\\]', ''), '.', -1) as ext1,
         split_part(regexp_replace("key", '^.+[/\\]', ''), '.', -2) as ext2,

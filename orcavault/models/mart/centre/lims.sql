@@ -181,7 +181,7 @@ transformed as (
 applied_library_alias as (
 
     select
-        (regexp_match(t.original_library_id, '(?:L\d{7}|L(?:PRJ|CCR|MDX|TGX)\d{6})'))[1] as library_id,
+        {{ extract_library_id("t.original_library_id") }} as library_id,
         sal.alias_library_id as alias_library_id,
         sal.base_library_id as base_library_id,
         t.*
