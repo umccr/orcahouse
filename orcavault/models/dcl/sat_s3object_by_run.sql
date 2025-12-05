@@ -12,7 +12,9 @@
             {'columns': ['hash_diff'], 'type': 'btree'},
         ],
         materialized='incremental',
-        incremental_strategy='append',
+        incremental_strategy='merge',
+        unique_key='hash_diff',
+        merge_update_columns=['filename', 'ext1', 'ext2', 'ext3'],
         on_schema_change='fail'
     )
 }}
@@ -61,7 +63,6 @@ final as (
 
     select
         cast(s3object_hk as char(64)) as s3object_hk,
-        cast(hash_diff as char(64)) as s3object_sq,
         cast(load_datetime as timestamptz) as load_datetime,
         cast(record_source as varchar(255)) as record_source,
         cast(hash_diff as char(64)) as hash_diff,
