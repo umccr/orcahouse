@@ -14,7 +14,8 @@ with source as (
         ss.association_status as association_status,
         ss.association_timestamp as association_timestamp,
         ss.sample_sheet_name as samplesheet_name,
-        ss.sample_sheet_content as samplesheet_content
+        ss.sample_sheet_content as samplesheet_content,
+        ss.sample_sheet_content_original as samplesheet_content_original
     from {{ source('ods', 'sequence_run_manager_sequence') }} seq
         join {{ source('ods', 'sequence_run_manager_samplesheet') }} ss on ss.sequence_id = seq.orcabus_id
     {% if is_incremental() %}
@@ -40,7 +41,8 @@ transformed as (
         association_status,
         association_timestamp,
         samplesheet_name,
-        samplesheet_content
+        samplesheet_content,
+        samplesheet_content_original
     from
         source
 
@@ -58,7 +60,8 @@ final as (
         cast(association_status as varchar(255)) as association_status,
         cast(association_timestamp as timestamptz) as association_timestamp,
         cast(samplesheet_name as varchar(255)) as samplesheet_name,
-        cast(samplesheet_content as jsonb) as samplesheet_content
+        cast(samplesheet_content as jsonb) as samplesheet_content,
+        cast(samplesheet_content_original as text) as samplesheet_content_original
     from
         transformed
 

@@ -821,6 +821,8 @@ models:
         data_type: varchar(255)
       - name: samplesheet_content
         data_type: jsonb
+      - name: samplesheet_content_original
+        data_type: text
 
   - name: sat_library_sequencing_run_srm
     config:
