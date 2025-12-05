@@ -25,7 +25,7 @@ with transformed as (
         sat.sequencing_run_id as sequencing_run_id,
         {{ extract_sequencing_run_date("sat.sequencing_run_id") }} as sequencing_run_date,
         sat.portal_run_id as portal_run_id,
-        (regexp_match(hub.key, '(?<=byob-icav2\/).+?(?=\/)'))[1] as cohort_id,
+        {{ extract_cohort_id("hub.key") }} as cohort_id,
         hub.bucket as bucket,
         hub.key as "key",
         (regexp_match(hub.key, '(?:L\d{7}|L(?:PRJ|CCR|MDX|TGX)\d{6}|Undetermined)'))[1] as library_id,
