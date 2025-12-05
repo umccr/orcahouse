@@ -196,12 +196,13 @@ CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_libraryassociation
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_samplesheet
 (
-    orcabus_id            varchar(26)              not null primary key,
-    sample_sheet_name     varchar(255)             not null,
-    association_status    varchar(255)             not null,
-    association_timestamp timestamp with time zone not null,
-    sample_sheet_content  jsonb,
-    sequence_id           varchar(26)              not null
+    orcabus_id                    varchar(26)              not null primary key,
+    sample_sheet_name             varchar(255)             not null,
+    association_status            varchar(255)             not null,
+    association_timestamp         timestamp with time zone not null,
+    sample_sheet_content          jsonb,
+    sequence_id                   varchar(26)              not null,
+    sample_sheet_content_original text
 );
 
 CREATE TABLE IF NOT EXISTS orcavault.ods.sequence_run_manager_sequence
