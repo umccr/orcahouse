@@ -19,7 +19,7 @@
 with transformed as (
 
     select
-        (regexp_match(hub.key, '(?:/)(\d{8}[a-zA-Z0-9]{8})(?:/)'))[1] as portal_run_id,
+        {{ extract_portal_run_id("hub.key") }} as portal_run_id,
         (regexp_match(hub.key, '(?<=byob-icav2\/).+?(?=\/)'))[1] as cohort_id,
         hub.bucket as bucket,
         hub.key as "key",

@@ -21,7 +21,7 @@ with source as (
 
     select
         s3object_hk,
-        (regexp_match("key", '(?:/)(\d{8}[a-zA-Z0-9]{8})(?:/)'))[1] as portal_run_id,
+        {{ extract_portal_run_id("key") }} as portal_run_id,
         {{ extract_sequencing_run_id("key") }} as sequencing_run_id,
         regexp_replace("key", '^.+[/\\]', '') as filename,
         split_part(regexp_replace("key", '^.+[/\\]', ''), '.', -1) as ext1,
