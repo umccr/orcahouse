@@ -20,7 +20,7 @@ with transformed as (
 
     select
         {{ extract_portal_run_id("hub.key") }} as portal_run_id,
-        (regexp_match(hub.key, '(?<=byob-icav2\/).+?(?=\/)'))[1] as cohort_id,
+        {{ extract_cohort_id("hub.key") }} as cohort_id,
         hub.bucket as bucket,
         hub.key as "key",
         sat.library_id as library_id,

@@ -71,7 +71,7 @@ transformed as (
 
     select
         portal_run_id,
-        (regexp_match(prefix, '(?<=byob-icav2\/).+?(?=\/)'))[1] as cohort_id,
+        {{ extract_cohort_id("prefix") }} as cohort_id,
         bucket,
         prefix,
         key_count
