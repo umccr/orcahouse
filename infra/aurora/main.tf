@@ -30,6 +30,16 @@ provider "aws" {
 
 locals {
   stack_name = "orcahouse"
+
+  min_capacity = {
+    dev  = 0.0
+    prod = 0.5
+  }
+
+  max_capacity = {
+    dev  = 16.0
+    prod = 16.0
+  }
 }
 
 data "aws_ssm_parameter" "master_username" {
@@ -93,7 +103,7 @@ resource "aws_rds_cluster" "this" {
   cluster_identifier          = "orcahouse-db"
   engine                      = "aurora-postgresql"
   engine_mode                 = "provisioned"
-  engine_version              = "16.6"
+  engine_version              = "16.8"
   master_username             = data.aws_ssm_parameter.master_username.value
   manage_master_user_password = true
   db_subnet_group_name        = aws_db_subnet_group.this.name
@@ -115,8 +125,8 @@ resource "aws_rds_cluster" "this" {
   ]
 
   serverlessv2_scaling_configuration {
-    min_capacity = 0.5
-    max_capacity = 16.0
+    min_capacity = local.min_capacity[terraform.workspace]
+    max_capacity = local.max_capacity[terraform.workspace]
   }
 }
 
