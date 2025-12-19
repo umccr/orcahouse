@@ -466,7 +466,7 @@ models:
       - name: size
         data_type: bigint
       - name: e_tag
-        data_type: varchar(255)
+        data_type: text
       - name: sha256
         data_type: text
       - name: last_modified_date
@@ -479,6 +479,10 @@ models:
         data_type: uuid
       - name: reason
         data_type: varchar(255)
+      - name: version_id
+        data_type: text
+      - name: is_current_version
+        data_type: boolean
       - name: effective_from
         data_type: timestamptz
       - name: effective_to

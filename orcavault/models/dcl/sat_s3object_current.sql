@@ -6,6 +6,7 @@
             {'columns': ['is_current'], 'type': 'btree'},
             {'columns': ['is_deleted'], 'type': 'btree'},
             {'columns': ['is_current', 'is_deleted'], 'type': 'btree'},
+            {'columns': ['is_current', 'is_deleted', 'is_current_version'], 'type': 'btree'},
             {'columns': ['effective_from', 'effective_to'], 'type': 'btree'},
             {'columns': ['s3_object_id'], 'type': 'btree'},
             {'columns': ['ingest_id'], 'type': 'btree'},
@@ -13,6 +14,8 @@
             {'columns': ['attributes'], 'type': 'gin'},
             {'columns': ['reason'], 'type': 'btree'},
             {'columns': ['hash_diff'], 'type': 'btree'},
+            {'columns': ['version_id'], 'type': 'btree'},
+            {'columns': ['is_current_version'], 'type': 'btree'},
         ],
         materialized='incremental',
         incremental_strategy='merge',
@@ -25,7 +28,7 @@
 with incremental as (
 
     select
-        distinct s3object_hk
+        distinct s3object_hk, version_id
     from
         {{ ref('sat_s3object_history') }}
     {% if is_incremental() %}
@@ -37,27 +40,12 @@ with incremental as (
 
 history as (
 
-    {# For given all historical changes from CDC source, partition (group) by s3object_hk and event_time daily cut-over #}
-    {# order by event_time (at timestamp level). i.e. take the last changed for the day as effective summary. #}
-
     select
         h.*,
-        row_number() over (partition by h.s3object_hk, cast(h.event_time as date) order by h.event_time desc) as rank_by_daily
+        row_number() over (partition by h.s3object_hk, h.version_id order by h.event_time desc, h.sequencer desc) as rank_by_group
     from
         {{ ref('sat_s3object_history') }} h
-        join incremental i on i.s3object_hk = h.s3object_hk
-
-),
-
-daily as (
-
-    select
-        *,
-        row_number() over (partition by s3object_hk order by cast(event_time as date) desc) as rank_by_group
-    from
-        history
-    where
-        rank_by_daily = 1
+        join incremental i on i.s3object_hk = h.s3object_hk and i.version_id = h.version_id
 
 ),
 
@@ -76,7 +64,9 @@ transformed as (
             storage_class,
             attributes,
             ingest_id,
-            reason
+            reason,
+            version_id,
+            is_current_state
         )::bytea), 'hex') as hash_diff,
         s3_object_id,
         "size",
@@ -87,17 +77,19 @@ transformed as (
         attributes,
         ingest_id,
         reason,
+        version_id,
+        is_current_state as is_current_version,
         cast(event_time as timestamptz) as effective_from,
         case
             when (rank_by_group = 1) then
                 cast('9999-12-31' as date)
             else
-                lag(event_time) over (partition by s3object_hk order by rank_by_group)
+                lag(event_time) over (partition by s3object_hk, version_id order by rank_by_group)
             end as effective_to,
         case when (rank_by_group = 1) then 1 else 0 end as is_current,
         case when (event_type = 'Deleted') then 1 else 0 end as is_deleted
     from
-        daily
+        history
 
 ),
 
@@ -111,13 +103,15 @@ final as (
         cast(hash_diff as char(64)) as hash_diff,
         cast(s3_object_id as uuid) as s3_object_id,
         cast("size" as bigint) as "size",
-        cast(e_tag as varchar(255)) as e_tag,
+        cast(e_tag as text) as e_tag,
         cast(sha256 as text) as sha256,
         cast(last_modified_date as timestamptz) as last_modified_date,
         cast(storage_class as varchar(255)) as storage_class,
         cast(attributes as jsonb) as attributes,
         cast(ingest_id as uuid) as ingest_id,
         cast(reason as varchar(255)) as reason,
+        cast(version_id as text) as version_id,
+        cast(is_current_version as boolean) as is_current_version,
         cast(effective_from as timestamptz) as effective_from,
         cast(effective_to as timestamptz) as effective_to,
         cast(is_current as smallint) as is_current,
