@@ -399,34 +399,46 @@ models:
         data_type: char(64)
       - name: s3_object_id
         data_type: uuid
+      - name: event_type
+        data_type: varchar(255)
+      - name: version_id
+        data_type: text
+      - name: event_time
+        data_type: timestamptz
       - name: size
         data_type: bigint
-      - name: e_tag
-        data_type: varchar(255)
       - name: sha256
         data_type: text
       - name: last_modified_date
         data_type: timestamptz
-      - name: event_time
-        data_type: timestamptz
-      - name: event_type
-        data_type: varchar(255)
-      - name: version_id
-        data_type: varchar(255)
-      - name: is_delete_marker
-        data_type: boolean
-      - name: sequencer
-        data_type: varchar(255)
+      - name: e_tag
+        data_type: text
       - name: storage_class
         data_type: varchar(255)
+      - name: sequencer
+        data_type: text
+      - name: is_delete_marker
+        data_type: boolean
+      - name: number_duplicate_events
+        data_type: bigint
       - name: attributes
         data_type: jsonb
+      - name: deleted_date
+        data_type: timestamptz
+      - name: deleted_sequencer
+        data_type: text
+      - name: number_reordered
+        data_type: bigint
       - name: ingest_id
         data_type: uuid
+      - name: is_current_state
+        data_type: boolean
       - name: reason
         data_type: varchar(255)
       - name: archive_status
         data_type: varchar(255)
+      - name: is_accessible
+        data_type: boolean
 
   - name: sat_s3object_current
     config:
