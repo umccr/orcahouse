@@ -37,6 +37,7 @@ with transformed as (
         (sat.ext1 = 'bam' or sat.ext1 = 'bai')
         and cur.is_current = 1
         and cur.is_deleted = 0
+        and cur.version_active
 
 ),
 

@@ -9,6 +9,8 @@ with transformed as (
     select
         hub.bucket as bucket,
         hub.key as "key",
+        effsat.version_id,
+        effsat.version_active,
         effsat.effective_from as effective_from,
         effsat.effective_to as effective_to,
         effsat.is_current as is_current,
@@ -28,7 +30,8 @@ with transformed as (
         effsat.last_modified_date as last_modified_date,
         effsat.attributes as filemanager_annotated_attributes,
         effsat.ingest_id as filemanager_ingest_id,
-        effsat.s3_object_id as filemanager_s3object_id
+        effsat.s3_object_id as filemanager_s3object_id,
+        effsat.version_active as filemanager_is_current_state
     from {{ ref('hub_s3object') }} hub
         join {{ ref('sat_s3object_by_library') }} sat on sat.s3object_hk = hub.s3object_hk
         join {{ ref('sat_s3object_current') }} effsat on effsat.s3object_hk = hub.s3object_hk
@@ -42,6 +45,8 @@ final as (
     select
         cast(bucket as varchar(255)) as bucket,
         cast("key" as text) as "key",
+        cast(version_id as text) as version_id,
+        cast(version_active as boolean) as version_active,
         cast(effective_from as timestamptz) as effective_from,
         cast(effective_to as timestamptz) as effective_to,
         cast(is_current as smallint) as is_current,
@@ -61,7 +66,8 @@ final as (
         cast(last_modified_date as timestamptz) as last_modified_date,
         cast(filemanager_annotated_attributes as jsonb) as filemanager_annotated_attributes,
         cast(filemanager_ingest_id as uuid) as filemanager_ingest_id,
-        cast(filemanager_s3object_id as uuid) as filemanager_s3object_id
+        cast(filemanager_s3object_id as uuid) as filemanager_s3object_id,
+        cast(filemanager_is_current_state as boolean) as filemanager_is_current_state
     from
         transformed
     order by effective_from

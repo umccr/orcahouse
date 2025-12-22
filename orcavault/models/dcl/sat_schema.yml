@@ -481,7 +481,7 @@ models:
         data_type: varchar(255)
       - name: version_id
         data_type: text
-      - name: is_current_version
+      - name: version_active
         data_type: boolean
       - name: effective_from
         data_type: timestamptz
