@@ -90,6 +90,8 @@ def transform():
                 df = df.with_columns(pl.lit('').alias('zStudy'))
             case '2025':
                 df = df.with_columns(pl.lit('').alias('zStudy'))
+            case '2026':
+                df = df.with_columns(pl.lit('').alias('zStudy'))
 
         # globally rename
         df = df.rename({
