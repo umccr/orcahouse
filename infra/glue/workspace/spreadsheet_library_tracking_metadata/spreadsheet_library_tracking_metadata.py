@@ -15,7 +15,7 @@ from pyspark.sql import SparkSession
 GDRIVE_SERVICE_ACCOUNT = "/umccr/google/drive/lims_service_account_json"
 TRACKING_SHEET_ID = "/umccr/google/drive/tracking_sheet_id"
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
-SHEETS = ['2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025']
+SHEETS = ['2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026']
 
 # NOTE: this is intended db table naming convention
 # i.e. <datasource>_<suffix_meaningful_naming_convention>
