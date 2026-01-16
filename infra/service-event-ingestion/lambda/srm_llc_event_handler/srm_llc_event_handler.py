@@ -91,7 +91,7 @@ def parse_event(event):
     event_time = event.get("time")
     detail = event.get("detail")
 
-    orcabus_id = str(detail.get("sequenceOrcabusId", "")
+    orcabus_id = str(detail.get("sequenceOrcabusId", ""))
     instrument_run_id = str(detail.get("instrumentRunId", ""))
     sequence_run_id = str(detail.get("sequenceRunId", ""))
     timestamp = str(detail.get("timeStamp", ""))
