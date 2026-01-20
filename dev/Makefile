@@ -56,4 +56,4 @@ next:
 
 sync:
 	@rm -rf data/*.csv
-	@aws s3 sync s3://orcabus-dev-backup-843407916570-ap-southeast-2/orcavault/data/ data/
+	@aws s3 sync s3://orcahouse-staging-data-843407916570/orcavault-dev/data/ data/
