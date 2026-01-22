@@ -119,8 +119,8 @@ resource "aws_instance" "mgmt" {
 
   # via Ec2 Console Search Filter > AMI Catalog
   # Ubuntu Server 24.04 LTS (HVM), SSD Volume Type
-  # ami-0f5d1713c9af4fe30 (64-bit (x86)) / ami-099eeb58169040255 (64-bit (Arm))
-  ami                         = "ami-099eeb58169040255"
+  # ami-0ba8d27d35e9915fb (64-bit (x86)) / ami-0f05d48c0353e144c (64-bit (Arm))
+  ami                         = "ami-0f05d48c0353e144c"
   instance_type               = "t4g.nano"
   hibernation                 = true
   associate_public_ip_address = false
