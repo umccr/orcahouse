@@ -15,4 +15,8 @@ baseline:
 	@detect-secrets scan --exclude-files '^(.venv/|.local/|.terraform/|terraform.tfstate.d/|dbt_packages/|logs/)|package-lock.yml' > .secrets.baseline
 
 test:
-	@(cd orcavault && dbt test)
+	@(cd orcavault && dbt deps && dbt test)
+
+# NOTE: not suitable target for local running but specifically setup for anonymous CI runner  ~victor
+test-iac:
+	@(cd infra/ec2 && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
