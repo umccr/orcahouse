@@ -40,18 +40,20 @@ module "config" {
 
 variable "orcabus_compute_sg_id" {
   default = {
-    dev  = "sg-03abb47eba799e044"
-    prod = "sg-02e363a39220c955f"
-    stg  = "sg-069849c9157d4fb66"
+    default = "sg-mock-for-testing"
+    dev     = "sg-03abb47eba799e044"
+    prod    = "sg-02e363a39220c955f"
+    stg     = "sg-069849c9157d4fb66"
   }
 }
 
 variable "private_subnet_id" {
   # az ap-southeast-2a
   default = {
-    dev  = "subnet-050e6fb0f6028178b"
-    prod = "subnet-01be4c1109eca3446"
-    stg  = "subnet-01308be8bb704e5ef"
+    default = "subnet-mock-for-testing"
+    dev     = "subnet-050e6fb0f6028178b"
+    prod    = "subnet-01be4c1109eca3446"
+    stg     = "subnet-01308be8bb704e5ef"
   }
 }
 

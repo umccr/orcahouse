@@ -16,6 +16,14 @@ export AWS_PROFILE=umccr-dev-admin && terraform workspace select dev && terrafor
 terraform apply
 ```
 
+## Testing
+
+```shell
+terraform fmt -check
+terraform validate
+terraform test
+```
+
 ## Usage
 
 The following methods work for both OrcaBus and OrcaHouse. You can set up a connection via this management host to reach out either Aurora Cluster.

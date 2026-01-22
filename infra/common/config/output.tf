@@ -22,9 +22,10 @@ output "orcahouse_db_sg_id" {
   # The security group is created and controlled by main db stack at ../aurora/
   # After main db stack has been deployed, we set the following sg value statically.
   value = {
-    dev  = "sg-000a9854f4f3e564e"
-    prod = "sg-013b6e66086adc6a6"
-    stg  = ""
+    default = "sg-mock-for-testing"
+    dev     = "sg-000a9854f4f3e564e"
+    prod    = "sg-013b6e66086adc6a6"
+    stg     = ""
   }
 }
 
