@@ -38,14 +38,26 @@ with incremental as (
 
 ),
 
+deduped as (
+
+    select
+        h.*,
+        row_number() over (partition by h.s3object_hk, h.hash_diff order by h.load_datetime desc) as rank_by_history_ldts
+    from
+        {{ ref('sat_s3object_history') }} h
+        join incremental i on i.s3object_hk = h.s3object_hk and i.version_id = h.version_id
+
+),
+
 history as (
 
     select
         h.*,
         row_number() over (partition by h.s3object_hk, h.version_id order by h.event_time desc, h.sequencer desc) as rank_by_group
     from
-        {{ ref('sat_s3object_history') }} h
-        join incremental i on i.s3object_hk = h.s3object_hk and i.version_id = h.version_id
+        deduped h
+    where
+        h.rank_by_history_ldts = 1
 
 ),
 
