@@ -230,7 +230,12 @@ resource "aws_apigatewayv2_api" "http_api" {
       "x-amz-user-agent",
     ]
     allow_methods = ["GET", "POST", "OPTIONS"]
-    allow_origins = ["https://orcaui.umccr.org", "https://orcaui.prod.umccr.org"]
+    allow_origins = [
+      "https://orcaui.umccr.org",
+      "https://orcaui.prod.umccr.org",
+      "https://portal.umccr.org",
+      "https://portal.prod.umccr.org"
+    ]
     max_age = 86400
   }
 }
