@@ -11,13 +11,13 @@ with source as (
     select
         wfr.portal_run_id as portal_run_id,
         cmt.orcabus_id as orcabus_id,
-        cmt.comment as comment,
+        cmt.text as comment,
         cmt.created_at as created_at,
         cmt.created_by as created_by,
         cmt.updated_at as updated_at,
         cmt.is_deleted as is_deleted
     from {{ source('ods', 'workflow_manager_workflowrun') }} wfr
-        join {{ source('ods', 'workflow_manager_workflowruncomment') }} cmt on cmt.workflow_run_id = wfr.orcabus_id
+        join {{ source('ods', 'workflow_manager_comment') }} cmt on cmt.workflow_run_id = wfr.orcabus_id
     {% if is_incremental() %}
     where
         cast(cmt.created_at as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
@@ -30,7 +30,7 @@ transformed as (
     select
         encode(sha256(cast(portal_run_id as bytea)), 'hex') as workflow_run_hk,
         cast('{{ run_started_at }}' as timestamptz) as load_datetime,
-        (select 'workflow_manager_workflowruncomment') as record_source,
+        (select 'workflow_manager_comment') as record_source,
         encode(sha256(concat(
             orcabus_id,
             comment,
