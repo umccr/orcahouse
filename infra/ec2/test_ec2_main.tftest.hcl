@@ -2,7 +2,7 @@ mock_provider "aws" {}
 
 run "assert_instance_ami_id" {
   assert {
-    condition     = aws_instance.mgmt.ami == "ami-0f05d48c0353e144c"
+    condition     = aws_instance.mgmt.ami == "ami-03f22bc717145721a"
     error_message = "unexpected ami image id"
   }
 }
