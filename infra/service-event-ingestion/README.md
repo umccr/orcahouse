@@ -3,15 +3,17 @@
 This is meant to handle events emitted by OrcaBus services and ingest them into the OrcaHouse Vault database.
 It's a kind of Change Data Capture (CDC) and allows the Vault to track changes in OrcaBus services.
 
-
 AWS infrastructure for default service ingestion pipeline
 
 ![Ingestion Pipeline](event-ingestion.drawio.svg)
 
-
-
-# Terraform
+## Terraform
 
 The ingestion pipelines are deployed using Terraform.
 
-TBC
+---
+
+For a detailed walkthrough of the architecture, how to add a new event type, and local
+testing instructions, see [docs/service-guide.md](docs/service-guide.md).
+
+For a history of changes, see [CHANGELOG.md](CHANGELOG.md).
