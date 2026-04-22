@@ -2,12 +2,11 @@
 Local integration test for vm_event_handler.
 Requires the dev Postgres to be running: cd dev && make up && make psa
 """
-import json
 import sys
 import os
+import math
 from unittest.mock import MagicMock, patch
 
-# Patch module-level AWS/DB calls so the import doesn't fail without AWS
 os.environ.setdefault("DB_SECRET_NAME", "test-secret")
 
 _mock_utils = MagicMock()
@@ -20,7 +19,6 @@ with patch.dict("sys.modules", {"utils": _mock_utils}), \
     sys.path.insert(0, os.path.dirname(__file__))
     import vm_event_handler
 
-import psycopg2
 from psycopg2.extras import RealDictCursor
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../utils"))
@@ -59,16 +57,8 @@ SAMPLE_EVENT = {
         "analysisName": "umccr--automated--dragen-wgts-dna--4-3-6--20250416abcdef01",
         "outputUri": "s3://pipeline-dev-cache-xxx/byob-icav2/.../dragen-wgts-dna/20250416abcdef01/",
         "monitoringSites": [
-            {
-                "chrom": "chr1",
-                "pos": 100000,
-                "ref": "A",
-                "alt": "T",
-                "dp": 45,
-                "af": 0.489,
-                "filter_status": "PASS",
-                "variant_emitted": True,
-            }
+            {"chrom": "chr1", "pos": 100000, "ref": "A", "alt": "T", "dp": 45, "af": 0.489, "filter_status": "PASS", "variant_emitted": True},
+            {"chrom": "chr7", "pos": 55259515, "ref": "G", "alt": "A", "dp": 38, "af": 0.012, "filter_status": "PASS", "variant_emitted": False},
         ],
     },
 }
@@ -88,12 +78,14 @@ def cleanup(conn, event_id):
 
 
 def test_parse_event():
-    data = vm_event_handler.parse_event(SAMPLE_EVENT)
-    assert data["event_id"] == "test-event-id-local-001"
-    assert data["library_id"] == "L2401538"
-    assert data["workflow_name"] == "dragen-wgts-dna"
-    sites = json.loads(data["monitoring_sites"])
-    assert sites[0]["chrom"] == "chr1"
+    rows = vm_event_handler.parse_event(SAMPLE_EVENT)
+    assert len(rows) == 2
+    assert rows[0]["chrom"] == "chr1"
+    assert rows[0]["pos"] == 100000
+    assert math.isclose(rows[0]["af"], 0.489)
+    assert rows[0]["variant_emitted"] is True
+    assert rows[1]["chrom"] == "chr7"
+    assert rows[1]["variant_emitted"] is False
     print("  PASS test_parse_event")
 
 
@@ -101,22 +93,26 @@ def test_db_insert():
     conn = get_conn()
     cleanup(conn, SAMPLE_EVENT["id"])
 
-    data = vm_event_handler.parse_event(SAMPLE_EVENT)
-    real_utils.push_to_db(conn, vm_event_handler.SQL_INSERT, data)
+    rows = vm_event_handler.parse_event(SAMPLE_EVENT)
+    for row in rows:
+        vm_event_handler._insert_row(conn, row)
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            "SELECT * FROM psa.event__variant_monitoring_result WHERE event_id = %s",
+            "SELECT * FROM psa.event__variant_monitoring_result WHERE event_id = %s ORDER BY chrom",
             (SAMPLE_EVENT["id"],),
         )
-        rows = cur.fetchall()
+        result = cur.fetchall()
 
-    assert len(rows) == 1
-    row = rows[0]
-    assert row["library_id"] == "L2401538"
-    assert row["record_source"] == "orcabus.variantmonitoring:VariantMonitoringResult"
-    sites = row["monitoring_sites"]  # jsonb is already deserialised by psycopg2
-    assert sites[0]["chrom"] == "chr1"
+    assert len(result) == 2
+    assert result[0]["chrom"] == "chr1"
+    assert result[0]["pos"] == 100000
+    assert result[0]["variant_emitted"] is True
+    assert result[0]["portal_run_id"] == "20250416abcdef01"
+    assert result[0]["library_id"] == "L2401538"
+    assert result[0]["record_source"] == "orcabus.variantmonitoring:VariantMonitoringResult"
+    assert result[1]["chrom"] == "chr7"
+    assert result[1]["variant_emitted"] is False
     print("  PASS test_db_insert")
     conn.close()
 
@@ -125,9 +121,11 @@ def test_duplicate_insert():
     conn = get_conn()
     cleanup(conn, SAMPLE_EVENT["id"])
 
-    data = vm_event_handler.parse_event(SAMPLE_EVENT)
-    real_utils.push_to_db(conn, vm_event_handler.SQL_INSERT, data)
-    real_utils.push_to_db(conn, vm_event_handler.SQL_INSERT, data)
+    rows = vm_event_handler.parse_event(SAMPLE_EVENT)
+    for row in rows:
+        vm_event_handler._insert_row(conn, row)
+    for row in rows:
+        vm_event_handler._insert_row(conn, row)
 
     with conn.cursor() as cur:
         cur.execute(
@@ -136,9 +134,97 @@ def test_duplicate_insert():
         )
         count = cur.fetchone()[0]
 
-    assert count == 1, f"Expected 1 row but got {count}"
+    assert count == 2, f"Expected 2 rows (one per site) but got {count}"
     print("  PASS test_duplicate_insert")
     cleanup(conn, SAMPLE_EVENT["id"])
+    conn.close()
+
+
+def test_two_events_same_site_coordinates():
+    event_a = {**SAMPLE_EVENT, "id": "test-event-id-local-002"}
+    event_b = {
+        **SAMPLE_EVENT,
+        "id": "test-event-id-local-003",
+        "detail": {**SAMPLE_EVENT["detail"], "portalRunId": "20250417abcdef02"},
+    }
+    conn = get_conn()
+    cleanup(conn, event_a["id"])
+    cleanup(conn, event_b["id"])
+
+    for row in vm_event_handler.parse_event(event_a):
+        vm_event_handler._insert_row(conn, row)
+    for row in vm_event_handler.parse_event(event_b):
+        vm_event_handler._insert_row(conn, row)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM psa.event__variant_monitoring_result WHERE event_id IN (%s, %s)",
+            (event_a["id"], event_b["id"]),
+        )
+        count = cur.fetchone()[0]
+
+    assert count == 4, f"Expected 4 rows (2 sites x 2 events) but got {count}"
+    print("  PASS test_two_events_same_site_coordinates")
+    cleanup(conn, event_a["id"])
+    cleanup(conn, event_b["id"])
+    conn.close()
+
+
+def test_site_with_missing_optional_fields():
+    event = {
+        **SAMPLE_EVENT,
+        "id": "test-event-id-local-004",
+        "detail": {
+            **SAMPLE_EVENT["detail"],
+            "monitoringSites": [
+                {"chrom": "chr1", "pos": 100000, "ref": "A", "alt": "T", "variant_emitted": False},
+            ],
+        },
+    }
+    conn = get_conn()
+    cleanup(conn, event["id"])
+
+    rows = vm_event_handler.parse_event(event)
+    for row in rows:
+        vm_event_handler._insert_row(conn, row)
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT * FROM psa.event__variant_monitoring_result WHERE event_id = %s",
+            (event["id"],),
+        )
+        result = cur.fetchone()
+
+    assert result["chrom"] == "chr1"
+    assert result["dp"] is None
+    assert result["af"] is None
+    print("  PASS test_site_with_missing_optional_fields")
+    cleanup(conn, event["id"])
+    conn.close()
+
+
+def test_empty_monitoring_sites_inserts_nothing():
+    event = {
+        **SAMPLE_EVENT,
+        "id": "test-event-id-local-005",
+        "detail": {**SAMPLE_EVENT["detail"], "monitoringSites": []},
+    }
+    conn = get_conn()
+    cleanup(conn, event["id"])
+
+    rows = vm_event_handler.parse_event(event)
+    for row in rows:
+        vm_event_handler._insert_row(conn, row)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM psa.event__variant_monitoring_result WHERE event_id = %s",
+            (event["id"],),
+        )
+        count = cur.fetchone()[0]
+
+    assert count == 0, f"Expected 0 rows for empty sites but got {count}"
+    print("  PASS test_empty_monitoring_sites_inserts_nothing")
     conn.close()
 
 
@@ -147,4 +233,7 @@ if __name__ == "__main__":
     test_parse_event()
     test_db_insert()
     test_duplicate_insert()
+    test_two_events_same_site_coordinates()
+    test_site_with_missing_optional_fields()
+    test_empty_monitoring_sites_inserts_nothing()
     print("All tests passed.")
