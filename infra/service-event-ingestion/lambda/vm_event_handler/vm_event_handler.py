@@ -130,6 +130,9 @@ def parse_event(event):
 
 
 def _insert_row(conn, data):
+    # Idempotency is per site (portal_run_id, chrom, pos, ref, alt), not per event.
+    # A theoretical redelivery with different sites could merge rows from two deliveries.
+    # In practice this won't happen as the upstream service produces stable sites per portal_run_id.
     columns = ", ".join(data.keys())
     placeholders = ", ".join(["%s"] * len(data))
     sql = SQL_INSERT.format(columns=columns, placeholders=placeholders)
