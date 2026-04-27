@@ -166,3 +166,15 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.event__metadata_state_change_library
     load_datetime           timestamptz,
     record_source           varchar(255)
 );
+
+CREATE TABLE IF NOT EXISTS orcavault.psa.cost__ica_cost_per_prid
+(
+    portal_run_id       varchar,
+    total_cost          varchar,
+    compute_cost        varchar,
+    license_cost        varchar,
+    comment             varchar,
+    ica_project         varchar,
+    load_datetime       timestamptz,
+    record_source       varchar(255)
+);
