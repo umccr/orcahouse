@@ -204,6 +204,4 @@ sources:
             data_type: varchar
           - name: load_datetime
             data_type: timestamptz
-          - name: record_source
-            data_type: varchar(255)
 
