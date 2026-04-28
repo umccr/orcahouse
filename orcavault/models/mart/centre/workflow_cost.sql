@@ -24,33 +24,34 @@ with linked as (
 
 ),
 
-merged as (
+-- merged as (
 
-    select
-		sat.portal_run_id as portal_run_id,
-		sat.total_cost as total_cost,
-		sat.compute_cost as compute_cost,
-		sat.license_cost as license_cost,
-		sat.comment as comment,
-		sat.ica_project as ica_project
-    from {{ ref('hub_workflow_run') }} hub
-        join {{ ref('sat_workflow_run_cost_ica') }} sat on sat.workflow_run_hk = hub.workflow_run_hk
+--     select
+-- 		sat.portal_run_id as portal_run_id,
+-- 		sat.total_cost as total_cost,
+-- 		sat.compute_cost as compute_cost,
+-- 		sat.license_cost as license_cost,
+-- 		sat.comment as comment,
+-- 		sat.ica_project as ica_project
+--     from {{ ref('hub_workflow_run') }} hub
+--         join {{ ref('sat_workflow_run_cost_ica') }} sat on sat.workflow_run_hk = hub.workflow_run_hk
 
-),
+-- ),
 
 transformed as (
 
     select
         linked.library_id as library_id,
-        merged.portal_run_id as portal_run_id,
-        merged.total_cost as total_cost,
-        merged.compute_cost as compute_cost,
-        merged.license_cost as license_cost,
-        merged.comment as comment,
-        merged.ica_project as ica_project
+        sat.portal_run_id as portal_run_id,
+        sat.total_cost as total_cost,
+        sat.compute_cost as compute_cost,
+        sat.license_cost as license_cost,
+        sat.comment as comment,
+        sat.ica_project as ica_project
     from
-        merged
-            join linked on linked.portal_run_id = merged.portal_run_id
+        -- merged
+		{{ ref('sat_workflow_run_cost_ica') }} sat
+            join linked on linked.portal_run_id = sat.portal_run_id
 
 ),
 

@@ -9,16 +9,15 @@
 with source as (
 
     select
-        wfr.portal_run_id as portal_run_id,
-        cos.total_cost as total_cost,
-        cos.compute_cost as compute_cost,
-        cos.license_cost as license_cost,
-        cos.comment as comment,
+		cos.portal_run_id as portal_run_id,
+		cos.total_cost as total_cost,
+		cos.compute_cost as compute_cost,
+		cos.license_cost as license_cost,
+		cos.comment as comment,
 		cos.ica_project as ica_project,
 		cos.load_datetime as load_datetime,
 		cos.record_source as record_source
-    from {{ source('ods', 'workflow_manager_workflowrun') }} wfr
-        join {{ source('psa', 'cost__ica_cost_per_prid') }} cos on cos.portal_run_id = wfr.portal_run_id
+    from {{ source('psa', 'cost__ica_cost_per_prid') }} cos
     {% if is_incremental() %}
     where
         cast(cos.load_datetime as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
@@ -31,10 +30,10 @@ transformed as (
     select
         encode(sha256(cast(portal_run_id as bytea)), 'hex') as workflow_run_hk,
         encode(sha256(concat(
-            total_cost,
-            compute_cost,
-            license_cost,
-            comment
+			total_cost,
+			compute_cost,
+			license_cost,
+			ica_project
         )::bytea), 'hex') as hash_diff,
 		portal_run_id,
 		total_cost,
@@ -42,8 +41,8 @@ transformed as (
 		license_cost,
 		comment,
 		ica_project,
-		load_datetime,
-		record_source
+		cast('{{ run_started_at }}' as timestamptz) as load_datetime,
+		(select 'ica_billing') as record_source
     from
         source
 
