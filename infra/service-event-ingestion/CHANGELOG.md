@@ -29,6 +29,13 @@ Builds the DCL layer satellite for variant monitoring results on top of the PSA 
 
 - Registered `event__variant_monitoring_result` as a dbt PSA source.
 
+**`dev/src/load.sh`**
+
+- Added `\copy psa.event__variant_monitoring_result` so `make reload` seeds the PSA table from
+  `dev/data/orcavault_psa_event__variant_monitoring_result.csv` (synced from S3 via `make sync`).
+  The CSV contains a real `VariantMonitoringResult` event (smoke-test run `20260315ff1641fe` / `L2301217`,
+  10 monitoring sites, emitted by `variant-monitoring-extract-variant-af-beta` on 2026-04-23).
+
 ---
 
 ### Added — Variant Monitoring ingestion ([#212](https://github.com/umccr/orcahouse/issues/212))
