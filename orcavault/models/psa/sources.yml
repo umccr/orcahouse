@@ -183,3 +183,25 @@ sources:
             data_type: varchar
           - name: record_source
             data_type: varchar
+
+  - name: psa
+    database: orcavault
+    schema: psa
+    tables:
+      - name: cost__ica_cost_per_prid
+        columns:
+          - name: portal_run_id
+            data_type: varchar
+          - name: total_cost
+            data_type: varchar
+          - name: compute_cost
+            data_type: varchar
+          - name: license_cost
+            data_type: varchar
+          - name: comment
+            data_type: varchar
+          - name: ica_project
+            data_type: varchar
+          - name: load_datetime
+            data_type: timestamptz
+
