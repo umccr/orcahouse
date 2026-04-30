@@ -21,6 +21,10 @@ with source as (
         variant_emitted
     from
         {{ source('psa', 'event__variant_monitoring_result') }}
+    {% if is_incremental() %}
+    where
+        cast(load_datetime as timestamptz) > ( select coalesce(max(load_datetime), '1900-01-01') as ldts from {{ this }} )
+    {% endif %}
 
 ),
 
@@ -45,24 +49,6 @@ encoded as (
 
 ),
 
-differentiated as (
-
-    select
-        library_workflow_run_hk,
-        hash_diff
-    from
-        encoded
-    {% if is_incremental() %}
-    except
-    select
-        library_workflow_run_hk,
-        hash_diff
-    from
-        {{ this }}
-    {% endif %}
-
-),
-
 transformed as (
 
     select
@@ -80,10 +66,6 @@ transformed as (
         variant_emitted
     from
         encoded
-    {% if is_incremental() %}
-    where
-        (library_workflow_run_hk, hash_diff) in (select library_workflow_run_hk, hash_diff from differentiated)
-    {% endif %}
 
 ),
 
