@@ -14,14 +14,15 @@
 with source as (
 
     select
-        sat.portal_run_id as portal_run_id,
+        hw.portal_run_id as portal_run_id,
         sat.total_cost as total_cost,
         sat.compute_cost as compute_cost,
         sat.license_cost as license_cost,
         sat.comment as comment,
         sat.ica_project as ica_project
     from
-		{{ ref('sat_workflow_run_cost_ica') }} sat
+        {{ ref('hub_workflow_run') }} hw
+		join {{ ref('sat_workflow_run_cost_ica') }} sat on hw.workflow_run_hk = sat.workflow_run_hk
 
 ),
 

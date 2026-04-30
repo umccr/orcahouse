@@ -666,6 +666,36 @@ models:
       - name: workflow_run_comment
         data_type: text
 
+  - name: sat_workflow_run_cost_ica
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ workflow_run_hk, load_datetime ]
+      - type: foreign_key
+        columns: [ workflow_run_hk ]
+        to: ref('hub_workflow_run')
+        to_columns: [ workflow_run_hk ]
+    columns:
+      - name: workflow_run_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
+      - name: total_cost
+        data_type: numeric(10,2)
+      - name: compute_cost
+        data_type: numeric(10,2)
+      - name: license_cost
+        data_type: numeric(10,2)
+      - name: comment
+        data_type: text
+      - name: ica_project
+        data_type: varchar(255)
+
   - name: sat_s3object_by_run
     config:
       contract: { enforced: true }
