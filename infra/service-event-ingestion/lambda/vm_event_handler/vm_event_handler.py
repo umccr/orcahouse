@@ -55,10 +55,10 @@ def parse_event(event):
         "region": "ap-southeast-2",
         "resources": [],
         "detail": {
-            "id": "d41d8cd98f00b204e9800998ecf8427e",
+            "id": "d41d8cd98f00b204e9800998ecf8427e",  # pragma: allowlist secret
             "version": "0.1.0",
             "timestamp": "2025-04-16T10:00:00+00:00",
-            "portalRunId": "20250416abcdef01",
+            "portalRunId": "20250416abcdef01",  # pragma: allowlist secret
             "workflowRunOrcabusId": "wfr.01JXXXXX",
             "workflowName": "dragen-wgts-dna",
             "workflowVersion": "4.3.6",

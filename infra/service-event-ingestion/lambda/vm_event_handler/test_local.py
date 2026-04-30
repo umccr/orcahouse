@@ -42,10 +42,10 @@ SAMPLE_EVENT = {
     "region": "ap-southeast-2",
     "resources": [],
     "detail": {
-        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",  # pragma: allowlist secret
         "version": "0.1.0",
         "timestamp": "2025-04-16T10:00:00+00:00",
-        "portalRunId": "20250416abcdef01",
+        "portalRunId": "20250416abcdef01",  # pragma: allowlist secret
         "workflowRunOrcabusId": "wfr.01JXXXXX",
         "workflowName": "dragen-wgts-dna",
         "workflowVersion": "4.3.6",
@@ -145,7 +145,7 @@ def test_two_events_same_site_coordinates():
     event_b = {
         **SAMPLE_EVENT,
         "id": "test-event-id-local-003",
-        "detail": {**SAMPLE_EVENT["detail"], "portalRunId": "20250417abcdef02"},
+        "detail": {**SAMPLE_EVENT["detail"], "portalRunId": "20250417abcdef02"},  # pragma: allowlist secret
     }
     conn = get_conn()
     cleanup(conn, event_a["id"])
