@@ -20,6 +20,9 @@ models:
   - name: workflow
     description: Listing of the Centre genomic sequencing analysis workflow run details in flat table model
 
+  - name: workflow_cost
+    description: Listing of the Centre genomic sequencing analysis workflow run costs in flat table model
+
   - name: output
     description: Listing of the Centre genomic sequencing analysis workflow run output location in flat table model
 
