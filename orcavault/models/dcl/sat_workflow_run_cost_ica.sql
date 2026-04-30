@@ -34,7 +34,6 @@ transformed as (
             license_cost,
             ica_project
         )::bytea), 'hex') as hash_diff,
-        portal_run_id,
         total_cost,
         compute_cost,
         license_cost,
@@ -54,7 +53,6 @@ final as (
         cast(load_datetime as timestamptz) as load_datetime,
         cast(record_source as varchar(255)) as record_source,
         cast(hash_diff as char(64)) as hash_diff,
-        cast(portal_run_id as char(16)) as portal_run_id,
         cast(total_cost as numeric(10,2)) as total_cost,
         cast(compute_cost as numeric(10,2)) as compute_cost,
         cast(license_cost as numeric(10,2)) as license_cost,
