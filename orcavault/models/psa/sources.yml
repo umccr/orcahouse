@@ -149,6 +149,41 @@ sources:
     database: orcavault
     schema: psa
     tables:
+      - name: event__variant_monitoring_result
+        columns:
+          - name: event_id
+            data_type: varchar
+          - name: event_time
+            data_type: varchar
+          - name: portal_run_id
+            data_type: varchar
+          - name: library_id
+            data_type: varchar
+          - name: chrom
+            data_type: varchar
+          - name: pos
+            data_type: integer
+          - name: ref
+            data_type: varchar
+          - name: alt
+            data_type: varchar
+          - name: dp
+            data_type: integer
+          - name: af
+            data_type: double precision
+          - name: filter_status
+            data_type: varchar
+          - name: variant_emitted
+            data_type: boolean
+          - name: load_datetime
+            data_type: timestamptz
+          - name: record_source
+            data_type: varchar(255)
+
+  - name: psa
+    database: orcavault
+    schema: psa
+    tables:
       - name: event__metadata_state_change_library
         columns:
           - name: event_id

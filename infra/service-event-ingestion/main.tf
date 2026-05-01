@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.10.0"
+  required_version = ">= 1.14.9"
 
   backend "s3" {
     bucket         = "umccr-terraform-states"
@@ -11,7 +11,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.91.0"
+      version = "6.42.0"
     }
   }
 }
@@ -96,16 +96,16 @@ data "aws_iam_policy" "lambda_vpc_access" {
 # Lambda Layer for psycopg2 (postgres DB adapter for Python)
 
 # Install psycopg2 binary in a temporary directory
-resource "null_resource" "install_psycopg2" {
+resource "terraform_data" "install_psycopg2" {
   # Trigger for new python versions only
-  triggers = {
+  triggers_replace = [
     # Trigger on python version changes
-    python = local.python_version
+    local.python_version
     # Trigger every time
     # time   = timestamp()
     # Trigger on changes to sha1 of the directory of the layer package
     # dir_sha1 = sha1(join("", [for f in fileset(".temp/lambda-layer/python", "*"): filesha1(".temp/lambda-layer/${f}")]))
-  }
+  ]
 
   provisioner "local-exec" {
     command = "pip3 install --platform manylinux2014_x86_64 --target .temp/lambda-layer/python --python-version ${local.python_version} --only-binary=:all: psycopg2-binary"
@@ -119,7 +119,7 @@ data "archive_file" "lambda_layer" {
   output_path = ".temp/output/layer.zip"
 
   depends_on = [
-    null_resource.install_psycopg2
+    terraform_data.install_psycopg2
   ]
 }
 
