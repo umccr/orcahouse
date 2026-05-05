@@ -4,8 +4,8 @@
             {'columns': ['portal_run_id'], 'type': 'btree'},
             {'columns': ['library_id'], 'type': 'btree'},
             {'columns': ['portal_run_id', 'library_id'], 'type': 'btree'},
-            {'columns': ['subject_id'], 'type': 'btree'},
-            {'columns': ['individual_id'], 'type': 'btree'},
+            {'columns': ['internal_subject_id'], 'type': 'btree'},
+            {'columns': ['external_subject_id'], 'type': 'btree'},
             {'columns': ['workflow_name'], 'type': 'btree'},
             {'columns': ['chrom'], 'type': 'btree'},
             {'columns': ['filter_status'], 'type': 'btree'},
@@ -41,17 +41,11 @@ source as (
     select
         wfl.portal_run_id as portal_run_id,
         lib.library_id as library_id,
-        int_sbj.internal_subject_id as subject_id,
-        ext_sbj.external_subject_id as individual_id,
-        case ext_sbj.external_subject_id
-            when 'NA12878' then 'HG001'
-            when 'NA24385' then 'HG002'
-            when 'NA24631' then 'HG005'
-            else null
-        end as giab_id,
+        int_sbj.internal_subject_id as internal_subject_id,
+        ext_sbj.external_subject_id as external_subject_id,
         wfr_sat.workflow_name as workflow_name,
         wfr_sat.workflow_version as workflow_version,
-        wfr_sat.workflow_run_start as workflow_run_start,
+        wfr_sat.workflow_run_start as workflow_start,
         sat.chrom as chrom,
         sat.pos as pos,
         sat.ref as ref,
@@ -78,12 +72,11 @@ final as (
     select
         cast(portal_run_id as char(16)) as portal_run_id,
         cast(library_id as varchar(255)) as library_id,
-        cast(subject_id as varchar(255)) as subject_id,
-        cast(individual_id as varchar(255)) as individual_id,
-        cast(giab_id as varchar(255)) as giab_id,
+        cast(internal_subject_id as varchar(255)) as internal_subject_id,
+        cast(external_subject_id as varchar(255)) as external_subject_id,
         cast(workflow_name as varchar(255)) as workflow_name,
         cast(workflow_version as varchar(255)) as workflow_version,
-        cast(workflow_run_start as timestamptz) as workflow_run_start,
+        cast(workflow_start as timestamptz) as workflow_start,
         cast(chrom as varchar(255)) as chrom,
         cast(pos as integer) as pos,
         cast(ref as varchar(255)) as ref,
