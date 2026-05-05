@@ -8,6 +8,9 @@
             {'columns': ['external_subject_id'], 'type': 'btree'},
             {'columns': ['workflow_name'], 'type': 'btree'},
             {'columns': ['chrom'], 'type': 'btree'},
+            {'columns': ['pos'], 'type': 'btree'},
+            {'columns': ['ref'], 'type': 'btree'},
+            {'columns': ['alt'], 'type': 'btree'},
             {'columns': ['filter_status'], 'type': 'btree'},
             {'columns': ['variant_emitted'], 'type': 'btree'},
         ]
