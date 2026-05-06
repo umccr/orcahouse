@@ -6,6 +6,7 @@
             {'columns': ['portal_run_id', 'library_id'], 'type': 'btree'},
             {'columns': ['internal_subject_id'], 'type': 'btree'},
             {'columns': ['external_subject_id'], 'type': 'btree'},
+            {'columns': ['experiment_id'], 'type': 'btree'},
             {'columns': ['workflow_name'], 'type': 'btree'},
             {'columns': ['chrom'], 'type': 'btree'},
             {'columns': ['pos'], 'type': 'btree'},
@@ -39,6 +40,17 @@ effsat_library_external_subject as (
 
 ),
 
+effsat_library_experiment as (
+
+    select
+        lnk.*
+    from {{ ref('link_library_experiment') }} lnk
+        join {{ ref('effsat_library_experiment') }} effsat on effsat.library_experiment_hk = lnk.library_experiment_hk
+    where
+        effsat.is_current = 1
+
+),
+
 source as (
 
     select
@@ -46,6 +58,7 @@ source as (
         lib.library_id as library_id,
         int_sbj.internal_subject_id as internal_subject_id,
         ext_sbj.external_subject_id as external_subject_id,
+        expr.experiment_id as experiment_id,
         wfr_sat.workflow_name as workflow_name,
         wfr_sat.workflow_version as workflow_version,
         wfr_sat.workflow_run_start as workflow_start,
@@ -67,6 +80,8 @@ source as (
             left join {{ ref('hub_internal_subject') }} int_sbj on int_sbj.internal_subject_hk = eff_int.internal_subject_hk
             left join effsat_library_external_subject eff_ext on eff_ext.library_hk = lib.library_hk
             left join {{ ref('hub_external_subject') }} ext_sbj on ext_sbj.external_subject_hk = eff_ext.external_subject_hk
+            left join effsat_library_experiment eff_expr on eff_expr.library_hk = lib.library_hk
+            left join {{ ref('hub_experiment') }} expr on expr.experiment_hk = eff_expr.experiment_hk
 
 ),
 
@@ -77,6 +92,7 @@ final as (
         cast(library_id as varchar(255)) as library_id,
         cast(internal_subject_id as varchar(255)) as internal_subject_id,
         cast(external_subject_id as varchar(255)) as external_subject_id,
+        cast(experiment_id as varchar(255)) as experiment_id,
         cast(workflow_name as varchar(255)) as workflow_name,
         cast(workflow_version as varchar(255)) as workflow_version,
         cast(workflow_start as timestamptz) as workflow_start,
