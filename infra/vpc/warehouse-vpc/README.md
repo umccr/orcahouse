@@ -1,3 +1,14 @@
+# FIXME
+
+* Pivoted back to use `UomPrimaryVpc`.
+* This stack has been `terraform destroy` and _NOT IN USE_ for now.
+
+
+
+---
+
+
+
 # warehouse-vpc
 
 ```
