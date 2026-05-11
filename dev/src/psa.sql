@@ -177,3 +177,30 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.cost__ica_cost_per_prid
     ica_project         varchar,
     load_datetime       timestamptz
 );
+
+CREATE TABLE IF NOT EXISTS orcavault.psa.ica_usage_report
+(
+    usage_id               varchar,
+    usage_hash             char(64),
+    uc_name                varchar,
+    billable_account_id    varchar,
+    account_name           varchar,
+    account_type           varchar,
+    usage_context          varchar,
+    usage_context_type     varchar,
+    user_name              varchar,
+    product                varchar,
+    usage_type_description varchar,
+    quantity               numeric(40,20),
+    usage_unit             varchar,
+    price_per_unit         numeric(25,20),
+    cost                   numeric(25,20),
+    cost_unit              varchar,
+    category               varchar,
+    usage_timestamp        varchar,
+    region                 varchar,
+    metadata               varchar,
+    billing_date           varchar,
+    load_datetime          timestamptz,
+    record_source          varchar(255)
+);
