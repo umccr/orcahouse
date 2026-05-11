@@ -38,6 +38,9 @@ module "lambda_error_alarms" {
     },
     "mm_lib_lambda" = {
       FunctionName = local.mm.lib_function_name
+    },
+    "vm_lambda" = {
+      FunctionName = local.vm.function_name
     }
   }
 
@@ -75,6 +78,9 @@ module "lambda_dlq_alarms" {
     },
     "mm_lib_sqs" = {
       QueueName = "${local.mm.lib_function_name}_dlq"
+    },
+    "vm_sqs" = {
+      QueueName = "${local.vm.function_name}_dlq"
     }
   }
 

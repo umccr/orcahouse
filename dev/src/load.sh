@@ -44,4 +44,5 @@ PGPASSWORD=dev psql -h 0.0.0.0 -d orcavault -U dev <<EOF
 \copy tsa.spreadsheet_google_lims from '/data/orcavault_tsa_spreadsheet_google_lims.csv' with (format csv, header true, delimiter ',');
 \copy tsa.ica_usage_report from '/data/ica-detailed_usage-2026-03.csv' with (format csv, header true, delimiter ',');
 \copy psa.cost__ica_cost_per_prid from '/data/orcavault_psa_cost__ica_cost_per_prid.csv' with (format csv, header true, delimiter ',');
+\copy psa.event__variant_monitoring_result from '/data/orcavault_psa_event__variant_monitoring_result.csv' with (format csv, header true, delimiter ',');
 EOF

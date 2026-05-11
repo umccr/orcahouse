@@ -147,6 +147,25 @@ CREATE TABLE IF NOT EXISTS orcavault.psa.event__workflow_run_state_change
     record_source       varchar(255)
 );
 
+CREATE TABLE IF NOT EXISTS orcavault.psa.event__variant_monitoring_result
+(
+    event_id        varchar,
+    event_time      varchar,
+    portal_run_id   varchar,
+    library_id      varchar,
+    chrom           varchar,
+    pos             integer,
+    ref             varchar,
+    alt             varchar,
+    dp              integer,
+    af              double precision,
+    filter_status   varchar,
+    variant_emitted boolean,
+    load_datetime   timestamptz,
+    record_source   varchar(255),
+    UNIQUE (portal_run_id, chrom, pos, ref, alt)
+);
+
 CREATE TABLE IF NOT EXISTS orcavault.psa.event__metadata_state_change_library
 (
     event_id                varchar,

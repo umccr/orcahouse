@@ -28,3 +28,6 @@ models:
 
   - name: accreditation_lims
     description: Listing of the Centre genomic sequencing Accreditation LIMS metadata in flat table model
+
+  - name: variant_monitoring_result
+    description: Listing of the Centre genomic sequencing variant monitoring results per workflow run and library in flat table model

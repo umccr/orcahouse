@@ -11,6 +11,7 @@ external_lims,Listing of the Externally sequenced LIMS metadata in flat table mo
 em_library_services,Listing of the Centre sequenced libray availability in OrcaBus services,STABLE
 em_library_aliases,Listing of the Centre sequenced libray aliases with run comments by the lab team,STABLE
 em_library_dns,Listing of the Centre do not sequence (dns) libray with run comments by the lab team,STABLE
+variant_monitoring_result,Listing of the Centre genomic sequencing variant monitoring results per workflow run and library in flat table model,DEMO
 curation_lims,Listing of the Centre Curation Team LIMS metadata in flat table model,DEMO
 grimmond_lims,Listing of Grimmond Research Group LIMS metadata in flat table model,DEMO
 dawson_lims,Listing of Dawson Research Group LIMS metadata in flat table model,DEMO
