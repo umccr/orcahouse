@@ -16,8 +16,6 @@ with hash_table as (
 		select '' as usage_hash	
     {% endif %}
 
-	
-
 ),
 
 raw_source as (
@@ -97,39 +95,62 @@ parsed as (
 transformed as (
 
     select
-		*
-        -- usage_id,
-		-- usage_hash,
-		-- usage_context,
-		-- usage_context_type,
-		-- "user_name",
-		-- product,
-		-- usage_type_description,
-		-- quantity,
-		-- usage_unit,
-		-- price_per_unit,
-		-- cost,
-		-- cost_unit,
-		-- category,
-		-- usage_timestamp,
-		-- region,
-		-- ica_execution_id,
-		-- id_matches_reference,
-		-- resolved_run_id as portal_run_id,
-		-- billing_date,
-		-- load_datetime,
-		-- record_source
+		encode(sha256(cast(resolved_run_id as bytea)), 'hex') as workflow_run_hk,
+        usage_id,
+		usage_hash,
+		usage_context,
+		usage_context_type,
+		"user_name",
+		product,
+		usage_type_description,
+		quantity as usage_quantity,
+		usage_unit,
+		price_per_unit,
+		cost,
+		cost_unit,
+		category,
+		usage_timestamp,
+		region,
+		ica_execution_id,
+		CASE WHEN license IS NULL THEN 'false' ELSE 'true' END is_license_cost,
+		id_matches_reference,
+		billing_date,
+		load_datetime,
+		record_source
     from
         parsed
+	where
+		resolved_run_id IS NOT NULL
 
 ),
 
 final as (
 
     select
-        *
-    from
-        transformed
+		cast(t.workflow_run_hk as char(64)) as workflow_run_hk,
+		cast(t.load_datetime as timestamptz) as load_datetime,
+		cast(t.record_source as varchar(255)) as record_source,
+        cast(usage_id as varchar(255)) as usage_id,
+		cast(usage_hash as varchar(255)) as usage_hash,
+		cast(usage_context as varchar(255)) as usage_context,
+		cast(usage_context_type as varchar(255)) as usage_context_type,
+		cast("user_name" as varchar(255)) as "user_name",
+		cast(product as varchar(255)) as product,
+		cast(usage_type_description as varchar(255)) as usage_type_description,
+		cast(usage_quantity as numeric(40,20)) as usage_quantity,
+		cast(usage_unit as varchar(255)) as usage_unit,
+		cast(price_per_unit as numeric(25,20)) as price_per_unit,
+		cast(cost as numeric(25,20)) as cost,
+		cast(cost_unit as varchar(255)) as cost_unit,
+		cast(category as varchar(255)) as category,
+		cast(usage_timestamp as timestamptz) as usage_timestamp,
+		cast(region as varchar(255)) as region,
+		cast(ica_execution_id as varchar(255)) as ica_execution_id,
+		cast(is_license_cost as boolean) as is_license_cost,
+		cast(id_matches_reference as boolean) as id_matches_reference,
+		cast(billing_date as timestamptz) as billing_date
+    from transformed t
+		inner join  {{ ref('hub_workflow_run') }} hub on t.workflow_run_hk = hub.workflow_run_hk
 
 )
 

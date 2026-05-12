@@ -10,16 +10,21 @@
 
 with hash_table as (
 
-	select
-		distinct usage_hash
-	from {{ this }}
+	{% if is_incremental() %}
+		select
+			distinct usage_hash
+		from {{ this }}
+	{% else %}
+		select '' as usage_hash	
+    {% endif %}
 
 ),
 
 source as (
 
     select
-        *
+        *,
+        encode(sha256(concat(usage_id, billing_date)::bytea), 'hex') as usage_hash
     from
         {{ source('tsa', 'ica_usage_report') }}
 

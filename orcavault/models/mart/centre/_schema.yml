@@ -23,6 +23,9 @@ models:
   - name: workflow_cost
     description: Listing of the Centre genomic sequencing analysis workflow run costs in flat table model
 
+  - name: workflow_cost_report
+    description: Listing of the Centre genomic sequencing analysis workflow run costs in flat table model, based on the ICA usage report
+
   - name: output
     description: Listing of the Centre genomic sequencing analysis workflow run output location in flat table model
 
