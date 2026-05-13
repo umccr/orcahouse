@@ -1,6 +1,6 @@
 # FIXME
 
-* SCP denied
+* SCP denied for `ec2:AcceptVpcP*`, `ec2:CreateVpcP*`, `ec2:ModifyVpcP*` at unimelb side.
 * https://umccr.slack.com/archives/C02DV6G54DN/p1777609626140329
 * https://umccr.slack.com/archives/DN533CY5T/p1777856982272419
 * This stack has been `terraform destroy` and _NOT IN USE_ for now.
