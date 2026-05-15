@@ -112,7 +112,7 @@ transformed as (
         region,
         metadata,
         cast("billing_date" as date) as "billing_date",
-        cast("billing_date" as timestamptz) as load_datetime,
+        cast('{{ run_started_at }}' as timestamptz) as load_datetime,
         (select 'ica_detailed_usage_report') as record_source
     from
         cleaned

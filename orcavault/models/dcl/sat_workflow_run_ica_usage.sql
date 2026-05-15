@@ -96,6 +96,27 @@ transformed as (
 
     select
 		encode(sha256(cast(resolved_run_id as bytea)), 'hex') as workflow_run_hk,
+		encode(sha256(concat(
+			usage_id,
+			usage_hash,
+			usage_context,
+			usage_context_type,
+			"user_name",
+			product,
+			usage_type_description,
+			quantity,
+			usage_unit,
+			price_per_unit,
+			cost,
+			cost_unit,
+			category,
+			usage_timestamp,
+			region,
+			ica_execution_id,
+			CASE WHEN license IS NULL THEN 'false' ELSE 'true' END,
+			id_matches_reference,
+			billing_date
+        )::bytea), 'hex') as hash_diff,
         usage_id,
 		usage_hash,
 		usage_context,
@@ -115,7 +136,7 @@ transformed as (
 		CASE WHEN license IS NULL THEN 'false' ELSE 'true' END is_license_cost,
 		id_matches_reference,
 		billing_date,
-		load_datetime,
+		cast('{{ run_started_at }}' as timestamptz) as load_datetime,
 		record_source
     from
         parsed
@@ -130,6 +151,7 @@ final as (
 		cast(t.workflow_run_hk as char(64)) as workflow_run_hk,
 		cast(t.load_datetime as timestamptz) as load_datetime,
 		cast(t.record_source as varchar(255)) as record_source,
+		cast(t.hash_diff as char(64)) as hash_diff,
         cast(usage_id as varchar(255)) as usage_id,
 		cast(usage_hash as varchar(255)) as usage_hash,
 		cast(usage_context as varchar(255)) as usage_context,
@@ -150,7 +172,7 @@ final as (
 		cast(id_matches_reference as boolean) as id_matches_reference,
 		cast(billing_date as timestamptz) as billing_date
     from transformed t
-		inner join  {{ ref('hub_workflow_run') }} hub on t.workflow_run_hk = hub.workflow_run_hk
+		join  {{ ref('hub_workflow_run') }} hub on t.workflow_run_hk = hub.workflow_run_hk
 
 )
 

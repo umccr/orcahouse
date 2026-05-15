@@ -751,6 +751,8 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+      - name: hash_diff
+        data_type: char(64)
       - name: usage_id
         data_type: varchar(255)
       - name: usage_hash
