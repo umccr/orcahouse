@@ -148,10 +148,10 @@ transformed as (
 final as (
 
     select
-		cast(t.workflow_run_hk as char(64)) as workflow_run_hk,
-		cast(t.load_datetime as timestamptz) as load_datetime,
-		cast(t.record_source as varchar(255)) as record_source,
-		cast(t.hash_diff as char(64)) as hash_diff,
+		cast(workflow_run_hk as char(64)) as workflow_run_hk,
+		cast(load_datetime as timestamptz) as load_datetime,
+		cast(record_source as varchar(255)) as record_source,
+		cast(hash_diff as char(64)) as hash_diff,
         cast(usage_id as varchar(255)) as usage_id,
 		cast(usage_hash as varchar(255)) as usage_hash,
 		cast(usage_context as varchar(255)) as usage_context,
@@ -171,8 +171,7 @@ final as (
 		cast(is_license_cost as boolean) as is_license_cost,
 		cast(id_matches_reference as boolean) as id_matches_reference,
 		cast(billing_date as timestamptz) as billing_date
-    from transformed t
-		join  {{ ref('hub_workflow_run') }} hub on t.workflow_run_hk = hub.workflow_run_hk
+    from transformed
 
 )
 
