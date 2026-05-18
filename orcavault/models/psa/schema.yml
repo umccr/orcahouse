@@ -125,3 +125,52 @@ models:
         data_type: timestamptz
       - name: record_source
         data_type: varchar(255)
+
+  - name: ica_usage_report
+    columns:
+      - name: usage_id
+        data_type: varchar
+      - name: usage_hash
+        data_type: char(64)
+      - name: uc_name
+        data_type: varchar
+      - name: billable_account_id
+        data_type: varchar
+      - name: account_name
+        data_type: varchar
+      - name: account_type
+        data_type: varchar
+      - name: usage_context
+        data_type: varchar
+      - name: usage_context_type
+        data_type: varchar
+      - name: user_name
+        data_type: varchar
+      - name: product
+        data_type: varchar
+      - name: usage_type_description
+        data_type: varchar
+      - name: quantity
+        data_type: numeric(40,20)
+      - name: usage_unit
+        data_type: varchar
+      - name: price_per_unit
+        data_type: numeric(25,20)
+      - name: cost
+        data_type: numeric(25,20)
+      - name: cost_unit
+        data_type: varchar
+      - name: category
+        data_type: varchar
+      - name: usage_timestamp
+        data_type: varchar
+      - name: region
+        data_type: varchar
+      - name: metadata
+        data_type: varchar
+      - name: billing_date
+        data_type: varchar
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)

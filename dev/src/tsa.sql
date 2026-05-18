@@ -91,3 +91,27 @@ CREATE TABLE IF NOT EXISTS orcavault.tsa.spreadsheet_google_lims
     todo                varchar,
     sheet_name          varchar
 );
+
+CREATE TABLE IF NOT EXISTS orcavault.tsa.ica_usage_report
+(
+    usage_id               varchar,
+    uc_name                varchar,
+    billable_account_id    varchar,
+    account_name           varchar,
+    account_type           varchar,
+    usage_context          varchar,
+    usage_context_type     varchar,
+    user_name              varchar,
+    product                varchar,
+    usage_type_description varchar,
+    quantity               varchar,
+    usage_unit             varchar,
+    price_per_unit         varchar,
+    cost                   varchar,
+    cost_unit              varchar,
+    category               varchar,
+    usage_timestamp        varchar,
+    region                 varchar,
+    metadata               varchar,
+    billing_date           varchar
+);
