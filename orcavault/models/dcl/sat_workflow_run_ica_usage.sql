@@ -142,6 +142,7 @@ transformed as (
         parsed
 	where
 		resolved_run_id IS NOT NULL
+		and usage_context NOT IN ('development', 'staging')
 
 ),
 
@@ -153,7 +154,7 @@ final as (
 		cast(record_source as varchar(255)) as record_source,
 		cast(hash_diff as char(64)) as hash_diff,
         cast(usage_id as varchar(255)) as usage_id,
-		cast(usage_hash as varchar(255)) as usage_hash,
+		cast(usage_hash as varchar(64)) as usage_hash,
 		cast(usage_context as varchar(255)) as usage_context,
 		cast(usage_context_type as varchar(255)) as usage_context_type,
 		cast("user_name" as varchar(255)) as "user_name",
