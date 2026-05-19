@@ -93,6 +93,10 @@ def transform():
             case '2026':
                 df = df.with_columns(pl.lit('').alias('zStudy'))
 
+                # FIXME Drop the request_id column from 2026 sheet for now
+                #  See https://github.com/umccr/orcahouse/issues/230
+                df = df.drop('request_id')
+
         # globally rename
         df = df.rename({
             'Coverage (X)': 'Coverage',
