@@ -105,6 +105,12 @@ def load(spark: SparkSession, s3_bucket_name: str):
         db_host = secret['host']
         db_port = secret['port']
         db_name = secret['dbname']
+
+        # db_user = 'dev'
+        # db_password = 'dev'
+        # db_host = '0.0.0.0'
+        # db_port = '5432'
+        # db_name = 'orcavault'
         assert db_name == DB_NAME, 'db_name mismatch'
 
         jdbc_url = f"jdbc:postgresql://{db_host}:{db_port}/{db_name}"
@@ -112,9 +118,20 @@ def load(spark: SparkSession, s3_bucket_name: str):
         csv_file_path = csv_s3_object_name
 
         # truncate the table
-
         df = spark.read \
             .jdbc(url=jdbc_url, table=table_name, properties={"user": db_user, "password": db_password})
+
+        # NOTE: for local development
+        # Use alternate approach as the spark context differs slightly
+        # This also requires a local DB setup to be available (instead of the above remote connection details)
+        # df = spark.read \
+        #     .format("jdbc") \
+        #     .option("url", jdbc_url) \
+        #     .option("dbtable", table_name) \
+        #     .option("user", db_user) \
+        #     .option("password", db_password) \
+        #     .option("driver", "org.postgresql.Driver") \
+        #     .load()
 
         print(df.count())
 
