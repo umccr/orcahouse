@@ -5,14 +5,13 @@ The stack uses terraform workspace.
 ```
 terraform workspace list
   default
-* dev
-  prod
+* prod
 ```
 
 Login to the corresponding AWS account and apply like so.
 
 ```
-export AWS_PROFILE=umccr-dev-admin && terraform workspace select dev && terraform plan
+export AWS_PROFILE=umccr-prod-admin && terraform workspace select prod && terraform plan
 terraform apply
 ```
 
@@ -29,7 +28,7 @@ terraform test
 The following methods work for both OrcaBus and OrcaHouse. You can set up a connection via this management host to reach out either Aurora Cluster.
 
 ```
-export AWS_PROFILE=umccr-dev-admin
+export AWS_PROFILE=umccr-prod-admin
 ```
 
 ```
