@@ -48,6 +48,6 @@ resource "aws_glue_crawler" "this" {
     exclusions = ["*.{tsv,csv,avro,json,orc}"]
   }
 
-  # Runs at the top of every hour, every day in UTC
-  schedule = "cron(0 * * * ? *)"
+  # Runs once a day in UTC - 2:00 AM Sydney time AEDT
+  schedule = "cron(0 15 * * ? *)"
 }
