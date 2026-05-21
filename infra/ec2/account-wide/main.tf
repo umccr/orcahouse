@@ -94,3 +94,13 @@ resource "aws_ec2_instance_connect_endpoint" "main_vpc_eice" {
     Name = "${local.stack_name}-eice"
   }
 }
+
+resource "aws_security_group_rule" "allow_ssh_within_sg" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  self              = true
+  security_group_id = data.aws_security_group.uom_primary_sg.id
+  description       = "Allow SSH connection within the same security group"
+}
