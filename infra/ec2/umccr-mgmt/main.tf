@@ -33,7 +33,7 @@ locals {
 }
 
 module "config" {
-  source = "../common/config"
+  source = "../../common/config"
 }
 
 # ---

@@ -19,4 +19,5 @@ test:
 
 # NOTE: not suitable target for local running but specifically setup for anonymous CI runner  ~victor
 test-iac:
-	@(cd infra/ec2 && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
+	@(cd infra/ec2/umccr-mgmt && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
+	@(cd infra/ec2/warehouse-mgmt && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
