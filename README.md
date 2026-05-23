@@ -5,3 +5,5 @@
 Enterprise Data Warehouse Project
 
 For user guide and project documentation, please refer to https://github.com/umccr/orcahouse-doc
+
+For the Centre user stories tracking, please refer to https://github.com/umccr/orcahouse-user-stories
