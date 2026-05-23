@@ -31,3 +31,33 @@ models:
         data_type: varchar(255)
       - name: alias_library_id
         data_type: varchar(255)
+
+  - name: sal_workflow_run
+    config:
+      contract: { enforced: true }
+    constraints:
+      - type: primary_key
+        columns: [ sal_workflow_run_hk ]
+      - type: foreign_key
+        columns: [ base_workflow_run_hk ]
+        to: ref('hub_workflow_run')
+        to_columns: [ workflow_run_hk ]
+      - type: foreign_key
+        columns: [ alias_workflow_run_hk ]
+        to: ref('hub_workflow_run')
+        to_columns: [ workflow_run_hk ]
+    columns:
+      - name: sal_workflow_run_hk
+        data_type: char(64)
+      - name: base_workflow_run_hk
+        data_type: char(64)
+      - name: alias_workflow_run_hk
+        data_type: char(64)
+      - name: load_datetime
+        data_type: timestamptz
+      - name: record_source
+        data_type: varchar(255)
+      - name: base_portal_run_id
+        data_type: char(16)
+      - name: alias_portal_run_id
+        data_type: char(16)
