@@ -73,11 +73,53 @@ source2 as (
 
 ),
 
+source3 as (
+
+    {% if is_incremental() %}
+
+    select
+        sal.alias_workflow_run_hk as workflow_run_hk,
+        sal.record_source,
+        sat.workflow_name,
+        sat.workflow_version,
+        sat.workflow_code_version,
+        sat.workflow_validation_state,
+        sat.workflow_run_status,
+        sat.workflow_run_start,
+        sat.workflow_run_end,
+        sat.workflow_run_comment
+    from {{ this }} as sat
+        join {{ ref('sal_workflow_run') }} as sal on sal.base_workflow_run_hk = sat.workflow_run_hk
+    where
+        ( select count(1) from {{ ref('sal_workflow_run') }} ) > 0
+
+    {% else %}
+
+    select
+        sal.alias_workflow_run_hk as workflow_run_hk,
+        sal.record_source,
+        sat.workflow_name,
+        sat.workflow_version,
+        sat.workflow_code_version,
+        sat.workflow_validation_state,
+        sat.workflow_run_status,
+        sat.workflow_run_start,
+        sat.workflow_run_end,
+        sat.workflow_run_comment
+    from source1 as sat
+        join {{ ref('sal_workflow_run') }} as sal on sal.base_workflow_run_hk = sat.workflow_run_hk
+
+    {% endif %}
+
+),
+
 merged as (
 
     select * from source1
     union
     select * from source2
+    union
+    select * from source3
 
 ),
 
