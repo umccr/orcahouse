@@ -45,6 +45,10 @@ combined as (
     select distinct portal_run_id from source1
     union
     select distinct portal_run_id from source2
+    union
+    select distinct base_portal_run_id from {{ ref('mdm__workflow_run') }}
+    union
+    select distinct alias_portal_run_id from {{ ref('mdm__workflow_run') }}
 
 ),
 
