@@ -38,5 +38,5 @@ locals {
 }
 
 data "aws_s3_bucket" "lz" {
-  bucket = "orcahouse-landing-zone-115253169271-ap-southeast-2-an"
+  bucket = "orcahouse-prod-landing-zone-115253169271-ap-southeast-2-an"
 }
