@@ -1,4 +1,4 @@
-# OrcaHouse Athena
+# Legacy OrcaHouse Athena
 
 See https://docs.aws.amazon.com/athena/latest/ug/federated-queries.html
 
@@ -15,11 +15,10 @@ The stack uses terraform workspace.
 ```
 terraform workspace list
   default
-* dev
-  prod
+* prod
 ```
 
 ```
-export AWS_PROFILE=umccr-dev-admin && terraform workspace select dev && terraform plan
+export AWS_PROFILE=umccr-prod-admin && terraform workspace select prod && terraform plan
 terraform apply
 ```
