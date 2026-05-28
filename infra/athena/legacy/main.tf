@@ -29,7 +29,7 @@ provider "aws" {
 }
 
 module "config" {
-  source = "../common/config"
+  source = "../../common/config"
 }
 
 locals {
