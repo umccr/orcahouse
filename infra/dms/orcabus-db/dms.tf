@@ -11,7 +11,7 @@ resource "aws_dms_replication_subnet_group" "this" {
 
 resource "aws_dms_replication_instance" "this" {
   replication_instance_id    = "${local.name_prefix}-replication-instance"
-  replication_instance_class = "dms.t3.medium"
+  replication_instance_class = "dms.t3.small" # https://docs.aws.amazon.com/dms/latest/userguide/CHAP_ReplicationInstance.Types.html
   engine_version             = "3.6.1" # https://docs.aws.amazon.com/dms/latest/userguide/CHAP_ReleaseNotes.html
   allocated_storage          = 20      # GB
   apply_immediately          = true
@@ -62,7 +62,7 @@ resource "aws_dms_s3_endpoint" "target" {
   # Partition by date
   date_partition_enabled   = true
   date_partition_sequence  = "YYYYMMDD"
-  date_partition_delimiter = "SLASH"
+  date_partition_delimiter = "DASH"
 
   # CDC timestamp column
   timestamp_column_name = "_dms_cdc_timestamp"
