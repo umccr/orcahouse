@@ -107,7 +107,7 @@ def load(spark: SparkSession, s3_bucket_name: str):
         db_name = secret['dbname']
 
         # db_user = 'dev'
-        # db_password = 'dev'
+        # db_password = 'dev' # pragma: allowlist secret
         # db_host = '0.0.0.0'
         # db_port = '5432'
         # db_name = 'orcavault'
