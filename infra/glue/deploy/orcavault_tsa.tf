@@ -134,3 +134,52 @@ resource "aws_glue_trigger" "spreadsheet_google_lims" {
 
   depends_on = [aws_glue_job.spreadsheet_google_lims]
 }
+
+# ---
+
+resource "aws_s3_object" "csv_ica_usage_report" {
+  bucket = data.aws_s3_bucket.glue_script_bucket.bucket
+  key    = "glue/csv_ica_usage_report/csv_ica_usage_report.py"
+  source = "../workspace/csv_ica_usage_report/csv_ica_usage_report.py"
+  etag   = filemd5("../workspace/csv_ica_usage_report/csv_ica_usage_report.py")
+}
+
+resource "aws_glue_job" "csv_ica_usage_report" {
+  name              = "${local.stack_name}-csv-ica-usage-report-job"
+  role_arn          = aws_iam_role.glue_role.arn
+  glue_version      = "5.0"
+  worker_type       = "G.1X"
+  number_of_workers = 2
+  timeout           = 15
+
+  connections = sort([
+    aws_glue_connection.orcavault_tsa.name
+  ])
+
+  command {
+    name            = "glueetl"
+    script_location = "s3://${data.aws_s3_bucket.glue_script_bucket.bucket}/${aws_s3_object.csv_ica_usage_report.key}"
+    python_version  = "3"
+  }
+
+  default_arguments = {
+    "--job-language"                     = "python"
+    "--python-modules-installer-option"  = "-r"
+    "--additional-python-modules"        = "s3://${data.aws_s3_bucket.glue_script_bucket.bucket}/${aws_s3_object.requirements_txt.key}"
+    "--bucket"                           = data.aws_s3_bucket.glue_script_bucket.bucket
+  }
+}
+
+resource "aws_glue_trigger" "csv_ica_usage_report" {
+  name              = "${aws_glue_job.csv_ica_usage_report.name}-scheduled-trigger"
+  type              = "SCHEDULED"
+  schedule          = "cron(10 13 * * ? *)"
+  description       = "Daily trigger for ${aws_glue_job.csv_ica_usage_report.name}"
+  start_on_creation = true
+
+  actions {
+    job_name = aws_glue_job.csv_ica_usage_report.name
+  }
+
+  depends_on = [aws_glue_job.csv_ica_usage_report]
+}
