@@ -90,12 +90,17 @@ def transform():
                 df = df.with_columns(pl.lit('').alias('zStudy'))
             case '2025':
                 df = df.with_columns(pl.lit('').alias('zStudy'))
+                # FIXME Drop the request_id column from 2025 sheet for now
+                #  See https://github.com/umccr/orcahouse/issues/230
+                #  Changed to `RequestFormID`
+                df = df.drop('RequestFormID')
+
             case '2026':
                 df = df.with_columns(pl.lit('').alias('zStudy'))
-
                 # FIXME Drop the request_id column from 2026 sheet for now
                 #  See https://github.com/umccr/orcahouse/issues/230
-                df = df.drop('request_id')
+                #  Changed to `RequestFormID`
+                df = df.drop('RequestFormID')
 
         # globally rename
         df = df.rename({
