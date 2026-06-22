@@ -5,9 +5,8 @@ resource "aws_redshiftserverless_namespace" "this" {
   db_name               = var.db_name
   manage_admin_password = true
 
-  # TODO Attach IAM role to namespace
-  # default_iam_role_arn = aws_iam_role.namespace.arn
-  # iam_roles            = [aws_iam_role.namespace.arn]
+  default_iam_role_arn = aws_iam_role.namespace.arn
+  iam_roles            = [aws_iam_role.namespace.arn]
 
   tags = {
     Environment = var.environment
