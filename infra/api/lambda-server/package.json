@@ -13,28 +13,23 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "packageManager": "pnpm@10.6.2",
+  "packageManager": "pnpm@11.12.0+sha512.820a6fbd0d9f04c226638002aead1e45340a9139dd5dc077c1d83ef44aa2481c8eb6637b4c9aa696a3c7e35ba818e49cf27213e5f2b91138d09b7a3e26e898ba",
   "dependencies": {
-    "@dataplan/json": "0.0.1-beta.31",
-    "@dataplan/pg": "0.0.1-beta.33",
-    "@fastify/aws-lambda": "^5.1.4",
-    "fastify": "4",
-    "graphile-build": "5.0.0-beta.34",
-    "graphile-build-pg": "5.0.0-beta.40",
-    "pg-sql2": "^5.0.0-beta.9",
-    "postgraphile": "5.0.0-beta.42",
-    "postgraphile-plugin-connection-filter": "3.0.0-beta.8"
+    "@dataplan/json": "1.0.1",
+    "@dataplan/pg": "1.1.0",
+    "@fastify/aws-lambda": "^6.4.0",
+    "fastify": "5.10.0",
+    "graphile-build": "5.1.0",
+    "graphile-build-pg": "5.1.0",
+    "pg-sql2": "^5.0.1",
+    "postgraphile": "5.1.0",
+    "postgraphile-plugin-connection-filter": "3.0.2"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.150",
-    "cross-env": "^7.0.3",
-    "esbuild": "^0.25.5",
+    "@types/aws-lambda": "^8.10.162",
+    "cross-env": "^10.1.0",
+    "esbuild": "^0.28.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
-  },
-  "pnpm": {
-    "overrides": {
-      "jws@<3.2.3": ">=3.2.3"
-    }
+    "typescript": "^6.0.3"
   }
 }
