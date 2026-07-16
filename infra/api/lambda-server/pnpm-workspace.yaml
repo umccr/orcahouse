@@ -1,0 +1,13 @@
+allowBuilds:
+  esbuild: false
+minimumReleaseAgeExclude:
+  - '@dataplan/json@1.0.1'
+  - '@dataplan/pg@1.1.0'
+  - grafast@1.1.0
+  - grafserv@1.0.1
+  - graphile-build-pg@5.1.0
+  - graphile-build@5.1.0
+  - graphile-config@1.1.0
+  - graphile-utils@5.0.2
+  - postgraphile@5.1.0
+  - ruru@2.0.1
