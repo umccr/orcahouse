@@ -5,7 +5,7 @@ terraform {
     bucket         = "umccr-terraform-states"
     key            = "orcahouse/api/terraform.tfstate"
     region         = "ap-southeast-2"
-    dynamodb_table = "terraform-state-lock"
+    use_lockfile   = true
   }
 
   required_providers {
