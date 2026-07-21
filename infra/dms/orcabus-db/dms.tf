@@ -62,7 +62,7 @@ resource "aws_dms_s3_endpoint" "target" {
   # Partition by date
   date_partition_enabled   = true
   date_partition_sequence  = "YYYYMMDD"
-  date_partition_delimiter = "DASH"
+  date_partition_delimiter = "SLASH"
 
   # CDC timestamp column
   timestamp_column_name = "_dms_cdc_timestamp"
