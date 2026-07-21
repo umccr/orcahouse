@@ -2,7 +2,7 @@ terraform {
   required_version = ">= 1.15.0"
 
   backend "s3" {
-    bucket       = "terraform-states-ccfgcm"
+    bucket       = "terraform-states-363226301494-ap-southeast-2-an"
     key          = "115253169271/orcahouse/glue-crawler/orcabus-db/terraform.tfstate"
     region       = "ap-southeast-2"
     use_lockfile = true

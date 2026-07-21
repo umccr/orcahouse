@@ -3,7 +3,7 @@ terraform {
 
   backend "s3" {
     # FIXME update this when the prod account has migrated to unimelb tenancy
-    # bucket       = "terraform-states-ccfgcm"
+    # bucket       = "terraform-states-363226301494-ap-southeast-2-an"
     # key          = "115253169271/orcahouse/lakeformation/environments/umccr-prod/terraform.tfstate"
     bucket       = "umccr-terraform-states"
     key          = "orcahouse-lakeformation/environments/umccr-prod/terraform.tfstate"
