@@ -42,6 +42,8 @@ locals {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 data "aws_ssm_parameter" "master_username" {
   name = "/${local.stack_name}/master_username"
 }
