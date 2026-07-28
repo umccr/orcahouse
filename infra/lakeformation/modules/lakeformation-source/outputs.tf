@@ -18,5 +18,5 @@ output "data_filter_names" {
 
 output "consumer_account_ids" {
   description = "List of consumer account IDs granted access"
-  value       = var.consumer_account_ids
+  value       = local.consumer_account_ids
 }

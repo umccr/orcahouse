@@ -8,7 +8,7 @@ output "consumer_account_id" {
   value       = var.this_account_id
 }
 
-output "granted_principals" {
-  description = "List of IAM principals granted access"
-  value       = keys(var.principal_grants)
-}
+# output "granted_principals" {
+#   description = "List of IAM principals granted access"
+#   value       = keys(var.principal_grants)
+# }

@@ -1,5 +1,12 @@
 data "aws_region" "current" {}
 
+locals {
+  consumer_account_ids = keys(var.consumer_accounts)
+  consumer_principal_arns = flatten([
+    for account_id, account_config in var.consumer_accounts : account_config.principal_arns
+  ])
+}
+
 # -------------------------------------------------------
 # RAM — One resource share for all consumer accounts
 # -------------------------------------------------------
@@ -18,14 +25,14 @@ resource "aws_ram_resource_association" "glue_database" {
 }
 
 resource "aws_ram_principal_association" "consumer_accounts" {
-  for_each = toset(var.consumer_account_ids)
+  for_each = toset(local.consumer_account_ids)
 
   principal          = each.value
   resource_share_arn = aws_ram_resource_share.lakeformation_share.arn
 }
 
 # -------------------------------------------------------
-# Glue — One resource share for all consumer accounts
+# Glue — Resource policy for cross account access
 # -------------------------------------------------------
 resource "aws_glue_resource_policy" "cross_account" {
   enable_hybrid = "TRUE"
@@ -37,7 +44,7 @@ resource "aws_glue_resource_policy" "cross_account" {
         Effect = "Allow"
         Principal = {
           Service = "ram.amazonaws.com",
-          AWS     = [for id in var.consumer_account_ids : "arn:aws:iam::${id}:root"]
+          AWS     = [for id in local.consumer_account_ids : "arn:aws:iam::${id}:root"]
         }
         Action = [
           "glue:GetTable",
@@ -60,7 +67,7 @@ resource "aws_glue_resource_policy" "cross_account" {
 # Lake Formation — Database grant per consumer account
 # -------------------------------------------------------
 resource "aws_lakeformation_permissions" "database_grant" {
-  for_each = toset(var.consumer_account_ids)
+  for_each = toset(local.consumer_account_ids)
 
   principal                     = each.value
   permissions                   = ["DESCRIBE"]
@@ -79,78 +86,87 @@ resource "aws_lakeformation_permissions" "database_grant" {
 # -------------------------------------------------------
 # Lake Formation — Table grants per consumer account
 # -------------------------------------------------------
-resource "aws_lakeformation_permissions" "table_grant" {
+# FIXME table_grant Vs data_filter_grant
+#  This is the key insight — data cells filters and broad table grants cannot coexist if you want the filter
+#  restrictions to be enforced. The filter only takes effect when it is the only grant on that table for that principal.
+#  Also revoke "IAMAllowedPrincipals" Group principal type with "All" permissions because this broad permission scope
+#  always take precedent.
+# resource "aws_lakeformation_permissions" "table_grant" {
+#   for_each = {
+#     for item in flatten([
+#       for account_id in var.consumer_account_ids : [
+#         for table_name in keys(var.tables) : {
+#           key        = "${account_id}__${table_name}"
+#           account_id = account_id
+#           table_name = table_name
+#         }
+#       ]
+#     ]) : item.key => item
+#   }
+#
+#   principal                     = each.value.account_id
+#   permissions                   = ["SELECT", "DESCRIBE"]
+#   permissions_with_grant_option = ["SELECT", "DESCRIBE"]
+#
+#   table {
+#     database_name = var.database_name
+#     name          = each.value.table_name
+#     catalog_id    = var.dw_account_id
+#   }
+#
+#   depends_on = [
+#     aws_ram_principal_association.consumer_accounts
+#   ]
+# }
+
+# -------------------------------------------------------
+# Lake Formation — Grant Data Cell Filters to Principal ARNs
+# Granted directly to SSO role ARNs — not account ID
+# -------------------------------------------------------
+resource "aws_lakeformation_permissions" "data_filter_grant" {
   for_each = {
     for item in flatten([
-      for account_id in var.consumer_account_ids : [
-        for table_name, table_config in var.tables : {
-          key        = "${account_id}__${table_name}"
-          account_id = account_id
-          table_name = table_name
-          config     = table_config
+      for principal_arn in local.consumer_principal_arns : [
+        for filter_key, filter in aws_lakeformation_data_cells_filter.filters : {
+          key           = "${principal_arn}__${filter_key}"
+          principal_arn = principal_arn
+          table_name    = filter.table_data[0].table_name
+          filter_name   = filter.table_data[0].name
         }
       ]
     ]) : item.key => item
   }
 
-  principal                     = each.value.account_id
-  permissions                   = ["SELECT", "DESCRIBE"]
-  permissions_with_grant_option = ["SELECT", "DESCRIBE"]
+  principal   = each.value.principal_arn
+  permissions = ["SELECT"]
 
-  # No column restrictions — full table grant
-  dynamic "table" {
-    for_each = (
-      length(each.value.config.included_columns) == 0 &&
-      length(each.value.config.excluded_columns) == 0
-    ) ? [1] : []
-
-    content {
-      database_name = var.database_name
-      name          = each.value.table_name
-      catalog_id    = var.dw_account_id
-    }
-  }
-
-  # Included columns — whitelist
-  dynamic "table_with_columns" {
-    for_each = length(each.value.config.included_columns) > 0 ? [1] : []
-
-    content {
-      database_name = var.database_name
-      name          = each.value.table_name
-      catalog_id    = var.dw_account_id
-      column_names  = each.value.config.included_columns
-    }
-  }
-
-  # Excluded columns — blacklist
-  dynamic "table_with_columns" {
-    for_each = (
-      length(each.value.config.included_columns) == 0 &&
-      length(each.value.config.excluded_columns) > 0
-    ) ? [1] : []
-
-    content {
-      database_name = var.database_name
-      name          = each.value.table_name
-      catalog_id    = var.dw_account_id
-
-      column_wildcard {
-        excluded_column_names = each.value.config.excluded_columns
-      }
-    }
+  data_cells_filter {
+    database_name    = var.database_name
+    table_name       = each.value.table_name
+    name             = each.value.filter_name
+    table_catalog_id = var.dw_account_id
   }
 
   depends_on = [
-    aws_ram_principal_association.consumer_accounts
+    aws_lakeformation_data_cells_filter.filters
   ]
+
+  # FIXME WORKAROUND: Prevents the provider from timing out on cross-account list-permissions checks
+  #  https://github.com/hashicorp/terraform-provider-aws/issues/48360
+  #  https://github.com/hashicorp/terraform-provider-aws/issues/46951
+  #  Error: reading Lake Formation permissions: timeout while waiting for state to become 'AVAILABLE' (timeout: 1m0s):
+  #  listing permissions: operation error LakeFormation: ListPermissions, context deadline exceeded
+  # lifecycle {
+  #   ignore_changes = [
+  #     data_cells_filter
+  #   ]
+  # }
 }
 
 # -------------------------------------------------------
 # Lake Formation — Data Cell Filters
 # Created once, shared to all consumer accounts
 # -------------------------------------------------------
-# TODO complete the implementation for data cells filter - need a use case
 resource "aws_lakeformation_data_cells_filter" "filters" {
   for_each = {
     for item in flatten([
@@ -180,15 +196,53 @@ resource "aws_lakeformation_data_cells_filter" "filters" {
       filter_expression = each.value.config.row_filter_expression != null ? each.value.config.row_filter_expression : null
     }
 
-    # Specific columns
+    # Specific columns — inclusion
     column_names = length(each.value.config.included_columns) > 0 ? each.value.config.included_columns : null
 
-    # All columns — explicitly set excluded_column_names to empty list
+    # All columns wildcard — with optional exclusion
     dynamic "column_wildcard" {
       for_each = length(each.value.config.included_columns) == 0 ? [1] : []
       content {
-        excluded_column_names = []
+        excluded_column_names = length(each.value.config.excluded_columns) > 0 ? each.value.config.excluded_columns : []
       }
     }
   }
+}
+
+# In hybrid mode, the consumer (e.g. umccr-prod) SSO role needs both Lake Formation permissions (which we have set up)
+# and IAM S3 read permissions on the DW account's S3 bucket. If not, this is the likely cause of the S3 403 when
+# querying via Athena.
+#
+# Alternatively, you can disable hybrid mode on the S3 location registration — set HybridAccessEnabled: false — and
+# Lake Formation handles S3 access entirely without needing a bucket policy.
+#
+# Verify S3 location is registered as AWS Lake Formation > Administration > Data lake locations
+#   `aws lakeformation list-resources`
+#
+# For the same account (DW account), we also need to register the S3 bucket at
+#   AWS Lake Formation > Permissions > Data locations
+#
+resource "aws_s3_bucket_policy" "cross_account_read" {
+  for_each = toset(var.data_bucket_names)
+
+  bucket = each.value
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = [for id in local.consumer_account_ids : "arn:aws:iam::${id}:root"]
+        }
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = [
+          "arn:aws:s3:::${each.value}",
+          "arn:aws:s3:::${each.value}/*"
+        ]
+      }
+    ]
+  })
 }

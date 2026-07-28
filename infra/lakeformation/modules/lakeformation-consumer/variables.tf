@@ -18,10 +18,11 @@ variable "this_account_database_name" {
   type        = string
 }
 
-variable "principal_grants" {
-  description = "Consumer account local principals to grant access"
-  type = map(object({
-    tables      = list(string)
-    permissions = optional(list(string), ["SELECT", "DESCRIBE"])
-  }))
-}
+# FIXME still experimenting - this has moved into the warehouse source side as pre-filtered data cell share table
+# variable "principal_grants" {
+#   description = "Consumer account local principals to grant access"
+#   type = map(object({
+#     tables      = list(string)
+#     permissions = optional(list(string), ["SELECT", "DESCRIBE"])
+#   }))
+# }
