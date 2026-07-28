@@ -14,54 +14,56 @@ resource "aws_glue_catalog_database" "resource_link" {
 # Lake Formation — Grant DESCRIBE on Resource Link Database
 # Every principal needs this to see the database locally
 # -------------------------------------------------------
-resource "aws_lakeformation_permissions" "resource_link_grant" {
-  for_each = var.principal_grants
-
-  principal   = each.key
-  permissions = ["DESCRIBE"]
-
-  database {
-    name       = aws_glue_catalog_database.resource_link.name
-    catalog_id = var.this_account_id
-  }
-
-  depends_on = [
-    aws_glue_catalog_database.resource_link,
-  ]
-}
+# FIXME still experimenting - this has moved into the warehouse source side as pre-filtered data cell share table
+# resource "aws_lakeformation_permissions" "resource_link_grant" {
+#   for_each = var.principal_grants
+#
+#   principal   = each.key
+#   permissions = ["DESCRIBE"]
+#
+#   database {
+#     name       = aws_glue_catalog_database.resource_link.name
+#     catalog_id = var.this_account_id
+#   }
+#
+#   depends_on = [
+#     aws_glue_catalog_database.resource_link,
+#   ]
+# }
 
 # -------------------------------------------------------
 # Lake Formation — Table Grants to Local Principals
 # For principals accessing full tables (no row filter)
 # -------------------------------------------------------
-resource "aws_lakeformation_permissions" "table_grant" {
-  for_each = {
-    for item in flatten([
-      for role_arn, role_config in var.principal_grants : [
-        for table_name in role_config.tables : {
-          key         = "${role_arn}__${table_name}"
-          role_arn    = role_arn
-          table_name  = table_name
-          permissions = role_config.permissions
-        }
-      ]
-    ]) : item.key => item
-  }
-
-  principal   = each.value.role_arn
-  permissions = each.value.permissions
-
-  table_with_columns {
-    name          = each.value.table_name
-    catalog_id    = var.dw_account_id
-    database_name = var.dw_database_name
-    wildcard      = true
-  }
-
-  depends_on = [
-    aws_glue_catalog_database.resource_link,
-  ]
-}
+# FIXME still experimenting - this has moved into the warehouse source side as pre-filtered data cell share table
+# resource "aws_lakeformation_permissions" "table_grant" {
+#   for_each = {
+#     for item in flatten([
+#       for role_arn, role_config in var.principal_grants : [
+#         for table_name in role_config.tables : {
+#           key         = "${role_arn}__${table_name}"
+#           role_arn    = role_arn
+#           table_name  = table_name
+#           permissions = role_config.permissions
+#         }
+#       ]
+#     ]) : item.key => item
+#   }
+#
+#   principal   = each.value.role_arn
+#   permissions = each.value.permissions
+#
+#   table_with_columns {
+#     name          = each.value.table_name
+#     catalog_id    = var.dw_account_id
+#     database_name = var.dw_database_name
+#     wildcard      = true
+#   }
+#
+#   depends_on = [
+#     aws_glue_catalog_database.resource_link,
+#   ]
+# }
 
 # ---
 

@@ -3,9 +3,11 @@ variable "dw_account_id" {
   type        = string
 }
 
-variable "consumer_account_ids" {
-  description = "List of all consumer AWS account IDs"
-  type        = list(string)
+variable "consumer_accounts" {
+  description = "Map of consumer account IDs to their principal ARNs"
+  type = map(object({
+    principal_arns = list(string)
+  }))
 }
 
 variable "database_name" {
@@ -16,12 +18,15 @@ variable "database_name" {
 variable "tables" {
   description = "Map of table configurations"
   type = map(object({
-    excluded_columns = optional(list(string), [])
-    included_columns = optional(list(string), [])
     data_filters = optional(map(object({
       row_filter_expression = optional(string, null)
       included_columns      = optional(list(string), [])
-      all_columns           = optional(bool, true)
+      excluded_columns      = optional(list(string), [])
     })), {})
   }))
+}
+
+variable "data_bucket_names" {
+  description = "List of S3 bucket names backing the Glue database in the DW account"
+  type        = list(string)
 }

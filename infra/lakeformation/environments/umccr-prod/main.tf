@@ -67,28 +67,29 @@ module "lakeformation_consumer_oncomart" {
   this_account_id            = data.aws_caller_identity.current.id
   this_account_database_name = "mart"
 
-  principal_grants = {
-
-    (local.sso_admin_role_arn) = {
-      tables      = []
-      permissions = ["SELECT", "DESCRIBE"]
-    },
-
-    (local.sso_prod_ops_role_arn) = {
-      tables = [
-        "purple_qc",
-        "amber_qc",
-      ]
-      permissions = ["SELECT", "DESCRIBE"]
-    },
-
-    (local.sso_prod_exp_role_arn) = {
-      tables = [
-        "purple_qc",
-        "amber_qc",
-      ]
-      permissions = ["SELECT", "DESCRIBE"]
-    },
-
-  }
+  # FIXME still experimenting - this has moved into the warehouse source side as pre-filtered data cell share table
+  # principal_grants = {
+  #
+  #   (local.sso_admin_role_arn) = {
+  #     tables      = []
+  #     permissions = ["SELECT", "DESCRIBE"]
+  #   },
+  #
+  #   (local.sso_prod_ops_role_arn) = {
+  #     tables = [
+  #       "purple_qc",
+  #       "amber_qc",
+  #     ]
+  #     permissions = ["SELECT", "DESCRIBE"]
+  #   },
+  #
+  #   (local.sso_prod_exp_role_arn) = {
+  #     tables = [
+  #       "purple_qc",
+  #       "amber_qc",
+  #     ]
+  #     permissions = ["SELECT", "DESCRIBE"]
+  #   },
+  #
+  # }
 }
