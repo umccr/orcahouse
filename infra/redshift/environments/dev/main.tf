@@ -63,14 +63,30 @@ data "aws_security_group" "uom_primary_sg" {
 module "redshift_serverless" {
   source = "../../modules/redshift-serverless"
 
-  namespace_name       = "${local.namespace}-${local.environment}"
-  workgroup_name       = "${local.namespace}-${local.environment}"
-  db_name              = local.db_name
-  base_capacity        = 4
-  max_capacity         = 4
-  environment          = local.environment
-  subnet_ids           = data.aws_subnets.uom_private_subnets_ids.ids
-  security_group_ids   = [data.aws_security_group.uom_primary_sg.id]
-  compute_limit_amount = 60 # RPU consumed per hour
-  data_limit_amount    = 1  # TB
+  namespace_name     = "${local.namespace}-${local.environment}"
+  workgroup_name     = "${local.namespace}-${local.environment}"
+  db_name            = local.db_name
+  environment        = local.environment
+  subnet_ids         = data.aws_subnets.uom_private_subnets_ids.ids
+  security_group_ids = [data.aws_security_group.uom_primary_sg.id]
+
+  # Read doc for tuning guide:
+  # https://docs.aws.amazon.com/redshift/latest/mgmt/serverless-capacity.html
+  # https://docs.aws.amazon.com/redshift/latest/mgmt/serverless-workgroup-max-rpu.html
+  # https://docs.aws.amazon.com/redshift/latest/mgmt/amazon-redshift-limits.html
+  #
+  # See variable description at infra/redshift/modules/redshift-serverless/variables.tf
+  base_capacity            = 4
+  max_capacity             = 4
+  max_query_execution_time = 900 # in seconds, 15 minutes
+  compute_limit_amount     = 120 # Maximum RPUs, Monthly
+  data_limit_amount        = 1   # TB
+
+  # Running a 4-RPU query for one hour in the Asia Pacific (Sydney) region costs approximately $1.65 to $1.98 AUD
+  # ($1.10 to $1.32 USD) for compute capacity, calculated at roughly $0.41–$0.49 AUD per RPU-hour.
+  # Exact totals vary based on real-time currency exchange rates and minor regional pricing updates.
+  #
+  # Formula     : Number of RPUs × Hourly Rate per RPU × Hours Running
+  # Calculation : 4 RPUs × $0.375 × 1 hour = $1.50
+  # Example     : US East / West: ~$1.50 per hour ($0.375 / RPU-hour)
 }

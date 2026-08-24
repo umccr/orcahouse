@@ -22,6 +22,12 @@ variable "max_capacity" {
   default     = 4
 }
 
+variable "max_query_execution_time" {
+  description = "Maximum query execution time in seconds"
+  type        = number
+  default     = 300 # default to 5 minutes
+}
+
 variable "environment" {
   type = string
 }
