@@ -41,7 +41,7 @@ resource "aws_redshiftserverless_workgroup" "this" {
   }
   config_parameter {
     parameter_key   = "max_query_execution_time"
-    parameter_value = "300" # seconds
+    parameter_value = var.max_query_execution_time # seconds
   }
   config_parameter {
     parameter_key   = "query_group"
