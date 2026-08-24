@@ -120,9 +120,9 @@ resource "aws_instance" "mgmt" {
   # https://docs.aws.amazon.com/systems-manager/latest/userguide/ami-preinstalled-agent.html
 
   # via Ec2 Console Search Filter > AMI Catalog
-  # Ubuntu Server 24.04 LTS (HVM), SSD Volume Type
-  # ami-0c33c6bd24cee108b (64-bit (x86)) / ami-03f22bc717145721a (64-bit (Arm))
-  ami                         = "ami-03f22bc717145721a"
+  # Ubuntu Server 26.04 LTS (HVM), SSD Volume Type
+  # ami-06259b63260eddc13 (64-bit (x86)) / ami-0f1329677c7e5aba8 (64-bit (Arm))
+  ami                         = "ami-0f1329677c7e5aba8"
   instance_type               = "t4g.nano"
   hibernation                 = true
   associate_public_ip_address = false
