@@ -76,11 +76,11 @@ module "redshift_serverless" {
   # https://docs.aws.amazon.com/redshift/latest/mgmt/amazon-redshift-limits.html
   #
   # See variable description at infra/redshift/modules/redshift-serverless/variables.tf
-  base_capacity            = 4
-  max_capacity             = 4
+  base_capacity            = 4   # RPUs
+  max_capacity             = 4   # RPUs
   max_query_execution_time = 900 # in seconds, 15 minutes
-  compute_limit_amount     = 120 # Maximum RPUs, Monthly
-  data_limit_amount        = 1   # TB
+  compute_limit_amount     = 120 # Maximum RPU-hours, Monthly
+  data_limit_amount        = 1   # TB cross region transfer, Monthly
 
   # Running a 4-RPU query for one hour in the Asia Pacific (Sydney) region costs approximately $1.65 to $1.98 AUD
   # ($1.10 to $1.32 USD) for compute capacity, calculated at roughly $0.41–$0.49 AUD per RPU-hour.
