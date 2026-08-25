@@ -41,7 +41,7 @@ variable "security_group_ids" {
 }
 
 variable "compute_limit_amount" {
-  description = "RPU consumed per hour for the workgroup"
+  description = "Consumed RPU-hours per month for the workgroup"
   type        = number
   default     = 60
 }

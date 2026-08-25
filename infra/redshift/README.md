@@ -29,3 +29,11 @@ terraform init
 terraform plan
 terraform apply
 ```
+
+## Requirements / Conditions
+
+This expects certain infrastructure it exist in the warehouse target AWS account:
+- terraform state bucket
+- a VPC (name = UomPrimaryVpc)  # NOTE: preconfigured in account, not the same as defined in infra/vpc/ of this repo
+- private subnets (tag:Network = Private)
+- Security Groups (tag:Name = UomPrimaryVpcEndpoints)

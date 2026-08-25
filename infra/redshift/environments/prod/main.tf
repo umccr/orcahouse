@@ -49,6 +49,12 @@ data "aws_subnets" "uom_private_subnets_ids" {
     name   = "tag:Network"
     values = ["Private"]
   }
+
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.primary.id]
+  }
+
 }
 
 data "aws_security_group" "uom_primary_sg" {
@@ -71,9 +77,9 @@ module "redshift_serverless" {
   security_group_ids = [data.aws_security_group.uom_primary_sg.id]
 
   # See note in infra/redshift/environments/dev/main.tf for tuning
-  base_capacity            = 4
-  max_capacity             = 4
+  base_capacity            = 4   # RPUs
+  max_capacity             = 4   # RPUs
   max_query_execution_time = 900 # in seconds, 15 minutes
-  compute_limit_amount     = 120 # Maximum RPUs, Monthly
-  data_limit_amount        = 1   # TB
+  compute_limit_amount     = 120 # Maximum RPU-hours, Monthly
+  data_limit_amount        = 1   # TB cross region transfer, Monthly
 }
