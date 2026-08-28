@@ -32,56 +32,60 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+data "aws_region" "current" {}
+
 # ---
 
-module "lakeformation_source_oncomart" {
-  source = "../../modules/lakeformation-source"
+# FIXME TODO - tuning up in the progress for cross-account sharing
 
-  dw_account_id = data.aws_caller_identity.current.id
-  database_name = "oncovault_dev_mart"
-
-  tables = {
-
-    purple_qc = {
-      data_filters = {
-        filter_purple_qc_column = {
-          row_filter_expression = null
-          included_columns      = []
-          # FIXME still experimenting -
-          #  we could as well pre-built the mart table with excluded columns
-          #  then the LF permission setup become straight forward table sharing
-          excluded_columns = [
-            "gender_amber",
-            "gender_cobalt"
-          ]
-        }
-      }
-    }
-
-    amber_qc = {
-      data_filters = {
-        filter_qc_status = {
-          row_filter_expression = "qc_status != 'DELETED'"
-        }
-      }
-    }
-
-  }
-
-  consumer_accounts = {
-    "472057503814" = {
-      principal_arns = [
-        local.sso_admin_role_arn,
-        local.sso_prod_exp_role_arn,
-        local.sso_prod_ops_role_arn,
-      ]
-    }
-  }
-
-  # FIXME still experimenting - this is POC mart built out of oncovault warehouse
-  #  the plan is to make a dedicate mart setup rather than shoehorning within oncovault
-  data_bucket_names = [
-    "oncovault-dev-warehouse-115253169271-ap-southeast-2-an"
-  ]
-
-}
+# module "lakeformation_source_oncomart" {
+#   source = "../../modules/lakeformation-source"
+#
+#   dw_account_id = data.aws_caller_identity.current.id
+#   database_name = "oncovault_dev_mart"
+#
+#   tables = {
+#
+#     purple_qc = {
+#       data_filters = {
+#         filter_purple_qc_column = {
+#           row_filter_expression = null
+#           included_columns      = []
+#           # FIXME still experimenting -
+#           #  we could as well pre-built the mart table with excluded columns
+#           #  then the LF permission setup become straight forward table sharing
+#           excluded_columns = [
+#             "gender_amber",
+#             "gender_cobalt"
+#           ]
+#         }
+#       }
+#     }
+#
+#     amber_qc = {
+#       data_filters = {
+#         filter_qc_status = {
+#           row_filter_expression = "qc_status != 'DELETED'"
+#         }
+#       }
+#     }
+#
+#   }
+#
+#   consumer_accounts = {
+#     "472057503814" = {
+#       principal_arns = [
+#         local.sso_admin_role_arn,
+#         local.sso_prod_exp_role_arn,
+#         local.sso_prod_ops_role_arn,
+#       ]
+#     }
+#   }
+#
+#   # FIXME still experimenting - this is POC mart built out of oncovault warehouse
+#   #  the plan is to make a dedicate mart setup rather than shoehorning within oncovault
+#   data_bucket_names = [
+#     "oncovault-dev-warehouse-115253169271-ap-southeast-2-an"
+#   ]
+#
+# }
