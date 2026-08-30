@@ -37,7 +37,7 @@ locals {
 # ==========================================
 resource "aws_lakeformation_permissions" "dbt_database" {
   for_each  = toset(local.databases)
-  principal = tolist(data.aws_iam_roles.warehouse_sso_power_user.arns)[0]
+  principal = one(data.aws_iam_roles.warehouse_sso_power_user.arns)
 
   database {
     name = each.value
@@ -47,7 +47,7 @@ resource "aws_lakeformation_permissions" "dbt_database" {
 
 resource "aws_lakeformation_permissions" "dbt_tables" {
   for_each  = toset(local.databases)
-  principal = tolist(data.aws_iam_roles.warehouse_sso_power_user.arns)[0]
+  principal = one(data.aws_iam_roles.warehouse_sso_power_user.arns)
 
   table {
     database_name = each.value
@@ -85,7 +85,7 @@ resource "aws_lakeformation_permissions" "crawler_tables" {
 # ==========================================
 resource "aws_lakeformation_permissions" "admin_database" {
   for_each  = toset(local.databases)
-  principal = tolist(data.aws_iam_roles.warehouse_sso_admin.arns)[0]
+  principal = one(data.aws_iam_roles.warehouse_sso_admin.arns)
 
   database {
     name = each.value
@@ -95,7 +95,7 @@ resource "aws_lakeformation_permissions" "admin_database" {
 
 resource "aws_lakeformation_permissions" "admin_tables" {
   for_each  = toset(local.databases)
-  principal = tolist(data.aws_iam_roles.warehouse_sso_admin.arns)[0]
+  principal = one(data.aws_iam_roles.warehouse_sso_admin.arns)
 
   table {
     database_name = each.value
