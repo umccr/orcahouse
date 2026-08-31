@@ -57,30 +57,6 @@ resource "aws_lakeformation_permissions" "dbt_tables" {
 }
 
 # ==========================================
-# 2. PERMISSIONS FOR GLUE CRAWLER
-# ==========================================
-resource "aws_lakeformation_permissions" "crawler_database" {
-  for_each  = toset(local.databases)
-  principal = data.aws_iam_role.crawler.arn
-
-  database {
-    name = each.value
-  }
-  permissions = ["DESCRIBE", "CREATE_TABLE"]
-}
-
-resource "aws_lakeformation_permissions" "crawler_tables" {
-  for_each  = toset(local.databases)
-  principal = data.aws_iam_role.crawler.arn
-
-  table {
-    database_name = each.value
-    wildcard      = true
-  }
-  permissions = ["SELECT", "ALTER", "DROP"]
-}
-
-# ==========================================
 # 3. PERMISSIONS FOR ADMINISTRATORS
 # ==========================================
 resource "aws_lakeformation_permissions" "admin_database" {
