@@ -57,6 +57,8 @@ data "aws_iam_policy_document" "namespace_policy" {
       "s3:GetObject",
       "s3:ListBucket",
       "s3:GetBucketLocation",
+      "s3:PutObject",
+      "s3:PutObjectAcl"
     ]
     resources = var.s3_bucket_arns
   }
