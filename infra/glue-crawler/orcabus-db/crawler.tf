@@ -26,7 +26,7 @@ resource "aws_glue_crawler" "this" {
     }
     Grouping = {
       TableGroupingPolicy     = "CombineCompatibleSchemas"
-      TableLevelConfiguration = 7 # folder depth — database/schema/table
+      TableLevelConfiguration = 7 # count inclusive of bucket name towards the table name
     }
   })
 
