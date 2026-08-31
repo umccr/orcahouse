@@ -3,7 +3,7 @@ terraform {
 
   backend "s3" {
     bucket       = "terraform-states-363226301494-ap-southeast-2-an"
-    key          = "115253169271/orcahouse/glue-crawler/orcavault-db/terraform.tfstate"
+    key          = "115253169271/orcahouse/glue-crawler/orcavault-db/environments/prod/terraform.tfstate"
     region       = "ap-southeast-2"
     use_lockfile = true
     encrypt      = true
