@@ -1,4 +1,6 @@
-# The following TF resources configure Lake Formation permissions.
+# NOTE: THE CONFIG HERE IS FOR WAREHOUSE _INTERNAL_ PERMISSIONS FOR DATA PIPELINE OPERATION.
+#
+# The following TF resources configure Lake Formation permissions within warehouse account itself.
 #
 # Login to Warehouse account and navigate to
 # Console > AWS Lake Formation > Data permissions
@@ -25,6 +27,7 @@ locals {
     "orcabus_metadata_manager",
     "orcabus_sequence_run_manager",
     "orcabus_workflow_manager",
+    "orcavault_dev_mart",
     "tidywigits"
   ]
 

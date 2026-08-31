@@ -1,14 +1,4 @@
-output "resource_link_database_name" {
-  description = "Name of the Glue resource link database in the consumer account"
-  value       = aws_glue_catalog_database.resource_link.name
+output "resource_link_database_names" {
+  description = "Map of local database name to source database name in warehouse account"
+  value       = { for k, v in aws_glue_catalog_database.resource_links : k => v.target_database[0].database_name }
 }
-
-output "consumer_account_id" {
-  description = "Account ID of this consumer"
-  value       = var.this_account_id
-}
-
-# output "granted_principals" {
-#   description = "List of IAM principals granted access"
-#   value       = keys(var.principal_grants)
-# }
