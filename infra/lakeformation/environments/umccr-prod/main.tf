@@ -35,61 +35,13 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
-data "aws_iam_roles" "sso_admin" {
-  name_regex  = "AWSReservedSSO_AdministratorAccess_.*"
-  path_prefix = "/aws-reserved/sso.amazonaws.com/"
-}
-
-data "aws_iam_roles" "sso_prod_ops" {
-  name_regex  = "AWSReservedSSO_ProdOperator_.*"
-  path_prefix = "/aws-reserved/sso.amazonaws.com/"
-}
-
-data "aws_iam_roles" "sso_prod_exp" {
-  name_regex  = "AWSReservedSSO_ProdDataExplorer_.*"
-  path_prefix = "/aws-reserved/sso.amazonaws.com/"
-}
-
-locals {
-  sso_admin_role_arn    = tolist(data.aws_iam_roles.sso_admin.arns)[0]
-  sso_prod_ops_role_arn = tolist(data.aws_iam_roles.sso_prod_ops.arns)[0]
-  sso_prod_exp_role_arn = tolist(data.aws_iam_roles.sso_prod_exp.arns)[0]
-}
-
-# ---
-
-module "lakeformation_consumer_oncomart" {
+module "lakeformation_consumer" {
   source = "../../modules/lakeformation-consumer"
 
-  dw_account_id    = "115253169271"
-  dw_database_name = "oncovault_dev_mart"
+  dw_account_id = "115253169271"
 
-  this_account_id            = data.aws_caller_identity.current.id
-  this_account_database_name = "mart"
-
-  # FIXME still experimenting - this has moved into the warehouse source side as pre-filtered data cell share table
-  # principal_grants = {
-  #
-  #   (local.sso_admin_role_arn) = {
-  #     tables      = []
-  #     permissions = ["SELECT", "DESCRIBE"]
-  #   },
-  #
-  #   (local.sso_prod_ops_role_arn) = {
-  #     tables = [
-  #       "purple_qc",
-  #       "amber_qc",
-  #     ]
-  #     permissions = ["SELECT", "DESCRIBE"]
-  #   },
-  #
-  #   (local.sso_prod_exp_role_arn) = {
-  #     tables = [
-  #       "purple_qc",
-  #       "amber_qc",
-  #     ]
-  #     permissions = ["SELECT", "DESCRIBE"]
-  #   },
-  #
-  # }
+  database_resource_links = {
+    "mart"   = "orcavault_dev_mart"
+    "result" = "oncovault_dev_mart"
+  }
 }

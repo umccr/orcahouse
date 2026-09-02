@@ -31,3 +31,21 @@ resource "aws_lakeformation_data_lake_settings" "warehouse_settings" {
   # https://aws.github.io/aws-lakeformation-best-practices/adopting-lake-formation/lake-formation-adoption-modes/
   # https://aws.github.io/aws-lakeformation-best-practices/lf-tags/basics/
 }
+
+# -------------------------------------------------------
+# Lake Formation — Register S3 Data Lake Locations
+# Console > AWS Lake Formation > Administration > Data lake locations
+# -------------------------------------------------------
+locals {
+  data_lake_s3_locations = [
+    "oncovault-dev-warehouse-115253169271-ap-southeast-2-an/v1/tables/oncovault_dev_mart",
+    "orcavault-dev-warehouse-115253169271-ap-southeast-2-an/v1/parquet/mart"
+  ]
+}
+
+resource "aws_lakeformation_resource" "s3_locations" {
+  for_each = toset(local.data_lake_s3_locations)
+
+  arn                     = "arn:aws:s3:::${each.value}"
+  use_service_linked_role = true
+}

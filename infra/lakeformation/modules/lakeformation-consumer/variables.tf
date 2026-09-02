@@ -3,26 +3,7 @@ variable "dw_account_id" {
   type        = string
 }
 
-variable "dw_database_name" {
-  description = "Glue database name being shared from the DW account"
-  type        = string
+variable "database_resource_links" {
+  description = "Map of local database name to source database name in warehouse account"
+  type        = map(string)
 }
-
-variable "this_account_id" {
-  description = "This consumer account ID"
-  type        = string
-}
-
-variable "this_account_database_name" {
-  description = "This consumer account database name (creates LakeFormation Resource Link)"
-  type        = string
-}
-
-# FIXME still experimenting - this has moved into the warehouse source side as pre-filtered data cell share table
-# variable "principal_grants" {
-#   description = "Consumer account local principals to grant access"
-#   type = map(object({
-#     tables      = list(string)
-#     permissions = optional(list(string), ["SELECT", "DESCRIBE"])
-#   }))
-# }
