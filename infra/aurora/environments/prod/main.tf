@@ -1,0 +1,109 @@
+terraform {
+  required_version = ">= 1.15.0"
+
+  backend "s3" {
+    bucket       = "terraform-states-363226301494-ap-southeast-2-an"
+    key          = "115253169271/orcahouse/aurora/environments/prod/terraform.tfstate"
+    region       = "ap-southeast-2"
+    use_lockfile = true
+    encrypt      = true
+  }
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "6.45.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "ap-southeast-2"
+
+  default_tags {
+    tags = {
+      "umccr-org:Product" = "OrcaHouse"
+      "umccr-org:Creator" = "Terraform"
+      "umccr-org:Service" = "OrcaHouse"
+      "umccr-org:Source"  = "https://github.com/umccr/orcahouse"
+    }
+  }
+}
+
+locals {
+  stack_name  = "orcahouse"
+  environment = "prod"
+}
+
+data "aws_caller_identity" "current" {}
+
+data "aws_ssm_parameter" "master_username" {
+  name = "/${local.stack_name}/master_username"
+}
+
+data "aws_vpc" "primary" {
+  tags = {
+    Name = "UomPrimaryVpc"
+  }
+}
+
+data "aws_subnets" "uom_private_subnets_ids" {
+  filter {
+    name   = "tag:Network"
+    values = ["Private"]
+  }
+}
+
+data "aws_security_group" "uom_primary_sg" {
+  filter {
+    name   = "tag:Name"
+    values = ["UomPrimaryVpcEndpoints"]
+  }
+}
+
+# ---
+
+resource "aws_db_subnet_group" "this" {
+  name       = "${local.stack_name}-${local.environment}-db-subnet-group"
+  subnet_ids = data.aws_subnets.uom_private_subnets_ids.ids
+}
+
+resource "aws_rds_cluster" "this" {
+  cluster_identifier          = "${local.stack_name}-${local.environment}"
+  engine                      = "aurora-postgresql"
+  engine_mode                 = "provisioned"
+  engine_version              = "17.4"
+  master_username             = data.aws_ssm_parameter.master_username.value
+  manage_master_user_password = true
+  db_subnet_group_name        = aws_db_subnet_group.this.name
+  backup_retention_period     = 7
+  copy_tags_to_snapshot       = true
+  deletion_protection         = true # flip this when tearing down
+  storage_encrypted           = true
+  enable_http_endpoint        = true
+  skip_final_snapshot         = false # flip this when tearing down
+
+  enabled_cloudwatch_logs_exports = [
+    "iam-db-auth-error",
+    "instance",
+    "postgresql",
+  ]
+
+  vpc_security_group_ids = [
+    data.aws_security_group.uom_primary_sg.id
+  ]
+
+  serverlessv2_scaling_configuration {
+    min_capacity = 0.0
+    max_capacity = 16.0
+  }
+}
+
+resource "aws_rds_cluster_instance" "this" {
+  cluster_identifier   = aws_rds_cluster.this.id
+  instance_class       = "db.serverless"
+  engine               = aws_rds_cluster.this.engine
+  engine_version       = aws_rds_cluster.this.engine_version
+  db_subnet_group_name = aws_rds_cluster.this.db_subnet_group_name
+  publicly_accessible  = false
+}
