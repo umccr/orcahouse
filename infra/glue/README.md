@@ -1,5 +1,12 @@
 # Glue
 
+> NOTE: **DEPRECATED**
+> 
+> * This stack has been replaced by **OrcaGlue** – https://github.com/umccr/OrcaGlue
+> * This stack will be taken down once the full migration is completed to the Redshift warehouse.
+
+---
+
 <!-- TOC -->
 * [Glue](#glue)
   * [Local Development](#local-development)

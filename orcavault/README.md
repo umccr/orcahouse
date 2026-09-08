@@ -1,5 +1,12 @@
 # OrcaVault
 
+> NOTE: **DEPRECATED**
+> 
+> * This stack has been replaced by **OrcaVault** – https://github.com/umccr/OrcaVault
+> * This stack will be taken down once the full migration is completed to the Redshift warehouse.
+
+---
+
 OrcaVault is a dbt project. It contains data warehouse models.
 
 ## Local Development

@@ -1,5 +1,12 @@
 # Development
 
+> NOTE: **DEPRECATED**
+> 
+> * This stack has been replaced by **OrcaVault** – https://github.com/umccr/OrcaVault
+> * This stack will be taken down once the full migration is completed to the Redshift warehouse.
+
+---
+
 We expect the following dev tools are installed and available in your system PATH. We provide [Brewfile](Brewfile) as an example on macOS and you can run `brew bundle` to install them. You can manage these dev tools in any other way as see fit for your local dev setup and suits to your OS.
 
 Tools:
