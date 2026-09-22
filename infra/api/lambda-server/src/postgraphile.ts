@@ -45,6 +45,8 @@ export async function createApp({
             "lessThan",
             "greaterThanOrEqualTo",
             "lessThanOrEqualTo",
+            // Case-insensitive "contains" on text columns, run as ILIKE '%value%' with any % and in the value escaped.
+            "includesInsensitive",
           ],
           connectionFilterArrays: false,
           connectionFilterComputedColumns: false,
