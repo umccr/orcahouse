@@ -20,15 +20,10 @@ infra/notification/
 
 Each environment creates (with `<env>` = `dev` or `prod`):
 
-- **IAM role** `orcahouse-notify-<env>-publisher-role` — trusted by
-  `events.amazonaws.com`. The trust policy applies confused-deputy protection:
+- **IAM role** `orcahouse-notify-<env>-publisher-role` — trusted by `events.amazonaws.com`. The trust policy applies confused-deputy protection:
   - `StringEquals` on `aws:SourceAccount` = `115253169271`
   - `ArnLike` on `aws:SourceArn` = `arn:aws:events:ap-southeast-2:115253169271:rule/orcahouse-notify-<env>-*`
-- **Inline policy** `orcahouse-notify-<env>-publisher-role-inline-policy` —
-  allows only `sns:Publish` on that environment's Slack topic. No KMS permissions
-  are granted; the Slack topics are treated as unencrypted / not customer-managed-key
-  (issue note U-11). If a topic were encrypted with a CMK, the role would also need
-  `kms:GenerateDataKey*` and `kms:Decrypt` on that key.
+- **Inline policy** `orcahouse-notify-<env>-publisher-role-inline-policy` — allows only `sns:Publish` on that environment's Slack topic. No KMS permissions are granted; the Slack topics are treated as unencrypted / not customer-managed-key. If a topic were encrypted with a CMK, the role would also need `kms:GenerateDataKey*` and `kms:Decrypt` on that key.
 - **SSM parameters** (type `String`):
   - `/orcahouse/notification/<env>/slack_topic_arn`
   - `/orcahouse/notification/<env>/publisher_role_arn`
