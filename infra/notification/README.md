@@ -1,11 +1,8 @@
 # Notification Infrastructure
 
-Foundation for the OrcaHouse warehouse notification system (GitHub issue #1).
+Foundation for the OrcaHouse warehouse notification system.
 
 This stack provisions **only** the publisher-role + SSM-parameter foundation.
-The rest of the notification system (target DLQ, fallback SNS topic, path-health
-alarms, EventBridge rules, alarm-forwarding rules, test plumbing) is out of scope
-here and is tracked separately.
 
 The `dev` and `prod` environments are managed separately for isolation and share
 the `modules/publisher-role` module.
@@ -35,47 +32,6 @@ Each environment creates (with `<env>` = `dev` or `prod`):
 - **SSM parameters** (type `String`):
   - `/orcahouse/notification/<env>/slack_topic_arn`
   - `/orcahouse/notification/<env>/publisher_role_arn`
-
-### Topics
-
-| Env  | Slack topic ARN                                                   |
-| ---- | ----------------------------------------------------------------- |
-| dev  | `arn:aws:sns:ap-southeast-2:843407916570:AwsChatBotTopic-alerts`  |
-| prod | `arn:aws:sns:ap-southeast-2:472057503814:AwsChatBotTopic-alerts`  |
-
-## Manual step: cross-account topic policy
-
-The Slack topics live in other accounts, so the publisher roles cannot be granted
-access from this stack. The **topic owners** must add one statement per role to each
-topic's access policy (as was done for OrcaGlue).
-
-Dev topic (account `843407916570`):
-
-```json
-{
-  "Sid": "AllowOrcaHouseDevNotify",
-  "Effect": "Allow",
-  "Principal": { "AWS": "arn:aws:iam::115253169271:role/orcahouse-notify-dev-publisher-role" },
-  "Action": "sns:Publish",
-  "Resource": "arn:aws:sns:ap-southeast-2:843407916570:AwsChatBotTopic-alerts"
-}
-```
-
-Prod topic (account `472057503814`):
-
-```json
-{
-  "Sid": "AllowOrcaHouseProdNotify",
-  "Effect": "Allow",
-  "Principal": { "AWS": "arn:aws:iam::115253169271:role/orcahouse-notify-prod-publisher-role" },
-  "Action": "sns:Publish",
-  "Resource": "arn:aws:sns:ap-southeast-2:472057503814:AwsChatBotTopic-alerts"
-}
-```
-
-Note: the AWS-managed `aws/sns` key cannot be used for cross-account publishing.
-Confirm each topic's encryption state with its owner (U-11); if a CMK is in use,
-the role and the key policy need the KMS permissions described above.
 
 ## Usage
 
