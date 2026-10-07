@@ -1,5 +1,12 @@
 # ECS Fargate
 
+> NOTE: **DEPRECATED**
+> 
+> * This stack has been replaced by **OrcaVault** – https://github.com/umccr/OrcaVault
+> * This stack will be taken down once the full migration is completed to the Redshift warehouse.
+
+---
+
 For the background, read this blog article.
 
 - Implement data warehousing solution using dbt on Amazon Redshift
