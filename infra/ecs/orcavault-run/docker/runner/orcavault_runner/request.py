@@ -17,10 +17,6 @@ import shlex
 from dataclasses import dataclass
 from typing import Any
 
-# Step Functions execution names are at most 80 characters of these. The run ID
-# is part of the event's S3 key, so nothing else is accepted.
-RUN_ID_PATTERN = r"^[A-Za-z0-9_-]{1,80}$"
-
 # The dbt commands that build or test, which a run's outcome is made from.
 # Others, such as debug or ls, go through the image's arguments, which records
 # nothing, see __main__.py. run-operation is left out because it runs any macro

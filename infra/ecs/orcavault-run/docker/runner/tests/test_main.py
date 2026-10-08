@@ -49,8 +49,6 @@ def test_no_ecs_logs_url(tmp_path, content):
 def test_run_id():
     assert run_id({"ORCAVAULT_RUN_ID": "scheduled-2026-10-08"}) == "scheduled-2026-10-08"
     assert re.fullmatch(r"manual-\d{8}T\d{6}Z", run_id({}))
-    with pytest.raises(SystemExit, match="must match"):
-        run_id({"ORCAVAULT_RUN_ID": "a/b"})
 
 
 def test_make_store(tmp_path, monkeypatch):

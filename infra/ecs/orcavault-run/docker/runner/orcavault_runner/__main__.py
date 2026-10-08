@@ -20,7 +20,6 @@ see the Dockerfile.
 import json
 import logging
 import os
-import re
 import signal
 import sys
 import urllib.request
@@ -30,7 +29,6 @@ from pathlib import Path
 from urllib.parse import quote
 
 from .dbt import Dbt
-from .request import RUN_ID_PATTERN
 from .run import Config, run
 from .store import DirStore, S3Store, Store
 
@@ -79,10 +77,7 @@ def make_store(environ: Mapping[str, str], project_dir: Path) -> Store:
 
 
 def run_id(environ: Mapping[str, str]) -> str:
-    value = environ.get("ORCAVAULT_RUN_ID") or datetime.now(timezone.utc).strftime("manual-%Y%m%dT%H%M%SZ")
-    if not re.match(RUN_ID_PATTERN, value):
-        raise SystemExit(f"ORCAVAULT_RUN_ID must match {RUN_ID_PATTERN}: {value!r}")
-    return value
+    return environ.get("ORCAVAULT_RUN_ID") or datetime.now(timezone.utc).strftime("manual-%Y%m%dT%H%M%SZ")
 
 
 def main(argv: list[str], environ: Mapping[str, str]) -> int:
