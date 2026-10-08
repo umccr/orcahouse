@@ -1,8 +1,8 @@
 """The image's entrypoint.
 
 With no arguments it runs the request in ORCAVAULT_RUN_REQUEST, which is how
-Step Functions starts it. With arguments, such as debug, they go to dbt as they
-are, and nothing is recorded.
+Step Functions starts it, see request.py. With arguments, such as debug, they go
+to dbt as they are, and nothing is recorded.
 
 Environment:
 
@@ -11,7 +11,9 @@ Environment:
     ORCAVAULT_RESULTS_BUCKET  Bucket for the results, under runs/. Without it,
                               they go to ORCAVAULT_RESULTS_DIR, or target/runs.
     ORCAVAULT_ENVIRONMENT     Named in the run's event, such as prod.
-    ORCAVAULT_DBT_TARGET      The profiles.yml target. Defaults to prod.
+
+dbt reads its own variables as well, such as DBT_TARGET. The image sets a few,
+see the Dockerfile.
 """
 
 import json
@@ -104,7 +106,6 @@ def main(argv: list[str], environ: Mapping[str, str]) -> int:
     config = Config(
         run_id=run_id(environ),
         environment=environ.get("ORCAVAULT_ENVIRONMENT", "local"),
-        target=environ.get("ORCAVAULT_DBT_TARGET", "prod"),
         project_dir=project_dir,
         orcavault_ref=ref,
         orcavault_commit=commit,

@@ -1,7 +1,7 @@
 import pytest
 from fakes import result, run_results
 
-from orcavault_runner.results import Counts, Outcome, StepResults, classify, node_name, read_results, summarise_nodes
+from orcavault_runner.results import Counts, Outcome, RunResults, classify, node_name, read_results, summarise_nodes
 
 HUB = "model.orcavault.hub_library"
 SAT = "model.orcavault.sat_library"
@@ -53,21 +53,21 @@ def test_partial_microbatch_counts_as_failed():
     assert read_results(run_results(result(HUB, "partial success"))).counts.models_failed == 1
 
 
-def step_results(**counts: int) -> StepResults:
-    return StepResults(counts=Counts(**counts))
+def counted(**counts: int) -> RunResults:
+    return RunResults(counts=Counts(**counts))
 
 
 @pytest.mark.parametrize(
     "exit_code, results, outcome",
     [
-        (0, step_results(models_succeeded=3, tests_passed=4), Outcome.SUCCEEDED),
-        (0, step_results(), Outcome.SUCCEEDED),
-        (0, step_results(models_succeeded=3, tests_warned=1), Outcome.WARNED),
-        (1, step_results(models_succeeded=3, tests_failed=1, models_skipped=1), Outcome.TESTS_FAILED),
-        (1, step_results(models_failed=1, tests_failed=1), Outcome.MODELS_FAILED),
-        (1, step_results(models_succeeded=3), Outcome.ERROR),
-        (0, StepResults(hook_failed=True), Outcome.ERROR),
-        (2, step_results(models_succeeded=3), Outcome.ERROR),
+        (0, counted(models_succeeded=3, tests_passed=4), Outcome.SUCCEEDED),
+        (0, counted(), Outcome.SUCCEEDED),
+        (0, counted(models_succeeded=3, tests_warned=1), Outcome.WARNED),
+        (1, counted(models_succeeded=3, tests_failed=1, models_skipped=1), Outcome.TESTS_FAILED),
+        (1, counted(models_failed=1, tests_failed=1), Outcome.MODELS_FAILED),
+        (1, counted(models_succeeded=3), Outcome.ERROR),
+        (0, RunResults(hook_failed=True), Outcome.ERROR),
+        (2, counted(models_succeeded=3), Outcome.ERROR),
         (1, None, Outcome.ERROR),
         (-9, None, Outcome.ERROR),
     ],

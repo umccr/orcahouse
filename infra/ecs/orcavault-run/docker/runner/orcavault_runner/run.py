@@ -1,9 +1,10 @@
-"""Running a request's steps and recording how they went.
+"""Running a request and recording how it went.
 
-Each step's run_results.json is kept, and the run ends by writing summary.json
-and event.json. The state machine sends event.json as the detail of the run's
-EventBridge event, see stepfunctions.tf. It's kept apart from the summary, which
-lists every failed node, because a state can only read 256 KiB.
+A run is one dbt command. Its run_results.json is kept, and the run ends by
+writing summary.json and event.json. The state machine sends event.json as the
+detail of the run's EventBridge event, see stepfunctions.tf. It's kept apart
+from the summary, which lists every failed node, because a state can only read
+256 KiB.
 """
 
 import json
@@ -14,11 +15,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
-from pydantic import ValidationError
-
 from .dbt import DbtExit
-from .request import PlannedStep, RetryStep, parse_request, planned_step, step_spec
-from .results import Counts, Outcome, StepResults, classify, read_results, summarise_nodes
+from .request import Request, RequestError, parse_request
+from .results import Counts, Outcome, RunResults, classify, read_results, summarise_nodes
 from .store import Store, event_key, results_key, summary_key
 
 log = logging.getLogger(__name__)
@@ -32,7 +31,6 @@ class RunError(Exception):
 class Config:
     run_id: str
     environment: str
-    target: str
     project_dir: Path
     orcavault_ref: str
     orcavault_commit: str
@@ -47,114 +45,94 @@ class Dbt(Protocol):
     def __call__(self, args: list[str]) -> DbtExit: ...
 
 
-def plan(request_steps: list[PlannedStep], retry: str | None, store: Store) -> list[PlannedStep]:
-    """The steps to run. A retry picks up an earlier run from its failed step."""
-    if retry is None:
-        return request_steps
+@dataclass(frozen=True)
+class Plan:
+    """The dbt command a run makes. For a retry, the args are just retry, and
+    dbt reads the rest from the results of the run retry_of."""
 
+    args: tuple[str, ...]
+    retry_of: str | None = None
+
+
+def plan(request: Request, store: Store) -> Plan:
+    """What to run. A retry picks up an earlier run where it failed."""
+    if request.retry is None:
+        return Plan(request.args)
+
+    run_id = request.retry
     try:
-        previous = store.get_json(summary_key(retry))
+        previous = store.get_json(summary_key(run_id))
     except KeyError as e:
-        raise RunError(f"Can't retry run {retry}: it has no summary at {e}") from e
+        raise RunError(f"Can't retry run {run_id}: it has no summary at {e}") from e
 
-    failed = next((step for step in previous["steps"] if not Outcome(step["outcome"]).ok), None)
-    rest = [planned_step.validate_python(spec) for spec in previous["notRun"]]
-    if failed is None:
-        # A run that was stopped between steps has steps left, but none failed.
-        if not rest:
-            raise RunError(f"Can't retry run {retry}: it has nothing left to run")
-        return rest
-    if not failed["retryable"]:
-        return [planned_step.validate_python(failed["spec"]), *rest]
-    return [RetryStep(run=retry, step=failed["index"]), *rest]
+    if Outcome(previous["outcome"]).ok:
+        raise RunError(f"Can't retry run {run_id}: it {previous['outcome']}, so nothing failed")
+    if previous["args"] is None:
+        raise RunError(f"Can't retry run {run_id}: it didn't run dbt, because: {previous['error']}")
+    if previous["retryable"]:
+        return Plan(("retry",), retry_of=run_id)
+    # dbt retry can't pick it up, so it runs again whole. If it was a retry
+    # itself, that's dbt retry from the same results as before.
+    return Plan(tuple(previous["args"]), previous["retryOf"])
 
 
-def run_step(index: int, step: PlannedStep, config: Config, store: Store, dbt: Dbt) -> dict[str, Any]:
-    entry: dict[str, Any] = {
-        "index": index,
-        "spec": step_spec(step),
-        "args": None,
-        "exitCode": None,
-        "outcome": Outcome.ERROR.value,
-        "positionsAdvanced": None,
-        "resultsKey": None,
-        "retryable": False,
-        "counts": Counts().to_json(),
-        "failedNodes": [],
-        "warnedNodes": [],
-        "error": None,
-    }
+def run_dbt(planned: Plan, config: Config, store: Store, dbt: Dbt, summary: dict[str, Any]) -> Outcome:
+    """Runs dbt as planned, and records how it went in the summary."""
+    summary["args"] = list(planned.args)
+    summary["retryOf"] = planned.retry_of
 
     results_path = config.project_dir / "target" / "run_results.json"
-    # A stale file would be read as this step's results if dbt fails early.
+    # A file left by an earlier dbt command, such as one run by hand, would be
+    # read as this run's results if dbt fails early.
     results_path.unlink(missing_ok=True)
 
     with tempfile.TemporaryDirectory() as state_dir:
-        if isinstance(step, RetryStep):
+        args = list(planned.args)
+        if planned.retry_of is not None:
             try:
-                store.get_file(results_key(step.run, step.step), Path(state_dir) / "run_results.json")
+                store.get_file(results_key(planned.retry_of), Path(state_dir) / "run_results.json")
             except KeyError as e:
-                entry["error"] = f"No results to retry at {e}"
-                log.error(entry["error"])
-                return entry
-            args = step.dbt_args(config.target, state_dir)
-        else:
-            args = step.dbt_args(config.target)
-
-        entry["args"] = args
+                summary["error"] = f"No results to retry at {e}"
+                log.error(summary["error"])
+                return Outcome.ERROR
+            args += ["--state", state_dir]
         dbt_exit = dbt(args)
 
-    entry["exitCode"] = dbt_exit.code
-    entry["positionsAdvanced"] = dbt_exit.positions_advanced
+    summary["exitCode"] = dbt_exit.code
+    summary["positionsAdvanced"] = dbt_exit.positions_advanced
 
-    results: StepResults | None = None
+    results: RunResults | None = None
     if results_path.exists():
         run_results = json.loads(results_path.read_text())
         results = read_results(run_results)
-        key = results_key(config.run_id, index)
+        key = results_key(config.run_id)
         store.put_file(key, results_path)
-        entry["resultsKey"] = key
-        # Whether dbt retry can pick up where this step left off. Otherwise a
-        # retry runs the step again whole. dbt retry reruns only the nodes in
+        summary["resultsKey"] = key
+        # Whether dbt retry can pick up where this run left off. Otherwise a
+        # retry runs it again whole. dbt retry reruns only the nodes in
         # run_results.json, and when dbt is interrupted it leaves out the ones it
         # hadn't started. It also refuses results without any nodes.
-        entry["retryable"] = bool(run_results["results"]) and not dbt.stopping
-        entry["counts"] = results.counts.to_json()
-        entry["failedNodes"] = results.failed_nodes
-        entry["warnedNodes"] = results.warned_nodes
+        summary["retryable"] = bool(run_results["results"]) and not dbt.stopping
+        summary["counts"] = results.counts.to_json()
+        summary["failedNodes"] = results.failed_nodes
+        summary["warnedNodes"] = results.warned_nodes
     else:
-        entry["error"] = "dbt wrote no run_results.json"
+        summary["error"] = f"dbt exited with {dbt_exit.code} and wrote no run_results.json, see the logs"
 
-    outcome = classify(dbt_exit.code, results)
-    entry["outcome"] = outcome.value
-    log.info("Step %d %s: %s", index, step.command, outcome.value)
-    return entry
-
-
-def positions_advanced(steps: list[dict[str, Any]]) -> bool | None:
-    reported = [step["positionsAdvanced"] for step in steps if step["positionsAdvanced"] is not None]
-    return any(reported) if reported else None
+    return classify(dbt_exit.code, results)
 
 
 def event_detail(summary: dict[str, Any], duration_minutes: int) -> dict[str, Any]:
     """The detail of the run's EventBridge event, less executionUrl, which the
     state machine adds. It's flat and already formatted, so that EventBridge
     input transformers can use it as it is."""
-    counts = Counts()
-    failed: list[str] = []
-    warned: list[str] = []
-    for step in summary["steps"]:
-        counts += Counts.from_json(step["counts"])
-        failed += step["failedNodes"]
-        warned += step["warnedNodes"]
-
     return {
         "environment": summary["environment"],
         "outcome": summary["outcome"],
         "runId": summary["runId"],
-        **counts.to_json(),
-        "failedNodes": summarise_nodes(failed),
-        "warnedNodes": summarise_nodes(warned),
+        **summary["counts"],
+        "failedNodes": summarise_nodes(summary["failedNodes"]),
+        "warnedNodes": summarise_nodes(summary["warnedNodes"]),
         "positionsAdvanced": summary["positionsAdvanced"],
         "orcavaultRef": summary["orcavaultRef"],
         "durationMinutes": duration_minutes,
@@ -174,8 +152,15 @@ def run(raw_request: str, config: Config, store: Store, dbt: Dbt) -> dict[str, A
         "startedAt": started_at.isoformat(),
         "finishedAt": None,
         "request": None,
-        "steps": [],
-        "notRun": [],
+        # What dbt was asked to run, which a retry of this run reads.
+        "args": None,
+        "retryOf": None,
+        "exitCode": None,
+        "resultsKey": None,
+        "retryable": False,
+        "counts": Counts().to_json(),
+        "failedNodes": [],
+        "warnedNodes": [],
         "positionsAdvanced": None,
         "logsUrl": config.logs_url,
         "error": None,
@@ -185,25 +170,15 @@ def run(raw_request: str, config: Config, store: Store, dbt: Dbt) -> dict[str, A
     outcomes: list[Outcome] = []
     try:
         request = parse_request(raw_request)
-        summary["request"] = request.model_dump(mode="json", exclude_defaults=True)
-        steps = plan(list(request.steps), request.retry, store)
-    except (ValidationError, RunError) as e:
+        summary["request"] = request.to_json()
+        planned = plan(request, store)
+    except (RequestError, RunError) as e:
         log.error("%s", e)
         summary["error"] = str(e)
         outcomes.append(Outcome.ERROR)
-        steps = []
-
-    for index, step in enumerate(steps):
-        if dbt.stopping:
-            summary["notRun"] = [step_spec(s) for s in steps[index:]]
-            break
-        entry = run_step(index, step, config, store, dbt)
-        summary["steps"].append(entry)
-        outcome = Outcome(entry["outcome"])
-        outcomes.append(outcome)
-        if not outcome.ok:
-            summary["notRun"] = [step_spec(s) for s in steps[index + 1 :]]
-            break
+    else:
+        if not dbt.stopping:
+            outcomes.append(run_dbt(planned, config, store, dbt, summary))
 
     if dbt.stopping:
         summary["error"] = "The run was stopped"
@@ -212,7 +187,6 @@ def run(raw_request: str, config: Config, store: Store, dbt: Dbt) -> dict[str, A
     finished_at = datetime.now(timezone.utc)
     summary["outcome"] = Outcome.worst(outcomes).value
     summary["finishedAt"] = finished_at.isoformat()
-    summary["positionsAdvanced"] = positions_advanced(summary["steps"])
     summary["event"] = event_detail(summary, round((finished_at - started_at).total_seconds() / 60))
 
     store.put_json(event_key(config.run_id), summary["event"])

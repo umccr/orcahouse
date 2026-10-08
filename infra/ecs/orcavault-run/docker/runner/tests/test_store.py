@@ -24,7 +24,7 @@ def s3():
 def test_keys():
     assert summary_key("run-1") == "run-1/summary.json"
     assert event_key("run-1") == "run-1/event.json"
-    assert results_key("run-1", 2) == "run-1/steps/2/run_results.json"
+    assert results_key("run-1") == "run-1/run_results.json"
 
 
 def test_s3_json(s3):
@@ -81,8 +81,8 @@ def test_dir_store(tmp_path):
     source.write_text('{"results": []}')
 
     store.put_json("run-1/summary.json", {"outcome": "succeeded"})
-    store.put_file("run-1/steps/0/run_results.json", source)
-    store.get_file("run-1/steps/0/run_results.json", tmp_path / "copy.json")
+    store.put_file("run-1/run_results.json", source)
+    store.get_file("run-1/run_results.json", tmp_path / "copy.json")
 
     assert store.get_json("run-1/summary.json") == {"outcome": "succeeded"}
     assert (tmp_path / "copy.json").read_text() == '{"results": []}'

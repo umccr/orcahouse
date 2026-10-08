@@ -23,9 +23,10 @@ daily schedule, and decommissioning it is a separate change.
 
 ## Why this design
 
-- **dbt orders the work itself.** A single `dbt build` knows every model's
-  dependencies, so the state machine doesn't need to model them. A state
-  machine with one step per model would duplicate the DAG and drift from it.
+- **dbt orders the work itself.** A run is one dbt command, `dbt build` by
+  default, and dbt knows every model's dependencies, so the state machine
+  doesn't need to model them. A state machine with one step per model would
+  duplicate the DAG and drift from it.
 - **ECS Fargate runs dbt.** A run can take longer than Lambda's 15 minutes, and
   a container pins the dbt version and project code in an image.
 - **Step Functions runs the task.** It keeps a history of every run, stops the
@@ -54,8 +55,9 @@ only queue in Redshift, so raise them together.
 
 `dbt build` runs each model's tests straight after the model. A failing
 error-severity test skips everything downstream of that model, so bad data
-doesn't spread. Warn-severity tests only log. The unit tests are left out,
-because they test the project code against fixtures, which is a job for CI.
+doesn't spread. Warn-severity tests only log. The unit tests are left out by
+default, because they test the project code against fixtures, which is a job
+for CI.
 
 ### Outcomes
 
@@ -67,7 +69,7 @@ Each run ends with one of these, which is the `outcome` of its event:
 | `warned`        | Only warn-severity tests failed. Nothing was held back.                   | succeeds  |
 | `tests_failed`  | An error-severity test failed, and what depends on its model was skipped. | fails     |
 | `models_failed` | A model, seed or snapshot failed to build.                                | fails     |
-| `error`         | dbt couldn't run, a hook failed, the request was invalid, or the run was stopped or never started. | fails |
+| `error`         | dbt couldn't run, a hook failed, the request was invalid or selected nothing, or the run was stopped or never started. | fails |
 | `skipped`       | Another run was still going, so this one didn't start.                    | fails     |
 
 A failed execution's error is the outcome, so the Step Functions console and
@@ -79,7 +81,7 @@ The run is reported as failed, and everything that could load does load.
 
 - Models that succeeded stay loaded. Each model commits on its own.
 - A failed model skips only the models that depend on it. Unrelated models
-  still build, unless the request asks for `fail_fast`.
+  still build, unless the run was started with `--fail-fast`.
 - The CDC positions in `ops.cdc_watermark` only move when every model in the
   project succeeds in one `dbt run` or `dbt build`. After a partial failure
   they stay put, and the next run rereads the same window. The models skip rows
@@ -261,48 +263,46 @@ then applying with the new `orcavault_release_ref`.
 
 ### Requests
 
-The execution input says what to run. The scheduled run's `{}` builds
-everything. Anything else is a list of steps, run in order until one doesn't
-succeed:
+The execution input is the dbt arguments for the run. The scheduled run's `{}`
+is `dbt build`, of everything. Anything else gives the arguments:
 
 ```json
-{
-  "steps": [
-    {"command": "seed", "select": "mdm__workflow_run"},
-    {"select": "path:models/dcl/raw_vault/library+", "vars": {"reread_from": "2026-09-01"}}
-  ]
-}
+{"args": ["build", "--select", "path:models/dcl/raw_vault/library+", "--vars", "{\"reread_from\": \"2026-09-01\"}"]}
 ```
 
-A request with one step can leave out `steps`, so `{"select": "+lims"}`
-is the same as `{"steps": [{"select": "+lims"}]}`. orcavault also names the
-common parts in its `selectors.yml`, such as `{"selector": "orcabus"}` for
-everything built from the OrcaBus CDC.
+`args` can also be a string, split as a shell would, such as
+`{"args": "build --select +lims --full-refresh"}`. orcavault names the common
+parts of the project in its `selectors.yml`, such as
+`{"args": "build --selector orcabus"}` for everything built from the OrcaBus
+CDC.
 
-| Field                | Default    | dbt                                                     |
-|----------------------|------------|---------------------------------------------------------|
-| `command`            | `build`    | `build`, `run`, `test`, `seed` or `snapshot`            |
-| `select`             | everything | `--select`, a string or a list                          |
-| `exclude`            | nothing    | `--exclude`, a string or a list                         |
-| `selector`           | none       | `--selector`, from orcavault's `selectors.yml`, instead of `select` and `exclude` |
-| `indirect_selection` | `eager`    | `--indirect-selection`, for `build` and `test`          |
-| `fail_fast`          | `false`    | `--fail-fast`                                           |
-| `full_refresh`       | `false`    | `--full-refresh`, for `build`, `run` and `seed`         |
-| `vars`               | none       | `--vars`, an object                                     |
+- **The command is `build`, `run`, `test`, `seed` or `snapshot`**, the ones
+  that build or test. Others, such as `ls`, can be run through the image, see
+  [Running the image by hand](#running-the-image-by-hand). `run-operation`
+  isn't allowed, because it runs any macro with the task's grants.
+- **The image sets two dbt defaults**, which the arguments can override. Unit
+  tests are left out (`DBT_EXCLUDE_RESOURCE_TYPES`). A `--select` or
+  `--exclude` that matches nothing is an error (`DBT_WARN_ERROR_OPTIONS`), so
+  a misspelt model fails the run, rather than the run succeeding having done
+  nothing.
+- **The target is `prod`**, the only one in the image's profile.
+- **A request is checked before dbt starts.** One that isn't one of these
+  shapes, or names another command, ends the run with `error` straight away.
+  So does a misspelt flag, which dbt rejects before it connects.
 
-Selector strings are split on spaces, as on the dbt command line. A request is
-checked before anything runs, so a misspelt field ends the run with `error`
-straight away, rather than running something other than what was meant. A
-request has at most 10 steps.
+**A run is one dbt command.** To run several in order, such as a full refresh
+of one model and then a normal build, start each execution once the last has
+finished, and only if it succeeded. One started while another is going is
+skipped, not run alongside it.
 
 Things to know:
 
 - **A partial run never moves the CDC positions**, because not every model ran.
   The next full run reads the same window again.
-- **`run` skips the tests.** A full `{"command": "run"}` does move the
+- **`run` skips the tests.** A full `{"args": ["run"]}` does move the
   positions, without tests having checked what it loaded. Prefer `build`, and
-  to leave the tests out, `{"exclude": "resource_type:test"}`.
-- **`full_refresh` rebuilds incremental models from scratch**, which for the
+  to leave the tests out, `--exclude resource_type:test`.
+- **`--full-refresh` rebuilds incremental models from scratch**, which for the
   raw vault means rereading every CDC file. It can hit the query time limit,
   see [Limits and risks](#limits-and-risks).
 - **`load_legacy`** reads the `data_portal` Glue database, which the task role
@@ -316,21 +316,20 @@ aws stepfunctions start-execution --state-machine-arn "$(terraform output -raw s
   --input '{"retry": "<execution name>"}'
 ```
 
-A retry is a new run that picks up an earlier one from its first step that
-didn't succeed:
+A retry is a new run that picks up an earlier one where it failed:
 
-- If that step ran to completion, it's rerun with `dbt retry`, which runs only
-  the models and tests that failed or were skipped, with the step's original
-  arguments.
+- If the earlier run's dbt command ran to completion, it's rerun with
+  `dbt retry`, which runs only the models and tests that failed or were
+  skipped, with the original arguments.
 - If it didn't, because dbt couldn't start or the run was stopped partway, the
-  step runs again whole. `dbt retry` can't pick these up: a stopped dbt leaves
-  the models it hadn't started out of its results.
-- Then the steps that never ran.
+  command runs again whole. `dbt retry` can't pick these up: a stopped dbt
+  leaves the models it hadn't started out of its results.
 
 A retry is itself a run with its own results, so a failed retry can be retried
 too. A retry that reruns only part of the project doesn't move the CDC
-positions; the next full run does. A run can be retried while its results are
-kept, which is `results_retention_days` (90 by default).
+positions; the next full run does. A run that succeeded or only warned has
+nothing to retry. A run can be retried while its results are kept, which is
+`results_retention_days` (90 by default).
 
 Retry with a new execution rather than a
 [redrive](https://docs.aws.amazon.com/step-functions/latest/dg/redrive-executions.html).
@@ -343,11 +342,11 @@ its earlier results.
 Each run writes to `runs/<execution name>/` in the results bucket
 (`terraform output -raw results_bucket`):
 
-| Key                              | What                                                    |
-|----------------------------------|---------------------------------------------------------|
-| `summary.json`                   | The request, and each step's dbt arguments, exit code, outcome, counts and failed nodes. Also the steps not run. |
-| `event.json`                     | The detail of the run's event, less `executionUrl`.     |
-| `steps/<index>/run_results.json` | dbt's [run results](https://docs.getdbt.com/reference/artifacts/run-results-json) for the step. |
+| Key                | What                                                                                 |
+|--------------------|--------------------------------------------------------------------------------------|
+| `summary.json`     | The request, the dbt arguments, and dbt's exit code, outcome, counts and failed nodes. |
+| `event.json`       | The detail of the run's event, less `executionUrl`.                                  |
+| `run_results.json` | dbt's [run results](https://docs.getdbt.com/reference/artifacts/run-results-json).   |
 
 A run that never started the task, such as a skipped one, has no results.
 
@@ -400,7 +399,7 @@ connect to Redshift:
 ```bash
 docker run --rm -e AWS_PROFILE -v ~/.aws:/home/dbt/.aws:ro \
   -e ORCAVAULT_REDSHIFT_HOST=<workgroup endpoint> \
-  -e ORCAVAULT_RUN_REQUEST='{"command": "test", "select": "mart"}' \
+  -e ORCAVAULT_RUN_REQUEST='{"args": "test --select mart"}' \
   "$REPO:$REF"
 ```
 

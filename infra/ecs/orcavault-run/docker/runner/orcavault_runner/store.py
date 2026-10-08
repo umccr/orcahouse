@@ -4,7 +4,7 @@ Keys are relative to the store, and laid out as:
 
     <run ID>/summary.json
     <run ID>/event.json
-    <run ID>/steps/<index>/run_results.json
+    <run ID>/run_results.json
 """
 
 import json
@@ -35,8 +35,8 @@ def event_key(run_id: str) -> str:
     return f"{run_id}/event.json"
 
 
-def results_key(run_id: str, step: int) -> str:
-    return f"{run_id}/steps/{step}/run_results.json"
+def results_key(run_id: str) -> str:
+    return f"{run_id}/run_results.json"
 
 
 class S3Store:

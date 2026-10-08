@@ -9,13 +9,13 @@ from typing import Any
 
 
 class Outcome(str, Enum):
-    """How a step or a run went, from best to worst."""
+    """How a run went, from best to worst."""
 
     SUCCEEDED = "succeeded"
     # Only warn severity tests failed. Nothing was held back.
     WARNED = "warned"
     # An error severity test failed. Only what depends on the tested model
-    # was held back, or everything after it with fail_fast.
+    # was held back, or everything after it with --fail-fast.
     TESTS_FAILED = "tests_failed"
     # A model, seed or snapshot failed to build.
     MODELS_FAILED = "models_failed"
@@ -54,20 +54,6 @@ class Counts:
     tests_warned: int = 0
     tests_failed: int = 0
 
-    def __add__(self, other: "Counts") -> "Counts":
-        return Counts(**{k: v + getattr(other, k) for k, v in vars(self).items()})
-
-    @classmethod
-    def from_json(cls, counts: dict[str, int]) -> "Counts":
-        return cls(
-            counts["modelsSucceeded"],
-            counts["modelsFailed"],
-            counts["modelsSkipped"],
-            counts["testsPassed"],
-            counts["testsWarned"],
-            counts["testsFailed"],
-        )
-
     def to_json(self) -> dict[str, int]:
         return {
             "modelsSucceeded": self.models_succeeded,
@@ -80,7 +66,7 @@ class Counts:
 
 
 @dataclass
-class StepResults:
+class RunResults:
     counts: Counts = field(default_factory=Counts)
     # Unique IDs, in the order dbt finished them.
     failed_nodes: list[str] = field(default_factory=list)
@@ -92,8 +78,8 @@ def resource_type(unique_id: str) -> str:
     return unique_id.split(".", 1)[0]
 
 
-def read_results(run_results: dict[str, Any]) -> StepResults:
-    results = StepResults()
+def read_results(run_results: dict[str, Any]) -> RunResults:
+    results = RunResults()
     counts = results.counts
     for result in run_results.get("results", []):
         unique_id = result["unique_id"]
@@ -124,7 +110,7 @@ def read_results(run_results: dict[str, Any]) -> StepResults:
     return results
 
 
-def classify(exit_code: int, results: StepResults | None) -> Outcome:
+def classify(exit_code: int, results: RunResults | None) -> Outcome:
     """dbt exits 1 when a node fails and 2 when it couldn't run at all."""
     if results is None or exit_code not in (0, 1):
         return Outcome.ERROR

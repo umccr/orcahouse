@@ -45,8 +45,19 @@ RUN dbt deps
 RUN ORCAVAULT_REDSHIFT_HOST=localhost dbt parse \
     && chown -R dbt:dbt /orcavault
 
+# Defaults for every dbt command, which its own arguments override.
+#
+# Unit tests check model logic against fixtures, which is CI's job. In the
+# warehouse they would only add queries.
+#
+# A --select or --exclude that matches nothing, such as a misspelt model, is an
+# error, rather than a run that succeeds having done nothing.
+ENV DBT_EXCLUDE_RESOURCE_TYPES=unit_test \
+    DBT_WARN_ERROR_OPTIONS='{"error": ["NoNodesForSelectionCriteria"]}'
+
 USER dbt
 
-# Runs the request in ORCAVAULT_RUN_REQUEST, or, given arguments, runs them as
-# a dbt command, such as debug. See runner/orcavault_runner/__main__.py.
+# Runs the request in ORCAVAULT_RUN_REQUEST, which is dbt arguments or a retry,
+# or, given arguments, runs them as a dbt command that's not recorded, such as
+# debug. See runner/orcavault_runner/__main__.py.
 ENTRYPOINT ["python", "-m", "orcavault_runner"]

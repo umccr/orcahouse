@@ -23,7 +23,6 @@ def config(project_dir: Path) -> Config:
     return Config(
         run_id="run-1",
         environment="prod",
-        target="prod",
         project_dir=project_dir,
         orcavault_ref="v1.0.0",
         orcavault_commit="abc123",

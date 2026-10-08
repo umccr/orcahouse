@@ -12,7 +12,7 @@ LIMS = "model.orcavault.lims"
 UNIQUE = "test.orcavault.unique_hub_library_library_hk.9b8e7d6c5a"
 ACCEPTED = "test.orcavault.accepted_values_lims_type.1c2d3e4f5a"
 
-BUILD = ["build", "--target", "prod", "--exclude-resource-type", "unit_test"]
+LIMS_BUILD = ["build", "--select", "+lims", "--fail-fast"]
 
 
 def test_scheduled_run(config, store, project_dir):
@@ -23,20 +23,18 @@ def test_scheduled_run(config, store, project_dir):
 
     summary = run("{}", config, store, dbt)
 
-    assert dbt.calls == [BUILD]
+    assert dbt.calls == [["build"]]
     assert summary == store.get_json(summary_key("run-1"))
     assert summary["outcome"] == "succeeded"
     assert summary["error"] is None
-    assert summary["notRun"] == []
+    assert summary["request"] == {"args": ["build"]}
+    assert summary["args"] == ["build"]
+    assert summary["retryOf"] is None
+    assert summary["exitCode"] == 0
     assert summary["positionsAdvanced"] is True
-    assert summary["request"] == {"steps": [{}]}
-
-    [step] = summary["steps"]
-    assert step["spec"] == {"command": "build"}
-    assert step["exitCode"] == 0
-    assert step["resultsKey"] == results_key("run-1", 0)
-    assert step["retryable"]
-    assert store.get_json(results_key("run-1", 0))["results"][0]["unique_id"] == HUB
+    assert summary["resultsKey"] == results_key("run-1")
+    assert summary["retryable"]
+    assert store.get_json(results_key("run-1"))["results"][0]["unique_id"] == HUB
 
     assert summary["event"] == {
         "environment": "prod",
@@ -58,7 +56,17 @@ def test_scheduled_run(config, store, project_dir):
     assert store.get_json(event_key("run-1")) == summary["event"]
 
 
-def test_failed_test_stops_later_steps(config, store, project_dir):
+def test_args_go_to_dbt_as_they_are(config, store, project_dir):
+    dbt = FakeDbt(project_dir, Invocation(results=[result(LIMS, "success")]))
+
+    summary = run('{"args": "build --select +lims --fail-fast"}', config, store, dbt)
+
+    assert dbt.calls == [LIMS_BUILD]
+    assert summary["args"] == LIMS_BUILD
+    assert summary["outcome"] == "succeeded"
+
+
+def test_failed_test(config, store, project_dir):
     dbt = FakeDbt(
         project_dir,
         Invocation(
@@ -68,41 +76,28 @@ def test_failed_test_stops_later_steps(config, store, project_dir):
         ),
     )
 
-    summary = run('{"steps": [{"select": "+lims"}, {"command": "seed"}]}', config, store, dbt)
+    summary = run("{}", config, store, dbt)
 
-    assert len(dbt.calls) == 1
     assert summary["outcome"] == "tests_failed"
-    assert summary["notRun"] == [{"command": "seed"}]
+    assert summary["exitCode"] == 1
     assert summary["positionsAdvanced"] is False
+    assert summary["failedNodes"] == [UNIQUE]
+    assert summary["warnedNodes"] == [ACCEPTED]
     assert summary["event"]["failedNodes"] == "unique_hub_library_library_hk"
     assert summary["event"]["warnedNodes"] == "accepted_values_lims_type"
     assert summary["event"]["modelsSkipped"] == 1
 
 
-def test_counts_add_up_across_steps(config, store, project_dir):
-    dbt = FakeDbt(
-        project_dir,
-        Invocation(results=[result(HUB, "success")]),
-        Invocation(results=[result(LIMS, "success"), result(ACCEPTED, "warn")]),
-    )
-
-    summary = run('{"steps": [{"select": "hub_library"}, {"select": "lims"}]}', config, store, dbt)
-
-    assert summary["outcome"] == "warned"
-    assert summary["event"]["modelsSucceeded"] == 2
-    assert summary["event"]["testsWarned"] == 1
-    assert summary["positionsAdvanced"] is None
-
-
 def test_invalid_request_runs_nothing(config, store, project_dir):
     dbt = FakeDbt(project_dir)
 
-    summary = run('{"selct": "lims"}', config, store, dbt)
+    summary = run('{"args": "run-operation drop_everything"}', config, store, dbt)
 
     assert dbt.calls == []
     assert summary["outcome"] == "error"
-    assert "selct" in summary["error"]
+    assert "run-operation" in summary["error"]
     assert summary["request"] is None
+    assert summary["args"] is None
     assert summary["event"]["outcome"] == "error"
 
 
@@ -111,65 +106,67 @@ def test_dbt_that_writes_no_results(config, store, project_dir):
 
     summary = run("{}", config, store, dbt)
 
-    [step] = summary["steps"]
     assert summary["outcome"] == "error"
-    assert step["resultsKey"] is None
-    assert step["error"] == "dbt wrote no run_results.json"
+    assert summary["exitCode"] == 2
+    assert summary["resultsKey"] is None
+    assert summary["error"] == "dbt exited with 2 and wrote no run_results.json, see the logs"
 
 
-def test_an_earlier_steps_results_are_not_reused(config, store, project_dir):
-    dbt = FakeDbt(
-        project_dir,
-        Invocation(results=[result(HUB, "success")]),
-        Invocation(code=2, results=None),
-    )
+def test_earlier_results_are_not_read_as_this_runs(config, store, project_dir):
+    stale = project_dir / "target" / "run_results.json"
+    stale.parent.mkdir()
+    stale.write_text("{}")
+    dbt = FakeDbt(project_dir, Invocation(code=2, results=None))
 
-    summary = run('{"steps": [{}, {}]}', config, store, dbt)
+    summary = run("{}", config, store, dbt)
 
-    assert summary["steps"][1]["outcome"] == "error"
-    assert summary["steps"][1]["resultsKey"] is None
+    assert summary["resultsKey"] is None
+    assert summary["error"] == "dbt exited with 2 and wrote no run_results.json, see the logs"
 
 
 def test_stopped_run(config, store, project_dir):
-    dbt = FakeDbt(project_dir, Invocation(code=0, results=[result(HUB, "success")], stop=True))
+    dbt = FakeDbt(project_dir, Invocation(code=2, results=[result(HUB, "success")], stop=True))
 
-    summary = run('{"steps": [{}, {"command": "seed"}]}', config, store, dbt)
+    summary = run("{}", config, store, dbt)
 
-    assert len(dbt.calls) == 1
     assert summary["outcome"] == "error"
     assert summary["error"] == "The run was stopped"
-    assert summary["notRun"] == [{"command": "seed"}]
+    assert summary["resultsKey"] == results_key("run-1")
+    assert not summary["retryable"]
+
+
+def test_stopped_before_dbt_starts(config, store, project_dir):
+    dbt = FakeDbt(project_dir)
+    dbt.stopping = True
+
+    summary = run("{}", config, store, dbt)
+
+    assert dbt.calls == []
+    assert summary["outcome"] == "error"
+    assert summary["error"] == "The run was stopped"
 
 
 def failed_run(config, store, project_dir):
-    """A run whose first of three steps failed a test."""
+    """A run that failed a test."""
     dbt = FakeDbt(project_dir, Invocation(code=1, results=[result(HUB, "success"), result(UNIQUE, "fail")]))
-    request = {"steps": [{"select": "+lims", "fail_fast": True}, {"command": "seed"}, {"command": "test"}]}
-    return run(json.dumps(request), config, store, dbt)
+    return run(json.dumps({"args": LIMS_BUILD}), config, store, dbt)
 
 
-def test_retry_reruns_what_failed_then_the_rest(config, store, project_dir):
+def test_retry_reruns_what_failed(config, store, project_dir):
     failed_run(config, store, project_dir)
     retry = replace(config, run_id="run-2")
-    dbt = FakeDbt(
-        project_dir,
-        Invocation(results=[result(UNIQUE, "pass")]),
-        Invocation(results=[]),
-        Invocation(results=[]),
-    )
+    dbt = FakeDbt(project_dir, Invocation(results=[result(UNIQUE, "pass")]))
 
     summary = run('{"retry": "run-1"}', retry, store, dbt)
 
-    assert dbt.calls[0][:4] == ["retry", "--target", "prod", "--state"]
-    assert dbt.state_files[0] == store.get_json(results_key("run-1", 0))
-    assert dbt.calls[1:] == [["seed", "--target", "prod"], ["test", "--target", "prod", "--exclude-resource-type", "unit_test"]]
+    [args] = dbt.calls
+    assert args[:2] == ["retry", "--state"]
+    assert dbt.state_files == [store.get_json(results_key("run-1"))]
     assert summary["outcome"] == "succeeded"
     assert summary["request"] == {"retry": "run-1"}
-    assert [step["spec"] for step in summary["steps"]] == [
-        {"command": "retry", "run": "run-1", "step": 0},
-        {"command": "seed"},
-        {"command": "test"},
-    ]
+    assert summary["args"] == ["retry"]
+    assert summary["retryOf"] == "run-1"
+    assert summary["resultsKey"] == results_key("run-2")
 
 
 def test_retry_a_retry(config, store, project_dir):
@@ -177,23 +174,24 @@ def test_retry_a_retry(config, store, project_dir):
     second = replace(config, run_id="run-2")
     third = replace(config, run_id="run-3")
     run('{"retry": "run-1"}', second, store, FakeDbt(project_dir, Invocation(code=1, results=[result(UNIQUE, "fail")])))
-    dbt = FakeDbt(project_dir, Invocation(results=[]), Invocation(results=[]), Invocation(results=[]))
+    dbt = FakeDbt(project_dir, Invocation(results=[result(UNIQUE, "pass")]))
 
     summary = run('{"retry": "run-2"}', third, store, dbt)
 
-    assert dbt.state_files[0] == store.get_json(results_key("run-2", 0))
-    assert summary["steps"][0]["spec"] == {"command": "retry", "run": "run-2", "step": 0}
-    assert len(dbt.calls) == 3
+    assert dbt.state_files == [store.get_json(results_key("run-2"))]
+    assert summary["retryOf"] == "run-2"
 
 
-def test_retry_reruns_a_step_without_results(config, store, project_dir):
-    run('{"select": "+lims"}', config, store, FakeDbt(project_dir, Invocation(code=2, results=None)))
+def test_retry_reruns_a_run_without_results(config, store, project_dir):
+    run(json.dumps({"args": LIMS_BUILD}), config, store, FakeDbt(project_dir, Invocation(code=2, results=None)))
     retry = replace(config, run_id="run-2")
     dbt = FakeDbt(project_dir, Invocation(results=[]))
 
     summary = run('{"retry": "run-1"}', retry, store, dbt)
 
-    assert dbt.calls == [[*BUILD, "--select", "+lims"]]
+    assert dbt.calls == [LIMS_BUILD]
+    assert summary["args"] == LIMS_BUILD
+    assert summary["retryOf"] is None
     assert summary["outcome"] == "succeeded"
 
 
@@ -206,33 +204,39 @@ def test_retry_reruns_a_step_without_results(config, store, project_dir):
         Invocation(code=2, results=[]),
     ],
 )
-def test_retry_reruns_a_step_that_dbt_retry_cant_pick_up(config, store, project_dir, invocation):
-    first = run('{"steps": [{"select": "+lims"}, {"command": "seed"}]}', config, store, FakeDbt(project_dir, invocation))
-    retry = replace(config, run_id="run-2")
-    dbt = FakeDbt(project_dir, Invocation(results=[]), Invocation(results=[]))
-
-    run('{"retry": "run-1"}', retry, store, dbt)
-
-    assert first["steps"][0]["resultsKey"] is not None
-    assert not first["steps"][0]["retryable"]
-    assert dbt.calls == [[*BUILD, "--select", "+lims"], ["seed", "--target", "prod"]]
-
-
-def test_retry_a_stopped_run(config, store, project_dir):
-    run('{"steps": [{}, {"command": "seed"}]}', config, store, FakeDbt(project_dir, Invocation(results=[], stop=True)))
+def test_retry_reruns_a_run_that_dbt_retry_cant_pick_up(config, store, project_dir, invocation):
+    first = run(json.dumps({"args": LIMS_BUILD}), config, store, FakeDbt(project_dir, invocation))
     retry = replace(config, run_id="run-2")
     dbt = FakeDbt(project_dir, Invocation(results=[]))
 
     run('{"retry": "run-1"}', retry, store, dbt)
 
-    assert dbt.calls == [["seed", "--target", "prod"]]
+    assert first["resultsKey"] is not None
+    assert not first["retryable"]
+    assert dbt.calls == [LIMS_BUILD]
+
+
+def test_retry_a_stopped_retry(config, store, project_dir):
+    failed_run(config, store, project_dir)
+    second = replace(config, run_id="run-2")
+    third = replace(config, run_id="run-3")
+    run('{"retry": "run-1"}', second, store, FakeDbt(project_dir, Invocation(code=2, results=[], stop=True)))
+    dbt = FakeDbt(project_dir, Invocation(results=[result(UNIQUE, "pass")]))
+
+    summary = run('{"retry": "run-2"}', third, store, dbt)
+
+    # The stopped retry is run again, from the first run's results.
+    assert dbt.calls[0][:2] == ["retry", "--state"]
+    assert dbt.state_files == [store.get_json(results_key("run-1"))]
+    assert summary["retryOf"] == "run-1"
 
 
 @pytest.mark.parametrize(
     "previous, error",
     [
         (None, "Can't retry run run-1: it has no summary"),
-        ("{}", "Can't retry run run-1: it has nothing left to run"),
+        ("{}", "Can't retry run run-1: it succeeded, so nothing failed"),
+        ('{"args": "debug"}', "Can't retry run run-1: it didn't run dbt, because: args must start with"),
     ],
 )
 def test_nothing_to_retry(config, store, project_dir, previous, error):
@@ -246,11 +250,12 @@ def test_nothing_to_retry(config, store, project_dir, previous, error):
     assert dbt.calls == []
     assert summary["outcome"] == "error"
     assert summary["error"].startswith(error)
+    assert summary["request"] == {"retry": "run-1"}
 
 
 def test_retry_with_missing_results(config, store, project_dir):
     failed_run(config, store, project_dir)
-    (store.root / results_key("run-1", 0)).unlink()
+    (store.root / results_key("run-1")).unlink()
     retry = replace(config, run_id="run-2")
     dbt = FakeDbt(project_dir)
 
@@ -258,5 +263,5 @@ def test_retry_with_missing_results(config, store, project_dir):
 
     assert dbt.calls == []
     assert summary["outcome"] == "error"
-    assert summary["steps"][0]["error"].startswith("No results to retry")
-    assert summary["notRun"] == [{"command": "seed"}, {"command": "test"}]
+    assert summary["error"].startswith("No results to retry")
+    assert summary["retryOf"] == "run-1"

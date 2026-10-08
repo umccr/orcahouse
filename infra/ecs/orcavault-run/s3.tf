@@ -1,8 +1,8 @@
 # --- Run results.
 #
-# Each run writes its summary, its event and dbt's run_results.json for each
-# step under runs/<run ID>/, see the README. They are what a retry starts from,
-# so they're kept for a while, but nothing else depends on them.
+# Each run writes its summary, its event and dbt's run_results.json under
+# runs/<run ID>/, see the README. They are what a retry starts from, so they're
+# kept for a while, but nothing else depends on them.
 
 resource "aws_s3_bucket" "results" {
   bucket           = "${local.name_prefix}-results-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.region}-an"

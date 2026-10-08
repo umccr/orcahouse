@@ -1,7 +1,7 @@
 """Running the dbt CLI.
 
-dbt runs as a child process rather than through dbtRunner, so that each step
-starts clean, and the runner can tell dbt to stop when ECS stops the task.
+dbt runs as a child process rather than through dbtRunner, so that the runner
+can tell dbt to stop when ECS stops the task, and still record how it went.
 """
 
 import logging
