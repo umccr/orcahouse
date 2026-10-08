@@ -275,7 +275,9 @@ succeed:
 ```
 
 A request with one step can leave out `steps`, so `{"select": "+lims"}`
-is the same as `{"steps": [{"select": "+lims"}]}`.
+is the same as `{"steps": [{"select": "+lims"}]}`. orcavault also names the
+common parts in its `selectors.yml`, such as `{"selector": "orcabus"}` for
+everything built from the OrcaBus CDC.
 
 | Field                | Default    | dbt                                                     |
 |----------------------|------------|---------------------------------------------------------|
