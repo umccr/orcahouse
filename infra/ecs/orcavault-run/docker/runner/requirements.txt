@@ -1,0 +1,4 @@
+# Installed with umccr/orcavault's requirements.txt, which pins dbt, so that pip
+# resolves them together. dbt already depends on both.
+boto3>=1.34,<2
+pydantic>=2.6,<3

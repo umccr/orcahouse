@@ -23,12 +23,18 @@ RUN git init -q . \
     && git rev-parse HEAD > ORCAVAULT_COMMIT \
     && rm -rf .git profiles.yml
 
-RUN pip install --no-cache-dir -r requirements.txt
+# Installed together, so that pip resolves the runner's few requirements
+# against the dbt versions orcavault pins.
+COPY runner/requirements.txt /opt/runner/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt -r /opt/runner/requirements.txt
 
 COPY profiles.yml /etc/dbt/profiles.yml
-COPY --chmod=755 run_dbt.sh /usr/local/bin/run_dbt.sh
+COPY runner/orcavault_runner /opt/runner/orcavault_runner
 
-ENV DBT_PROFILES_DIR=/etc/dbt \
+ENV ORCAVAULT_REF=$ORCAVAULT_REF \
+    PYTHONPATH=/opt/runner \
+    PYTHONUNBUFFERED=1 \
+    DBT_PROFILES_DIR=/etc/dbt \
     DBT_SEND_ANONYMOUS_USAGE_STATS=false \
     DBT_USE_COLORS=false \
     DBT_LOG_FORMAT=text
@@ -41,4 +47,6 @@ RUN ORCAVAULT_REDSHIFT_HOST=localhost dbt parse \
 
 USER dbt
 
-ENTRYPOINT ["/usr/local/bin/run_dbt.sh"]
+# Runs the request in ORCAVAULT_RUN_REQUEST, or, given arguments, runs them as
+# a dbt command, such as debug. See runner/orcavault_runner/__main__.py.
+ENTRYPOINT ["python", "-m", "orcavault_runner"]
