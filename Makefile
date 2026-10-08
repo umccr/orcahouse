@@ -17,7 +17,13 @@ baseline:
 test:
 	@(cd orcavault && dbt deps && dbt test)
 
+# The OrcaVault run's runner, see infra/ecs/orcavault-run/README.md. Needs its
+# requirements-dev.txt installed, but neither dbt nor AWS.
+test-runner:
+	@(cd infra/ecs/orcavault-run/docker/runner && python3 -m pytest)
+
 # NOTE: not suitable target for local running but specifically setup for anonymous CI runner  ~victor
 test-iac:
 	@(cd infra/ec2/umccr-mgmt && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
 	@(cd infra/ec2/warehouse-mgmt && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
+	@(cd infra/ecs/orcavault-run && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)

@@ -70,6 +70,11 @@ jobs:
           pip3 install dbt-core dbt-postgres
           make test
 
+      - name: Run OrcaVault runner testing
+        run: |
+          pip3 install -r infra/ecs/orcavault-run/docker/runner/requirements-dev.txt
+          make test-runner
+
       - name: Run terraform testing
         run: |
           make test-iac
