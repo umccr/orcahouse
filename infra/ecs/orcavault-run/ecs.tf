@@ -63,12 +63,21 @@ resource "aws_ecs_task_definition" "dbt" {
       image     = "${aws_ecr_repository.dbt.repository_url}:${var.orcavault_release_ref}"
       essential = true
 
-      # Read by profiles.yml in the image. There is no password: the task role
-      # is the credential.
+      # The first two are read by profiles.yml in the image. There is no
+      # password: the task role is the credential. Step Functions adds the run
+      # ID and the request to these, see stepfunctions.tf.
       environment = [
         { name = "ORCAVAULT_REDSHIFT_HOST", value = data.aws_redshiftserverless_workgroup.this.endpoint[0].address },
         { name = "ORCAVAULT_DBT_THREADS", value = tostring(var.dbt_threads) },
+        { name = "ORCAVAULT_RESULTS_BUCKET", value = aws_s3_bucket.results.bucket },
+        { name = "ORCAVAULT_ENVIRONMENT", value = var.environment },
       ]
+
+      # A stopped run is given this long to let dbt cancel its queries and to
+      # write its results. 120 seconds is the most Fargate allows. The runner
+      # kills dbt before then, see KILL_AFTER_SECONDS in
+      # docker/runner/orcavault_runner/dbt.py.
+      stopTimeout = 120
 
       logConfiguration = {
         logDriver = "awslogs"

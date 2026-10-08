@@ -9,8 +9,18 @@ output "state_machine_arn" {
 }
 
 output "start_run_command" {
-  description = "Start a full run now. See the README for partial runs."
+  description = "Start a full run now. See the README for other requests."
   value       = "aws stepfunctions start-execution --state-machine-arn ${aws_sfn_state_machine.run.arn} --input '{}'"
+}
+
+output "retry_run_command" {
+  description = "Retry a run, by its execution name. See the README for what a retry runs."
+  value       = "aws stepfunctions start-execution --state-machine-arn ${aws_sfn_state_machine.run.arn} --input '{\"retry\": \"<execution name>\"}'"
+}
+
+output "results_bucket" {
+  description = "Each run's summary, event and dbt results, under runs/<execution name>/."
+  value       = aws_s3_bucket.results.bucket
 }
 
 output "debug_command" {

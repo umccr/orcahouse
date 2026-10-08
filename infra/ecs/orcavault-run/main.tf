@@ -35,6 +35,16 @@ provider "aws" {
 locals {
   name_prefix    = "orcavault-run"
   container_name = "dbt"
+
+  # Where the runner keeps each run's results in the results bucket. The
+  # runner has the same prefix, see docker/runner/orcavault_runner/__main__.py.
+  results_prefix = "runs/"
+
+  # The event each run ends with, see the README.
+  event_source      = "orcahouse.orcavault"
+  event_detail_type = "OrcaVault Run Finished"
+
+  execution_url_prefix = "https://${data.aws_region.current.region}.console.aws.amazon.com/states/home?region=${data.aws_region.current.region}#/v2/executions/details/"
 }
 
 data "aws_caller_identity" "current" {}

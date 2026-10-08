@@ -36,6 +36,12 @@ variable "orcavault_release_ref" {
   type        = string
 }
 
+variable "environment" {
+  description = "Named in each run's event, so that notifications can tell environments apart."
+  type        = string
+  default     = "prod"
+}
+
 variable "dbt_threads" {
   description = <<-EOT
     How many models dbt builds at once. dbt orders them by the DAG, so this only
@@ -107,5 +113,19 @@ variable "max_hours_without_success" {
   validation {
     condition     = var.max_hours_without_success >= 1 && var.max_hours_without_success <= 168
     error_message = "max_hours_without_success must be between 1 and 168, which is CloudWatch's limit."
+  }
+}
+
+variable "results_retention_days" {
+  description = <<-EOT
+    How long each run's results are kept. A run can only be retried while its
+    results are, so keep this longer than a failure could go unfixed.
+  EOT
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = var.results_retention_days >= 1
+    error_message = "results_retention_days must be at least 1."
   }
 }

@@ -4,10 +4,14 @@ Builds the [umccr/orcavault](https://github.com/umccr/orcavault) dbt project on
 Redshift Serverless once a day.
 
 ```
-EventBridge Scheduler, 03:00 Australia/Melbourne
+EventBridge Scheduler, 03:00 Australia/Melbourne, input {}
   └─ Step Functions state machine orcavault-run
-       1. CheckNoRunInProgress   fails if an OrcaVault dbt task is already running
-       2. RunDbt                 ECS Fargate task running dbt build, and waits for it
+       1. CheckNoRunInProgress   skips the run if an OrcaVault dbt task is already running
+       2. RunDbt                 ECS Fargate task running the request, and waits for it
+                                   └─ writes to S3 orcavault-run-results-…/runs/<execution name>/
+       3. ReadEvent              reads the event the task wrote
+       4. SendEvent              sends "OrcaVault Run Finished" to the default event bus
+       5. Finish                 succeeds if the run succeeded or only warned
   └─ SNS topic orcavault-run-alerts
        - a run failed, timed out or was stopped
        - no run has succeeded in the last 30 hours
@@ -28,6 +32,15 @@ daily schedule, and decommissioning it is a separate change.
   task at a timeout, checks that no other run is going, and emits an event when
   a run fails. Scheduling the task straight from EventBridge, as the old Aurora
   job does, gives none of the first three.
+- **A small runner wraps dbt.** It checks the request before dbt starts, keeps
+  each run's dbt results so that a failed run can be retried from where it
+  stopped, and sums the run up as an event. The state machine can't do the
+  last two, because it only sees the task's exit code. It's in
+  `docker/runner`.
+- **One event per run.** Every execution ends by sending one event with the
+  run's outcome, whether it succeeded, failed, was skipped or never started.
+  Notifications are built on it rather than on the state machine's own status
+  events, which can't tell a failed test from a failed model.
 - **No Airflow.** MWAA would also work, but it is an always-on environment for
   what is a single daily job.
 
@@ -44,34 +57,51 @@ error-severity test skips everything downstream of that model, so bad data
 doesn't spread. Warn-severity tests only log. The unit tests are left out,
 because they test the project code against fixtures, which is a job for CI.
 
+### Outcomes
+
+Each run ends with one of these, which is the `outcome` of its event:
+
+| Outcome         | Meaning                                                                   | Execution |
+|-----------------|---------------------------------------------------------------------------|-----------|
+| `succeeded`     | Everything built and every test passed.                                   | succeeds  |
+| `warned`        | Only warn-severity tests failed. Nothing was held back.                   | succeeds  |
+| `tests_failed`  | An error-severity test failed, and what depends on its model was skipped. | fails     |
+| `models_failed` | A model, seed or snapshot failed to build.                                | fails     |
+| `error`         | dbt couldn't run, a hook failed, the request was invalid, or the run was stopped or never started. | fails |
+| `skipped`       | Another run was still going, so this one didn't start.                    | fails     |
+
+A failed execution's error is the outcome, so the Step Functions console and
+the alerts show which it was.
+
 ### When some models fail
 
 The run is reported as failed, and everything that could load does load.
 
-- dbt exits non-zero, so the execution fails and an alert is sent.
 - Models that succeeded stay loaded. Each model commits on its own.
 - A failed model skips only the models that depend on it. Unrelated models
-  still build, since there is no `--fail-fast`.
-- The CDC positions in `ops.cdc_watermark` only move when every model succeeds.
-  After a partial failure they stay put, and the next run rereads the same
-  window. The models skip rows they already have, so the rereading is harmless,
-  and the next successful run catches up by itself. See
+  still build, unless the request asks for `fail_fast`.
+- The CDC positions in `ops.cdc_watermark` only move when every model in the
+  project succeeds in one `dbt run` or `dbt build`. After a partial failure
+  they stay put, and the next run rereads the same window. The models skip rows
+  they already have, so the rereading is harmless, and the next successful run
+  catches up by itself. See
   [docs/watermark-architecture.md](https://github.com/umccr/orcavault/blob/main/docs/watermark-architecture.md).
 
 The trade-off is that one model that keeps failing holds every position back,
 so each run rereads a bigger window until it's fixed. Fix failures within days,
 not weeks.
 
-A failed run is not retried. Whatever failed would most likely fail again, and
-the next daily run covers it. Only failures to start the task, such as no
-Fargate capacity, are retried.
+A failed run is not retried automatically. Whatever failed would most likely
+fail again, and the next daily run covers it. Once the cause is fixed, retry it
+by hand, see [Retrying a run](#retrying-a-run). Only failures to start the
+task, such as no Fargate capacity, are retried automatically.
 
 ### Overlapping runs
 
 OrcaVault's incremental models assume runs don't overlap. Two things prevent it:
 
-- `CheckNoRunInProgress` fails the execution if an OrcaVault dbt task is
-  already running, however it was started.
+- `CheckNoRunInProgress` skips the run if an OrcaVault dbt task is already
+  running, however it was started. The execution fails with `skipped`.
 - A run is stopped after `run_timeout_hours` (4 by default), well before the
   next scheduled run.
 
@@ -110,8 +140,9 @@ aws ecr get-login-password | docker login --username AWS --password-stdin "${REP
 docker buildx build --platform linux/arm64 --build-arg "ORCAVAULT_REF=$REF" -t "$REPO:$REF" --push docker/
 ```
 
-The build runs `dbt parse`, so a project that doesn't parse fails here rather
-than at 3am.
+The image holds orcavault at that ref, the dbt version it pins, and the runner
+from `docker/runner`. The build runs `dbt parse`, so a project that doesn't
+parse fails here rather than at 3am.
 
 ### 2. Apply
 
@@ -195,6 +226,9 @@ The no-success alarm is in ALARM until the first run succeeds.
 
 ### 5. Check the task, then run it
 
+The task needs the network access listed under
+[Limits and risks](#limits-and-risks).
+
 ```bash
 # Checks the task can get credentials and connect to Redshift.
 eval "$(terraform output -raw debug_command)"
@@ -206,38 +240,179 @@ eval "$(terraform output -raw start_run_command)"
 ## Operating
 
 **Start a run** with `terraform output -raw start_run_command`, or from the Step
-Functions console with input `{}`.
-
-**Build part of the project** by passing `select`:
-
-```bash
-aws stepfunctions start-execution --state-machine-arn "$(terraform output -raw state_machine_arn)" \
-  --input '{"select": "path:models/dcl/raw_vault/library+"}'
-```
-
-A partial build never moves the CDC positions, because not every model ran. The
-next full run reads the same window again.
-
-**Pass dbt vars** with `vars`, such as rereading the warehouse models from a
-point in time:
-
-```bash
---input '{"vars": {"reread_from": "2026-09-01"}}'
-```
-
-`load_legacy` reads the `data_portal` Glue database, which the task role has no
-grants for. It is a one-off, so run it as an admin rather than through here.
+Functions console with input `{}`. Leave the execution name to Step Functions,
+or use only letters, digits, `-` and `_`: the name is the run's ID, and names
+its results.
 
 **Pause the schedule** with `-var schedule_enabled=false`. This also turns off
 the no-success alarm's notifications.
 
-**Stop a run** by stopping its execution. Step Functions stops the task.
+**Stop a run** by stopping its execution. Step Functions stops the task, and
+the runner tells dbt to cancel its queries. dbt is killed if it hasn't
+exited after 90 seconds, leaving the runner time to write the results before
+ECS kills the task at two minutes. A run that reaches `run_timeout_hours` is
+stopped the same way.
 
-**Read the logs** with `terraform output -raw logs_command`, or from the link in
-the alert.
+**Read the logs** with `terraform output -raw logs_command`, or from the
+`logsUrl` in the run's event.
 
 **Release a new version** by building and pushing an image for the new ref,
 then applying with the new `orcavault_release_ref`.
+
+### Requests
+
+The execution input says what to run. The scheduled run's `{}` builds
+everything. Anything else is a list of steps, run in order until one doesn't
+succeed:
+
+```json
+{
+  "steps": [
+    {"command": "seed", "select": "mdm__workflow_run"},
+    {"select": "path:models/dcl/raw_vault/library+", "vars": {"reread_from": "2026-09-01"}}
+  ]
+}
+```
+
+A request with one step can leave out `steps`, so `{"select": "+lims"}`
+is the same as `{"steps": [{"select": "+lims"}]}`.
+
+| Field                | Default    | dbt                                                     |
+|----------------------|------------|---------------------------------------------------------|
+| `command`            | `build`    | `build`, `run`, `test`, `seed` or `snapshot`            |
+| `select`             | everything | `--select`, a string or a list                          |
+| `exclude`            | nothing    | `--exclude`, a string or a list                         |
+| `selector`           | none       | `--selector`, from orcavault's `selectors.yml`, instead of `select` and `exclude` |
+| `indirect_selection` | `eager`    | `--indirect-selection`, for `build` and `test`          |
+| `fail_fast`          | `false`    | `--fail-fast`                                           |
+| `full_refresh`       | `false`    | `--full-refresh`, for `build`, `run` and `seed`         |
+| `vars`               | none       | `--vars`, an object                                     |
+
+Selector strings are split on spaces, as on the dbt command line. A request is
+checked before anything runs, so a misspelt field ends the run with `error`
+straight away, rather than running something other than what was meant. A
+request has at most 10 steps.
+
+Things to know:
+
+- **A partial run never moves the CDC positions**, because not every model ran.
+  The next full run reads the same window again.
+- **`run` skips the tests.** A full `{"command": "run"}` does move the
+  positions, without tests having checked what it loaded. Prefer `build`, and
+  to leave the tests out, `{"exclude": "resource_type:test"}`.
+- **`full_refresh` rebuilds incremental models from scratch**, which for the
+  raw vault means rereading every CDC file. It can hit the query time limit,
+  see [Limits and risks](#limits-and-risks).
+- **`load_legacy`** reads the `data_portal` Glue database, which the task role
+  has no grants for. It's a one-off, so run it as an admin rather than through
+  here.
+
+### Retrying a run
+
+```bash
+aws stepfunctions start-execution --state-machine-arn "$(terraform output -raw state_machine_arn)" \
+  --input '{"retry": "<execution name>"}'
+```
+
+A retry is a new run that picks up an earlier one from its first step that
+didn't succeed:
+
+- If that step ran to completion, it's rerun with `dbt retry`, which runs only
+  the models and tests that failed or were skipped, with the step's original
+  arguments.
+- If it didn't, because dbt couldn't start or the run was stopped partway, the
+  step runs again whole. `dbt retry` can't pick these up: a stopped dbt leaves
+  the models it hadn't started out of its results.
+- Then the steps that never ran.
+
+A retry is itself a run with its own results, so a failed retry can be retried
+too. A retry that reruns only part of the project doesn't move the CDC
+positions; the next full run does. A run can be retried while its results are
+kept, which is `results_retention_days` (90 by default).
+
+Retry with a new execution rather than a
+[redrive](https://docs.aws.amazon.com/step-functions/latest/dg/redrive-executions.html).
+A redriven failed execution only fails again, since it ended in a Fail state.
+A redriven stopped one runs the whole request again, under the same name, over
+its earlier results.
+
+### Results
+
+Each run writes to `runs/<execution name>/` in the results bucket
+(`terraform output -raw results_bucket`):
+
+| Key                              | What                                                    |
+|----------------------------------|---------------------------------------------------------|
+| `summary.json`                   | The request, and each step's dbt arguments, exit code, outcome, counts and failed nodes. Also the steps not run. |
+| `event.json`                     | The detail of the run's event, less `executionUrl`.     |
+| `steps/<index>/run_results.json` | dbt's [run results](https://docs.getdbt.com/reference/artifacts/run-results-json) for the step. |
+
+A run that never started the task, such as a skipped one, has no results.
+
+### The run's event
+
+Every execution ends by sending this event to the default event bus, whatever
+happened. Notifications, and anything else that reacts to a run, should use it.
+
+```json
+{
+  "source": "orcahouse.orcavault",
+  "detail-type": "OrcaVault Run Finished",
+  "detail": {
+    "environment": "prod",
+    "outcome": "tests_failed",
+    "runId": "4b8e1f3a-…",
+    "modelsSucceeded": 140,
+    "modelsFailed": 0,
+    "modelsSkipped": 3,
+    "testsPassed": 512,
+    "testsWarned": 1,
+    "testsFailed": 1,
+    "failedNodes": "unique_hub_library_library_hk",
+    "warnedNodes": "accepted_values_lims_type",
+    "positionsAdvanced": false,
+    "orcavaultRef": "v1.2.3",
+    "durationMinutes": 42,
+    "logsUrl": "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?…",
+    "executionUrl": "https://ap-southeast-2.console.aws.amazon.com/states/home?…"
+  }
+}
+```
+
+- The detail is flat, and every field is always there, so that an EventBridge
+  input transformer can use it as it is.
+- `failedNodes` and `warnedNodes` name at most 10 nodes, then "and N more". The
+  full lists are in `summary.json`.
+- `positionsAdvanced` is whether the CDC positions moved, or null when dbt
+  didn't say, such as for a `seed`.
+- `logsUrl` is null, and the counts are 0, when the task never started.
+- It has no error messages, since it may be posted to chat. The logs have them.
+
+### Running the image by hand
+
+With arguments, the image runs them as a dbt command and records nothing, which
+is what `debug_command` does. Without, it runs the request in
+`ORCAVAULT_RUN_REQUEST`. For example, locally, with AWS credentials that can
+connect to Redshift:
+
+```bash
+docker run --rm -e AWS_PROFILE -v ~/.aws:/home/dbt/.aws:ro \
+  -e ORCAVAULT_REDSHIFT_HOST=<workgroup endpoint> \
+  -e ORCAVAULT_RUN_REQUEST='{"command": "test", "select": "mart"}' \
+  "$REPO:$REF"
+```
+
+Without `ORCAVAULT_RESULTS_BUCKET`, the results stay in the container, under
+`ORCAVAULT_RESULTS_DIR`. See `docker/runner/orcavault_runner/__main__.py` for
+the rest of the environment.
+
+The runner's tests don't need dbt or AWS:
+
+```bash
+cd docker/runner
+pip install -r requirements-dev.txt
+pytest
+```
 
 ## Limits and risks
 
@@ -252,8 +427,11 @@ then applying with the new `orcavault_release_ref`.
   usage after the first few runs.
 - **Network.** The task runs in the private subnets of `UomPrimaryVpc`, without
   a public IP. It needs to reach ECR and CloudWatch Logs to start, the
-  `redshift-serverless` API to get credentials, and the workgroup on port 5439.
-  These need VPC endpoints or a NAT gateway. If any are missing the run fails,
-  and `debug_command` is the quickest way to tell.
+  `redshift-serverless` API to get credentials, the workgroup on port 5439, and
+  S3 to write its results. These need VPC endpoints or a NAT gateway. ECR
+  already needs S3 for image layers, but if the S3 endpoint has a policy, it
+  must allow the results bucket too. If any are missing the run fails, and
+  `debug_command` is the quickest way to tell. Without S3, a run ends with
+  `error` and no results, even when dbt succeeded.
 - **The old Aurora job** in `infra/ecs/legacy/orcavault-dbt` still runs daily until
   it's decommissioned.

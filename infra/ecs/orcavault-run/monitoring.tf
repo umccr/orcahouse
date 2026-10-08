@@ -2,7 +2,8 @@
 #
 # Two signals, both sent to the alerts topic:
 #
-# - A run ended badly: it failed, timed out, or was stopped.
+# - A run ended badly: it failed, timed out, or was stopped. A failed
+#   execution's error is the run's outcome, such as tests_failed.
 # - No run has succeeded for max_hours_without_success. This catches the cases
 #   the first can't see, like the schedule being disabled or never firing.
 #

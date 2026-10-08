@@ -1,21 +1,44 @@
 # --- The run.
 #
-# One execution is one dbt build of the whole project, unless its input narrows
-# it. dbt orders the models by their dependencies and builds independent ones in
-# parallel, up to dbt_threads, so the state machine doesn't model the DAG.
+# An execution runs one request, which is its input, see the README. The
+# scheduled run's input is {}, which builds the whole project. dbt orders the
+# models by their dependencies and builds independent ones in parallel, up to
+# dbt_threads, so the state machine doesn't model the DAG.
 #
-# Input, all optional:
-#
-#   {"select": "<dbt selector>", "vars": {...}}
-#
-# select is passed to --select, and vars to --vars. The scheduled run passes
-# neither.
-#
-# The execution fails if dbt exits non-zero, which is when any model, seed,
-# snapshot or error-severity test fails. Models that did succeed stay loaded.
+# The runner in the image checks the request, runs it, and writes what happened
+# to the results bucket, under runs/<execution name>/. Whatever happens, the
+# execution then sends one "OrcaVault Run Finished" event to the default event
+# bus with the run's outcome. It succeeds when the outcome is succeeded or
+# warned, and otherwise fails with the outcome as its error.
 
 locals {
   run_timeout_seconds = var.run_timeout_hours * 3600
+
+  # The event's detail, for when the runner didn't get to write one: the run
+  # was skipped, or the task failed to start or was killed.
+  empty_event_detail = {
+    environment       = var.environment
+    modelsSucceeded   = 0
+    modelsFailed      = 0
+    modelsSkipped     = 0
+    testsPassed       = 0
+    testsWarned       = 0
+    testsFailed       = 0
+    failedNodes       = ""
+    warnedNodes       = ""
+    positionsAdvanced = null
+    orcavaultRef      = var.orcavault_release_ref
+    logsUrl           = null
+  }
+
+  no_runner_event_detail = {
+    for outcome in ["skipped", "error"] : outcome => join("", [
+      "{% $merge([",
+      jsonencode(local.empty_event_detail),
+      ", {'outcome': '${outcome}', 'runId': $states.context.Execution.Name, ",
+      "'durationMinutes': $round(($millis() - $toMillis($states.context.Execution.StartTime)) / 60000)}]) %}",
+    ])
+  }
 }
 
 resource "aws_sfn_state_machine" "run" {
@@ -24,7 +47,7 @@ resource "aws_sfn_state_machine" "run" {
   type     = "STANDARD"
 
   definition = jsonencode({
-    Comment       = "Builds the OrcaVault dbt project on Redshift Serverless."
+    Comment       = "Runs the OrcaVault dbt project on Redshift Serverless."
     QueryLanguage = "JSONata"
     StartAt       = "CheckNoRunInProgress"
 
@@ -40,10 +63,6 @@ resource "aws_sfn_state_machine" "run" {
           Family        = aws_ecs_task_definition.dbt.family
           DesiredStatus = "RUNNING"
         }
-        Assign = {
-          dbtSelect = "{% $exists($states.input.select) ? $string($states.input.select) : '' %}"
-          dbtVars   = "{% $exists($states.input.vars) ? $string($states.input.vars) : '' %}"
-        }
         Output = "{% { 'running': $count($states.result.TaskArns) } %}"
         Retry = [
           {
@@ -51,6 +70,13 @@ resource "aws_sfn_state_machine" "run" {
             IntervalSeconds = 10
             MaxAttempts     = 3
             BackoffRate     = 2
+          }
+        ]
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"]
+            Assign      = { detail = local.no_runner_event_detail["error"] }
+            Next        = "SendEvent"
           }
         ]
         Next = "IsRunInProgress"
@@ -68,14 +94,19 @@ resource "aws_sfn_state_machine" "run" {
       }
 
       RunInProgress = {
-        Type  = "Fail"
-        Error = "RunInProgress"
-        Cause = "Another OrcaVault dbt task is still running, so this run did not start."
+        Type    = "Pass"
+        Comment = "Another OrcaVault dbt task is still running, so this run doesn't start."
+        Assign  = { detail = local.no_runner_event_detail["skipped"] }
+        Next    = "SendEvent"
       }
 
       # The .sync integration waits for the task to stop, and fails this state
-      # if dbt exits non-zero. If the state times out, or the execution is
-      # stopped, Step Functions stops the task.
+      # if the runner exits non-zero, which it does for any outcome but
+      # succeeded or warned. Either way, the runner has written the event. If
+      # the state times out, or the execution is stopped, Step Functions stops
+      # the task.
+      #
+      # The execution name is the run ID, which names the run's results.
       RunDbt = {
         Type           = "Task"
         Resource       = "arn:aws:states:::ecs:runTask.sync"
@@ -94,15 +125,19 @@ resource "aws_sfn_state_machine" "run" {
           Overrides = {
             ContainerOverrides = [
               {
-                Name        = local.container_name
-                Environment = "{% [$dbtSelect != '' ? {'Name': 'DBT_SELECT', 'Value': $dbtSelect}, $dbtVars != '' ? {'Name': 'DBT_VARS', 'Value': $dbtVars}] %}"
+                Name = local.container_name
+                Environment = [
+                  { Name = "ORCAVAULT_RUN_ID", Value = "{% $states.context.Execution.Name %}" },
+                  { Name = "ORCAVAULT_RUN_REQUEST", Value = "{% $string($states.context.Execution.Input) %}" },
+                ]
               }
             ]
           }
         }
         # Only failures to start the task are retried, such as throttling or no
-        # Fargate capacity. A dbt failure is not retried: whatever failed would
-        # most likely fail again, and the next daily run rereads the same window.
+        # Fargate capacity. A failed run is not: whatever failed would most
+        # likely fail again, and the next daily run rereads the same window.
+        # Retry it by hand once the cause is fixed, see the README.
         Retry = [
           {
             ErrorEquals     = ["ECS.AmazonECSException", "AmazonECS.Unknown"]
@@ -111,7 +146,103 @@ resource "aws_sfn_state_machine" "run" {
             BackoffRate     = 2
           }
         ]
-        End = true
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"]
+            Next        = "ReadEvent"
+          }
+        ]
+        Next = "ReadEvent"
+      }
+
+      ReadEvent = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::aws-sdk:s3:getObject"
+        Arguments = {
+          Bucket = aws_s3_bucket.results.bucket
+          Key    = "{% '${local.results_prefix}' & $states.context.Execution.Name & '/event.json' %}"
+        }
+        Assign = { detail = "{% $parse($states.result.Body) %}" }
+        Output = {}
+        Retry = [
+          # A timed out task is stopped without waiting for it, and the runner
+          # can take up to the container's stopTimeout to write its results.
+          {
+            ErrorEquals     = ["S3.NoSuchKeyException"]
+            IntervalSeconds = 30
+            MaxAttempts     = 5
+            BackoffRate     = 1
+          },
+          {
+            ErrorEquals     = ["States.ALL"]
+            IntervalSeconds = 5
+            MaxAttempts     = 3
+            BackoffRate     = 2
+          },
+        ]
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"]
+            Assign      = { detail = local.no_runner_event_detail["error"] }
+            Next        = "SendEvent"
+          }
+        ]
+        Next = "SendEvent"
+      }
+
+      SendEvent = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::events:putEvents"
+        Arguments = {
+          Entries = [
+            {
+              EventBusName = "default"
+              Source       = local.event_source
+              DetailType   = local.event_detail_type
+              Detail       = "{% $merge([$detail, {'executionUrl': '${local.execution_url_prefix}' & $states.context.Execution.Id}]) %}"
+            }
+          ]
+        }
+        Output = {}
+        Retry = [
+          {
+            ErrorEquals     = ["States.ALL"]
+            IntervalSeconds = 10
+            MaxAttempts     = 3
+            BackoffRate     = 2
+          }
+        ]
+        # The execution still ends with the run's outcome, so that the
+        # execution status alert in monitoring.tf sees a failed run.
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"]
+            Next        = "Finish"
+          }
+        ]
+        Next = "Finish"
+      }
+
+      Finish = {
+        Type = "Choice"
+        Choices = [
+          {
+            Condition = "{% $detail.outcome in ['succeeded', 'warned'] %}"
+            Next      = "Succeeded"
+          }
+        ]
+        Default = "Failed"
+      }
+
+      Succeeded = {
+        Type   = "Succeed"
+        Output = "{% $detail %}"
+      }
+
+      Failed = {
+        Type  = "Fail"
+        Error = "{% $detail.outcome %}"
+        Cause = "{% 'The run ended with ' & $detail.outcome & '. Its results are under s3://${aws_s3_bucket.results.bucket}/${local.results_prefix}' & $detail.runId & '/' %}"
       }
     }
   })

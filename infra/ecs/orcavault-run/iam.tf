@@ -87,6 +87,25 @@ data "aws_iam_policy_document" "dbt_task" {
     actions   = ["s3:GetBucketLocation"]
     resources = [data.aws_s3_bucket.cdc.arn]
   }
+
+  # Writes this run's results, and reads an earlier run's to retry it.
+  statement {
+    sid       = "ReadWriteRunResults"
+    effect    = "Allow"
+    actions   = ["s3:GetObject", "s3:PutObject"]
+    resources = ["${aws_s3_bucket.results.arn}/${local.results_prefix}*"]
+  }
+
+  # Without it, reading results that don't exist is denied rather than
+  # reported missing, and the runner can't tell the two apart. S3 checks it
+  # without a prefix, so it can't be narrowed to one, but the bucket holds
+  # nothing else.
+  statement {
+    sid       = "ListRunResults"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.results.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "dbt_task" {
@@ -171,6 +190,30 @@ data "aws_iam_policy_document" "states" {
       variable = "iam:PassedToService"
       values   = ["ecs-tasks.amazonaws.com"]
     }
+  }
+
+  # The run's event, written by the runner.
+  statement {
+    sid       = "ReadRunEvent"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.results.arn}/${local.results_prefix}*/event.json"]
+  }
+
+  # So that a missing event is reported as missing, and retried, rather than
+  # denied. See ListRunResults in the task role.
+  statement {
+    sid       = "ListRunResults"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.results.arn]
+  }
+
+  statement {
+    sid       = "SendRunEvent"
+    effect    = "Allow"
+    actions   = ["events:PutEvents"]
+    resources = ["arn:${data.aws_partition.current.partition}:events:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:event-bus/default"]
   }
 }
 
