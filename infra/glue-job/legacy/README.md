@@ -27,7 +27,7 @@ uv pip install -r requirements-dev.txt
 
 ```
 aws sso login
-assume umccr-dev-admin
+assume umccr-prod-admin
 ```
 
 Consider this public JSON line dataset.
@@ -60,25 +60,24 @@ cd deploy
 ```
 
 ```
-export AWS_PROFILE=umccr-dev-admin
+export AWS_PROFILE=umccr-prod-admin
 ```
 
 ```
 terraform workspace list
   default
-* dev
-  prod
+* prod
 ```
 
 ```
-export AWS_PROFILE=umccr-dev-admin && terraform workspace select dev && terraform plan
+export AWS_PROFILE=umccr-prod-admin && terraform workspace select prod && terraform plan
 terraform apply
 ```
 
 ## Run
 
 ```
-export AWS_PROFILE=umccr-dev-admin
+export AWS_PROFILE=umccr-prod-admin
 ```
 
 ```
