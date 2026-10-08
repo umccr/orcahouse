@@ -1,15 +1,11 @@
 locals {
   name_prefix = "orcahouse-notify-${var.environment}"
-  # Warehouse account that owns the EventBridge rules. Pinned as a literal
-  # (not aws_caller_identity) so the confused-deputy guard names the trusted
-  # account explicitly, per design §10.1.
+  # Pinned (not aws_caller_identity) so the trust policy names the account explicitly.
   account_id = "115253169271"
   region     = "ap-southeast-2"
 }
 
-# Trust policy: allow EventBridge to assume the publisher role, with
-# confused-deputy protection scoping it to this account and this
-# environment's notification rules only.
+# Only this environment's notification rules, in this account, may assume the role.
 data "aws_iam_policy_document" "assume_role" {
   statement {
     effect  = "Allow"
@@ -36,14 +32,12 @@ data "aws_iam_policy_document" "assume_role" {
 
 resource "aws_iam_role" "publisher" {
   name               = "${local.name_prefix}-publisher-role"
+  description        = "Assumed by EventBridge rules ${local.name_prefix}-* to publish alerts to the ${var.environment} Slack SNS topic"
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
 }
 
-# Inline policy: sns:Publish on this environment's Slack topic only.
-# No KMS permissions are granted — the Slack topics are treated as
-# unencrypted / not customer-managed-key (issue note U-11). If a topic
-# were encrypted with a CMK, this role would also need kms:GenerateDataKey*
-# and kms:Decrypt on that key, and the key policy would have to allow it.
+# sns:Publish on this environment's Slack topic only. If the topic is ever encrypted with a
+# customer-managed key, also allow kms:GenerateDataKey* and kms:Decrypt on that key.
 data "aws_iam_policy_document" "publish" {
   statement {
     effect    = "Allow"

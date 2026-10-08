@@ -20,6 +20,9 @@ terraform {
 provider "aws" {
   region = "ap-southeast-2"
 
+  # The trust and queue policies pin the warehouse account; refuse any other.
+  allowed_account_ids = ["115253169271"]
+
   default_tags {
     tags = {
       "umccr-org:Product" = "OrcaHouse"
@@ -31,7 +34,6 @@ provider "aws" {
 }
 
 locals {
-  namespace   = "orcahouse"
   environment = "dev"
 }
 
@@ -41,11 +43,13 @@ variable "slack_topic_arn" {
   default     = "arn:aws:sns:ap-southeast-2:843407916570:AwsChatBotTopic-alerts"
 }
 
-# ---
+variable "disabled_notification_rules" {
+  description = "Notification rule keys to deploy DISABLED (maintenance window, OrcaGlue cutover). Example: -var='disabled_notification_rules=[\"glue-job-failure\"]'."
+  type        = set(string)
+  default     = []
+}
 
-# CI does not cover this stack. Before merging, run locally from this dir:
-#   terraform init -backend=false && terraform validate
-# and from the stack root: terraform fmt -check -recursive ../..
+# ---
 
 module "publisher_role" {
   source = "../../modules/publisher-role"
@@ -57,4 +61,38 @@ module "publisher_role" {
 output "publisher_role_arn" {
   value       = module.publisher_role.publisher_role_arn
   description = "ARN of the dev EventBridge publisher role."
+}
+
+# ---
+# Dead-letter queue for every rule target, plus the alarm that fires while it is not empty.
+module "target_dlq" {
+  source = "../../modules/target-dlq"
+
+  environment = local.environment
+}
+
+output "target_dlq_arn" {
+  value       = module.target_dlq.target_dlq_arn
+  description = "ARN of the dev notification target dead-letter queue."
+}
+
+# ---
+# EventBridge notification rules on the default bus. DMS CDC and the orcabus-db crawlers
+# exist only in prod, so dev passes no DMS ids. Dev watches its own mart crawler, defined
+# in infra/glue-crawler/orcavault-db (environments/dev).
+module "notification_rules" {
+  source = "../../modules/notification-rules"
+
+  environment        = local.environment
+  topic_arn          = var.slack_topic_arn
+  publisher_role_arn = module.publisher_role.publisher_role_arn
+  dlq_arn            = module.target_dlq.target_dlq_arn
+  disabled_rules     = var.disabled_notification_rules
+
+  crawler_names = ["orcavault-db-dev-mart-crawler"]
+}
+
+output "notification_rule_names" {
+  value       = module.notification_rules.rule_names
+  description = "Map of rule key to the dev EventBridge notification rule name."
 }

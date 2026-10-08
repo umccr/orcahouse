@@ -38,9 +38,21 @@ Prod topic (account `472057503814`):
 }
 ```
 
+## Statements to remove after the OrcaGlue cutover
+
+Once the OrcaGlue rules and notify roles are deleted from the OrcaGlue `shared-infra`
+Pulumi stack, ask the topic owners to remove the statements that allowed them. A statement
+whose role was deleted no longer grants anything, and its principal shows as an unreadable
+role ID.
+
+| Env  | Sid                                   | Principal                                                                     |
+| ---- | ------------------------------------- | ----------------------------------------------------------------------------- |
+| dev  | `AllowOrcaGlueDevGlueFailureNotify`   | `arn:aws:iam::115253169271:role/orcaglue-shared-infra-glue-notify-role-dev`   |
+| prod | `AllowOrcaGlueProdGlueFailureNotify`  | `arn:aws:iam::115253169271:role/orcaglue-shared-infra-glue-notify-role-prod`  |
+
 ## Encryption note
 
 The AWS-managed `aws/sns` key cannot be used for cross-account publishing. Confirm
-each topic's encryption state with its owner (issue note U-11); if a customer-managed
+each topic's encryption state with its owner; if a customer-managed
 key (CMK) is in use, the publisher role and the key policy also need
 `kms:GenerateDataKey*` and `kms:Decrypt` on that key.
