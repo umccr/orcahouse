@@ -24,7 +24,7 @@ POSITIONS_HELD = "CDC positions not updated"
 
 # ECS kills the task 120 seconds after stopping it, see stopTimeout in ecs.tf.
 # dbt is killed before then if it hasn't exited, so that the runner can still
-# write the results.
+# write the event.
 KILL_AFTER_SECONDS = 90
 
 

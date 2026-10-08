@@ -25,6 +25,5 @@ def config(project_dir: Path) -> Config:
         environment="prod",
         project_dir=project_dir,
         orcavault_ref="v1.0.0",
-        orcavault_commit="abc123",
         logs_url="https://logs",
     )

@@ -55,15 +55,10 @@ class FakeDbt:
         self.project_dir = project_dir
         self.invocations = list(invocations)
         self.calls: list[list[str]] = []
-        self.state_files: list[dict[str, Any]] = []
         self.stopping = False
 
     def __call__(self, args: list[str]) -> DbtExit:
         self.calls.append(args)
-        if "--state" in args:
-            state_dir = Path(args[args.index("--state") + 1])
-            self.state_files.append(json.loads((state_dir / "run_results.json").read_text()))
-
         invocation = self.invocations.pop(0)
         if invocation.results is not None:
             path = self.project_dir / "target" / "run_results.json"

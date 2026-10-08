@@ -117,10 +117,7 @@ variable "max_hours_without_success" {
 }
 
 variable "results_retention_days" {
-  description = <<-EOT
-    How long each run's results are kept. A run can only be retried while its
-    results are, so keep this longer than a failure could go unfixed.
-  EOT
+  description = "How long each run's event is kept in the results bucket, to look back on."
   type        = number
   default     = 90
 

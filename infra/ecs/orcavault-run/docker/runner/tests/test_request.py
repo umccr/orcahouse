@@ -15,7 +15,6 @@ def test_args_as_a_list():
     request = parse_request('{"args": ["build", "--select", "+lims", "fastq", "--full-refresh"]}')
 
     assert request.args == ("build", "--select", "+lims", "fastq", "--full-refresh")
-    assert request.to_json() == {"args": ["build", "--select", "+lims", "fastq", "--full-refresh"]}
 
 
 def test_args_as_a_string_are_split_like_a_shell():
@@ -29,30 +28,20 @@ def test_commands(command):
     assert parse_request(json.dumps({"args": [command]})).args == (command,)
 
 
-def test_retry_request():
-    request = parse_request('{"retry": "run-1"}')
-
-    assert request.retry == "run-1"
-    assert request.to_json() == {"retry": "run-1"}
-
-
 @pytest.mark.parametrize(
     "request_json, message",
     [
-        ({"select": "lims"}, "Unknown field select. A request has args or retry"),
-        ({"args": ["build"], "retry": "run-1"}, "args or retry, not both"),
+        ({"select": "lims"}, "Unknown field select. A request only has args"),
+        ({"args": ["build"], "retry": "run-1"}, "Unknown field retry"),
         ({"args": ["run-operation", "drop_everything"]}, "args must start with one of build, run, test, seed, snapshot, not 'run-operation'"),
         ({"args": ["debug"]}, "not 'debug'"),
+        ({"args": ["retry"]}, "not 'retry'"),
         ({"args": ["--select", "lims"]}, "not '--select'"),
-        ({"args": ["retry"]}, 'To retry a run, request {"retry": "<run ID>"}'),
-        ({"args": "retry"}, "To retry a run"),
         ({"args": []}, "not nothing"),
         ({"args": ""}, "not nothing"),
         ({"args": "build --vars '{\"a\": 1}"}, "Can't split args: No closing quotation"),
         ({"args": ["build", 1]}, "args must be a list of strings, or a string"),
         ({"args": {"select": "lims"}}, "args must be a list of strings, or a string"),
-        ({"retry": "../run-1"}, "retry must be a run ID"),
-        ({"retry": 1}, "retry must be a run ID"),
         ([], "must be a JSON object"),
     ],
 )

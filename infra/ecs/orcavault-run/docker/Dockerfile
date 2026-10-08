@@ -57,7 +57,7 @@ ENV DBT_EXCLUDE_RESOURCE_TYPES=unit_test \
 
 USER dbt
 
-# Runs the request in ORCAVAULT_RUN_REQUEST, which is dbt arguments or a retry,
-# or, given arguments, runs them as a dbt command that's not recorded, such as
-# debug. See runner/orcavault_runner/__main__.py.
+# Runs the request in ORCAVAULT_RUN_REQUEST, which is dbt arguments, or, given
+# arguments, runs them as a dbt command that's not recorded, such as debug.
+# See runner/orcavault_runner/__main__.py.
 ENTRYPOINT ["python", "-m", "orcavault_runner"]

@@ -36,7 +36,7 @@ locals {
   name_prefix    = "orcavault-run"
   container_name = "dbt"
 
-  # Where the runner keeps each run's results in the results bucket. The
+  # Where the runner writes each run's event in the results bucket. The
   # runner has the same prefix, see docker/runner/orcavault_runner/__main__.py.
   results_prefix = "runs/"
 

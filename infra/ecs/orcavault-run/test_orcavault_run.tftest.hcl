@@ -127,6 +127,17 @@ run "every_run_sends_its_event" {
   }
 
   assert {
+    condition = alltrue([
+      for detail in [
+        jsondecode(aws_sfn_state_machine.run.definition).States.RunInProgress.Assign.detail,
+        jsondecode(aws_sfn_state_machine.run.definition).States.CheckNoRunInProgress.Catch[0].Assign.detail,
+        jsondecode(aws_sfn_state_machine.run.definition).States.ReadEvent.Catch[0].Assign.detail,
+      ] : can(regex("\"error\":\"[^\"]+\"", detail))
+    ])
+    error_message = "an event the runner didn't write should still say why"
+  }
+
+  assert {
     condition     = strcontains(jsondecode(aws_sfn_state_machine.run.definition).States.ReadEvent.Arguments.Key, "'runs/' & $states.context.Execution.Name & '/event.json'")
     error_message = "the event should be read from where the runner writes it"
   }
@@ -137,7 +148,7 @@ run "every_run_sends_its_event" {
   }
 }
 
-run "task_writes_results" {
+run "task_writes_its_event" {
   assert {
     condition = contains(
       jsondecode(aws_ecs_task_definition.dbt.container_definitions)[0].environment,
@@ -148,11 +159,11 @@ run "task_writes_results" {
 
   assert {
     condition     = jsondecode(aws_ecs_task_definition.dbt.container_definitions)[0].stopTimeout == 120
-    error_message = "a stopped task should have time to write its results"
+    error_message = "a stopped task should have time to write its event"
   }
 
   assert {
     condition     = one(aws_s3_bucket_lifecycle_configuration.results.rule[0].expiration).days == 90
-    error_message = "results should expire after results_retention_days"
+    error_message = "events should expire after results_retention_days"
   }
 }

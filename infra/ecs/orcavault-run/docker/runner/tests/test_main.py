@@ -57,7 +57,7 @@ def test_make_store(tmp_path, monkeypatch):
     monkeypatch.setenv("AWS_DEFAULT_REGION", "ap-southeast-2")
     s3 = make_store({"ORCAVAULT_RESULTS_BUCKET": "bucket"}, tmp_path)
     assert isinstance(s3, S3Store)
-    assert s3.location("run-1/summary.json") == "s3://bucket/runs/run-1/summary.json"
+    assert s3.location("run-1/event.json") == "s3://bucket/runs/run-1/event.json"
 
     assert make_store({}, tmp_path).root == tmp_path / "target" / "runs"
     assert make_store({"ORCAVAULT_RESULTS_DIR": str(tmp_path / "x")}, tmp_path).root == tmp_path / "x"

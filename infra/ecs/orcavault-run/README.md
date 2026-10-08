@@ -8,7 +8,7 @@ EventBridge Scheduler, 03:00 Australia/Melbourne, input {}
   └─ Step Functions state machine orcavault-run
        1. CheckNoRunInProgress   skips the run if an OrcaVault dbt task is already running
        2. RunDbt                 ECS Fargate task running the request, and waits for it
-                                   └─ writes to S3 orcavault-run-results-…/runs/<execution name>/
+                                   └─ writes to S3 orcavault-run-results-…/runs/<execution name>/event.json
        3. ReadEvent              reads the event the task wrote
        4. SendEvent              sends "OrcaVault Run Finished" to the default event bus
        5. Finish                 succeeds if the run succeeded or only warned
@@ -33,10 +33,9 @@ daily schedule, and decommissioning it is a separate change.
   task at a timeout, checks that no other run is going, and emits an event when
   a run fails. Scheduling the task straight from EventBridge, as the old Aurora
   job does, gives none of the first three.
-- **A small runner wraps dbt.** It checks the request before dbt starts, keeps
-  each run's dbt results so that a failed run can be retried from where it
-  stopped, and sums the run up as an event. The state machine can't do the
-  last two, because it only sees the task's exit code. It's in
+- **A small runner wraps dbt.** It checks the request before dbt starts, and
+  sums the run up as an event, with what failed and why. The state machine
+  can't do that, because it only sees the task's exit code. It's in
   `docker/runner`.
 - **One event per run.** Every execution ends by sending one event with the
   run's outcome, whether it succeeded, failed, was skipped or never started.
@@ -72,8 +71,9 @@ Each run ends with one of these, which is the `outcome` of its event:
 | `error`         | dbt couldn't run, a hook failed, the request was invalid or selected nothing, or the run was stopped or never started. | fails |
 | `skipped`       | Another run was still going, so this one didn't start.                    | fails     |
 
-A failed execution's error is the outcome, so the Step Functions console and
-the alerts show which it was.
+A failed execution's error is the outcome, and its cause is the event's
+`error`, or else the failed nodes, so the Step Functions console and the alerts
+show what happened.
 
 ### When some models fail
 
@@ -94,9 +94,10 @@ so each run rereads a bigger window until it's fixed. Fix failures within days,
 not weeks.
 
 A failed run is not retried automatically. Whatever failed would most likely
-fail again, and the next daily run covers it. Once the cause is fixed, retry it
-by hand, see [Retrying a run](#retrying-a-run). Only failures to start the
-task, such as no Fargate capacity, are retried automatically.
+fail again, and the next daily run covers it. Once the cause is fixed, run it
+again by hand, see [Running again after a failure](#running-again-after-a-failure).
+Only failures to start the task, such as no Fargate capacity, are retried
+automatically.
 
 ### Overlapping runs
 
@@ -244,14 +245,14 @@ eval "$(terraform output -raw start_run_command)"
 **Start a run** with `terraform output -raw start_run_command`, or from the Step
 Functions console with input `{}`. Leave the execution name to Step Functions,
 or use only letters, digits, `-` and `_`: the name is the run's ID, and names
-its results.
+its event.
 
 **Pause the schedule** with `-var schedule_enabled=false`. This also turns off
 the no-success alarm's notifications.
 
 **Stop a run** by stopping its execution. Step Functions stops the task, and
 the runner tells dbt to cancel its queries. dbt is killed if it hasn't
-exited after 90 seconds, leaving the runner time to write the results before
+exited after 90 seconds, leaving the runner time to write the event before
 ECS kills the task at two minutes. A run that reaches `run_timeout_hours` is
 stopped the same way.
 
@@ -309,51 +310,34 @@ Things to know:
   has no grants for. It's a one-off, so run it as an admin rather than through
   here.
 
-### Retrying a run
+### Running again after a failure
 
-```bash
-aws stepfunctions start-execution --state-machine-arn "$(terraform output -raw state_machine_arn)" \
-  --input '{"retry": "<execution name>"}'
-```
+Once the cause is fixed, start the same request again, which for a scheduled
+run is `{}`. dbt builds everything again, and the models skip the rows they
+already have, so nothing is loaded twice. Only a full run moves the CDC
+positions, so it's also what catches the project up.
 
-A retry is a new run that picks up an earlier one where it failed:
+To rebuild only part, such as the model that failed and what depends on it,
+select it: `{"args": "build --select lims+"}`. That doesn't move the CDC
+positions, so follow it with a full run, or leave that to the schedule.
 
-- If the earlier run's dbt command ran to completion, it's rerun with
-  `dbt retry`, which runs only the models and tests that failed or were
-  skipped, with the original arguments.
-- If it didn't, because dbt couldn't start or the run was stopped partway, the
-  command runs again whole. `dbt retry` can't pick these up: a stopped dbt
-  leaves the models it hadn't started out of its results.
-
-A retry is itself a run with its own results, so a failed retry can be retried
-too. A retry that reruns only part of the project doesn't move the CDC
-positions; the next full run does. A run that succeeded or only warned has
-nothing to retry. A run can be retried while its results are kept, which is
-`results_retention_days` (90 by default).
-
-Retry with a new execution rather than a
+Run again with a new execution rather than a
 [redrive](https://docs.aws.amazon.com/step-functions/latest/dg/redrive-executions.html).
 A redriven failed execution only fails again, since it ended in a Fail state.
-A redriven stopped one runs the whole request again, under the same name, over
-its earlier results.
-
-### Results
-
-Each run writes to `runs/<execution name>/` in the results bucket
-(`terraform output -raw results_bucket`):
-
-| Key                | What                                                                                 |
-|--------------------|--------------------------------------------------------------------------------------|
-| `summary.json`     | The request, the dbt arguments, and dbt's exit code, outcome, counts and failed nodes. |
-| `event.json`       | The detail of the run's event, less `executionUrl`.                                  |
-| `run_results.json` | dbt's [run results](https://docs.getdbt.com/reference/artifacts/run-results-json).   |
-
-A run that never started the task, such as a skipped one, has no results.
+A redriven stopped one runs the whole request again, under the same name.
 
 ### The run's event
 
 Every execution ends by sending this event to the default event bus, whatever
 happened. Notifications, and anything else that reacts to a run, should use it.
+
+The runner writes the detail, less `executionUrl`, to
+`runs/<execution name>/event.json` in the results bucket
+(`terraform output -raw results_bucket`), and the state machine reads it from
+there to send it. It's kept for `results_retention_days` (90 by default). When
+the runner didn't write one, because the run was skipped or the task didn't
+start or was killed, the state machine sends one with counts of 0 and says why
+in `error`.
 
 ```json
 {
@@ -362,6 +346,7 @@ happened. Notifications, and anything else that reacts to a run, should use it.
   "detail": {
     "environment": "prod",
     "outcome": "tests_failed",
+    "error": null,
     "runId": "4b8e1f3a-…",
     "modelsSucceeded": 140,
     "modelsFailed": 0,
@@ -382,12 +367,16 @@ happened. Notifications, and anything else that reacts to a run, should use it.
 
 - The detail is flat, and every field is always there, so that an EventBridge
   input transformer can use it as it is.
+- `error` says why the outcome is `error` or `skipped`, such as
+  `The run was stopped`, and is null otherwise. It's one line of at most 300
+  characters, without double quotes or backslashes, so that an input
+  transformer can put it in a JSON string. It's never dbt's own message, which
+  can quote data. The logs have that.
 - `failedNodes` and `warnedNodes` name at most 10 nodes, then "and N more". The
-  full lists are in `summary.json`.
+  logs have the full lists.
 - `positionsAdvanced` is whether the CDC positions moved, or null when dbt
   didn't say, such as for a `seed`.
 - `logsUrl` is null, and the counts are 0, when the task never started.
-- It has no error messages, since it may be posted to chat. The logs have them.
 
 ### Running the image by hand
 
@@ -403,7 +392,7 @@ docker run --rm -e AWS_PROFILE -v ~/.aws:/home/dbt/.aws:ro \
   "$REPO:$REF"
 ```
 
-Without `ORCAVAULT_RESULTS_BUCKET`, the results stay in the container, under
+Without `ORCAVAULT_RESULTS_BUCKET`, the event stays in the container, under
 `ORCAVAULT_RESULTS_DIR`. See `docker/runner/orcavault_runner/__main__.py` for
 the rest of the environment.
 
@@ -429,10 +418,10 @@ pytest
 - **Network.** The task runs in the private subnets of `UomPrimaryVpc`, without
   a public IP. It needs to reach ECR and CloudWatch Logs to start, the
   `redshift-serverless` API to get credentials, the workgroup on port 5439, and
-  S3 to write its results. These need VPC endpoints or a NAT gateway. ECR
+  S3 to write its event. These need VPC endpoints or a NAT gateway. ECR
   already needs S3 for image layers, but if the S3 endpoint has a policy, it
   must allow the results bucket too. If any are missing the run fails, and
   `debug_command` is the quickest way to tell. Without S3, a run ends with
-  `error` and no results, even when dbt succeeded.
+  `error`, saying the runner wrote no event, even when dbt succeeded.
 - **The old Aurora job** in `infra/ecs/legacy/orcavault-dbt` still runs daily until
   it's decommissioned.

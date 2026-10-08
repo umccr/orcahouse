@@ -88,23 +88,12 @@ data "aws_iam_policy_document" "dbt_task" {
     resources = [data.aws_s3_bucket.cdc.arn]
   }
 
-  # Writes this run's results, and reads an earlier run's to retry it.
+  # Writes this run's event, for the state machine to send.
   statement {
-    sid       = "ReadWriteRunResults"
+    sid       = "WriteRunEvent"
     effect    = "Allow"
-    actions   = ["s3:GetObject", "s3:PutObject"]
-    resources = ["${aws_s3_bucket.results.arn}/${local.results_prefix}*"]
-  }
-
-  # Without it, reading results that don't exist is denied rather than
-  # reported missing, and the runner can't tell the two apart. S3 checks it
-  # without a prefix, so it can't be narrowed to one, but the bucket holds
-  # nothing else.
-  statement {
-    sid       = "ListRunResults"
-    effect    = "Allow"
-    actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.results.arn]
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.results.arn}/${local.results_prefix}*/event.json"]
   }
 }
 
@@ -200,8 +189,9 @@ data "aws_iam_policy_document" "states" {
     resources = ["${aws_s3_bucket.results.arn}/${local.results_prefix}*/event.json"]
   }
 
-  # So that a missing event is reported as missing, and retried, rather than
-  # denied. See ListRunResults in the task role.
+  # Without it, reading an event that doesn't exist yet is denied rather than
+  # reported missing, and isn't retried. S3 checks it without a prefix, so it
+  # can't be narrowed to one, but the bucket holds nothing else.
   statement {
     sid       = "ListRunResults"
     effect    = "Allow"

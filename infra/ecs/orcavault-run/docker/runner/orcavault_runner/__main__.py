@@ -8,8 +8,9 @@ Environment:
 
     ORCAVAULT_RUN_REQUEST     The execution input. Empty is the same as {}.
     ORCAVAULT_RUN_ID          The execution name. Defaults to manual-<time>.
-    ORCAVAULT_RESULTS_BUCKET  Bucket for the results, under runs/. Without it,
-                              they go to ORCAVAULT_RESULTS_DIR, or target/runs.
+    ORCAVAULT_RESULTS_BUCKET  Bucket for the run's event, under runs/. Without
+                              it, the event goes to ORCAVAULT_RESULTS_DIR, or
+                              target/runs.
     ORCAVAULT_ENVIRONMENT     Named in the run's event, such as prod.
 
 dbt reads its own variables as well, such as DBT_TARGET. The image sets a few,
@@ -30,7 +31,6 @@ from urllib.parse import quote
 
 from .dbt import Dbt
 from .request import RUN_ID_PATTERN
-from .results import Outcome
 from .run import Config, run
 from .store import DirStore, S3Store, Store
 
@@ -108,15 +108,14 @@ def main(argv: list[str], environ: Mapping[str, str]) -> int:
         environment=environ.get("ORCAVAULT_ENVIRONMENT", "local"),
         project_dir=project_dir,
         orcavault_ref=ref,
-        orcavault_commit=commit,
         logs_url=ecs_logs_url(environ),
     )
     dbt = Dbt(project_dir)
     signal.signal(signal.SIGTERM, dbt.stop)
     signal.signal(signal.SIGINT, dbt.stop)
 
-    summary = run(environ.get("ORCAVAULT_RUN_REQUEST", ""), config, make_store(environ, project_dir), dbt)
-    return Outcome(summary["outcome"]).exit_code
+    outcome = run(environ.get("ORCAVAULT_RUN_REQUEST", ""), config, make_store(environ, project_dir), dbt)
+    return outcome.exit_code
 
 
 if __name__ == "__main__":
