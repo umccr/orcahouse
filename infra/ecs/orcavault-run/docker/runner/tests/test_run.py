@@ -13,19 +13,17 @@ ACCEPTED = "test.orcavault.accepted_values_lims_type.1c2d3e4f5a"
 HOOK = "operation.orcavault.orcavault-on-run-end-0"
 
 
-def test_scheduled_run(config, project_dir):
+def test_scheduled_run(project_dir):
     dbt = FakeDbt(project_dir, results=[result(HUB, "success"), result(UNIQUE, "pass")], positions_advanced=True)
 
-    outcome, event = run("{}", config, dbt)
+    outcome, event = run("{}", project_dir, dbt)
 
     assert dbt.calls == [["build"]]
     assert outcome is Outcome.SUCCEEDED
     # As event.json has it.
     assert json.loads(event.model_dump_json()) == {
-        "environment": "prod",
         "outcome": "succeeded",
         "error": None,
-        "runId": "run-1",
         "modelsSucceeded": 1,
         "modelsFailed": 0,
         "modelsSkipped": 0,
@@ -35,13 +33,10 @@ def test_scheduled_run(config, project_dir):
         "failedNodes": "",
         "warnedNodes": "",
         "positionsAdvanced": True,
-        "orcavaultRef": "v1.0.0",
-        "durationMinutes": 0,
-        "logsUrl": "https://logs",
     }
 
 
-def test_failed_test(config, project_dir):
+def test_failed_test(project_dir):
     dbt = FakeDbt(
         project_dir,
         code=1,
@@ -49,7 +44,7 @@ def test_failed_test(config, project_dir):
         positions_advanced=False,
     )
 
-    outcome, event = run('{"args": "build --select +lims --fail-fast"}', config, dbt)
+    outcome, event = run('{"args": "build --select +lims --fail-fast"}', project_dir, dbt)
 
     assert dbt.calls == [["build", "--select", "+lims", "--fail-fast"]]
     assert outcome is Outcome.TESTS_FAILED
@@ -69,10 +64,10 @@ def test_failed_test(config, project_dir):
         (2, [result(HUB, "success")], True, "stopped"),
     ],
 )
-def test_errors(config, project_dir, code, results, stop, mentions):
+def test_errors(project_dir, code, results, stop, mentions):
     dbt = FakeDbt(project_dir, code=code, results=results, stop=stop)
 
-    outcome, event = run("{}", config, dbt)
+    outcome, event = run("{}", project_dir, dbt)
 
     assert outcome is Outcome.ERROR
     # However it's worded, the error says what went wrong.
@@ -86,22 +81,22 @@ def test_errors(config, project_dir, code, results, stop, mentions):
         ("{}", True, "stopped"),
     ],
 )
-def test_runs_nothing(config, project_dir, request_json, stopping, mentions):
+def test_runs_nothing(project_dir, request_json, stopping, mentions):
     dbt = FakeDbt(project_dir, stopping=stopping)
 
-    outcome, event = run(request_json, config, dbt)
+    outcome, event = run(request_json, project_dir, dbt)
 
     assert dbt.calls == []
     assert outcome is Outcome.ERROR
     assert mentions in event.error
 
 
-def test_earlier_results_are_not_read_as_this_runs(config, project_dir):
+def test_earlier_results_are_not_read_as_this_runs(project_dir):
     earlier = project_dir / "target" / "run_results.json"
     earlier.parent.mkdir()
     earlier.write_text(json.dumps(run_results(result(HUB, "success"))))
 
-    _, event = run("{}", config, FakeDbt(project_dir, code=2, results=None))
+    _, event = run("{}", project_dir, FakeDbt(project_dir, code=2, results=None))
 
     assert event.models_succeeded == 0
 

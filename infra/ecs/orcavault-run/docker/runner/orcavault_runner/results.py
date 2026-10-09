@@ -11,11 +11,15 @@ from pydantic import BaseModel
 
 
 class Outcome(StrEnum):
-    """How a run went, from best to worst."""
+    """How a run went, from best to worst. These are all the outcomes a run can
+    have, which stepfunctions.tf names too."""
 
     SUCCEEDED = "succeeded"
     # Only warn severity tests failed. Nothing was held back.
     WARNED = "warned"
+    # Another run was still going, so this one didn't start. Only the state
+    # machine gives a run this outcome.
+    SKIPPED = "skipped"
     # An error severity test failed. Only what depends on the tested model
     # was held back, or everything after it with --fail-fast.
     TESTS_FAILED = "tests_failed"

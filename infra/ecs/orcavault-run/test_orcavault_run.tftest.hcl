@@ -114,8 +114,16 @@ run "every_run_sends_its_event" {
   }
 
   assert {
-    condition     = jsondecode(aws_sfn_state_machine.run.definition).States.RunInProgress.Next == "SendEvent"
+    condition     = jsondecode(aws_sfn_state_machine.run.definition).States.RunInProgress.Next == "AddRunFields"
     error_message = "a skipped run should send its event"
+  }
+
+  assert {
+    condition = jsondecode(aws_sfn_state_machine.run.definition).States.AddRunFields.Next == "SendEvent" && alltrue([
+      for name, state in jsondecode(aws_sfn_state_machine.run.definition).States :
+      name == "AddRunFields" || !contains(concat([try(state.Next, null)], [for catch in try(state.Catch, []) : catch.Next]), "SendEvent")
+    ])
+    error_message = "every event should have the fields every run's event has"
   }
 
   assert {
@@ -132,9 +140,14 @@ run "every_run_sends_its_event" {
         jsondecode(aws_sfn_state_machine.run.definition).States.RunInProgress.Assign.detail,
         jsondecode(aws_sfn_state_machine.run.definition).States.CheckNoRunInProgress.Catch[0].Assign.detail,
         jsondecode(aws_sfn_state_machine.run.definition).States.ReadEvent.Catch[0].Assign.detail,
-      ] : can(regex("\"error\":\"[^\"]+\"", detail))
+      ] : try(length(detail.error) > 0, false)
     ])
     error_message = "an event the runner didn't write should still say why"
+  }
+
+  assert {
+    condition     = local.logs_url_prefix == "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-southeast-2#logsV2:log-groups/log-group/$252Faws$252Fecs$252Forcavault-run-dbt/log-events/dbt$252Fdbt$252F"
+    error_message = "the logs URL should open the task's log stream, given its ID"
   }
 
   assert {

@@ -1,4 +1,3 @@
-import json
 import os
 import re
 from pathlib import Path
@@ -7,7 +6,7 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
-from orcavault_runner.__main__ import Settings, ecs_logs_url, write_event
+from orcavault_runner.__main__ import Settings, write_event
 from orcavault_runner.run import Event
 
 
@@ -17,39 +16,8 @@ def unset_environment(monkeypatch):
     in the shell, such as from running the image by hand, would reach the tests.
     Settings matches names in any case, and so does this."""
     for name in list(os.environ):
-        if name.upper().startswith("ORCAVAULT_") or name.upper() == "ECS_CONTAINER_METADATA_URI_V4":
+        if name.upper().startswith("ORCAVAULT_"):
             monkeypatch.delenv(name)
-
-
-LOGS_URL = (
-    "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-southeast-2"
-    "#logsV2:log-groups/log-group/$252Faws$252Fecs$252Forcavault-run-dbt"
-    "/log-events/dbt$252Fdbt$252F0123456789abcdef"
-)
-
-
-METADATA = {
-    "Name": "dbt",
-    "LogDriver": "awslogs",
-    "LogOptions": {
-        "awslogs-group": "/aws/ecs/orcavault-run-dbt",
-        "awslogs-region": "ap-southeast-2",
-        "awslogs-stream": "dbt/dbt/0123456789abcdef",
-    },
-}
-
-
-@pytest.mark.parametrize(
-    "metadata, logs_url",
-    [(json.dumps(METADATA), LOGS_URL), ("{}", None), ("not json", None), (None, None)],
-)
-def test_ecs_logs_url(tmp_path, metadata, logs_url):
-    path = tmp_path / "metadata.json"
-    # None leaves no file to read.
-    if metadata is not None:
-        path.write_text(metadata)
-
-    assert ecs_logs_url(path.as_uri()) == logs_url
 
 
 # As ECS and the state machine set it.
@@ -58,9 +26,7 @@ ENVIRONMENT = {
     "ORCAVAULT_RUN_ID": "scheduled-2026-10-08",
     "ORCAVAULT_RESULTS_BUCKET": "bucket",
     "ORCAVAULT_RESULTS_DIR": "/events",
-    "ORCAVAULT_ENVIRONMENT": "prod",
     "ORCAVAULT_REF": "v1.0.0",
-    "ECS_CONTAINER_METADATA_URI_V4": "http://169.254.170.2/v4/0123456789abcdef",
 }
 
 
@@ -75,9 +41,7 @@ def test_settings(monkeypatch):
         "run_id": "scheduled-2026-10-08",
         "results_bucket": "bucket",
         "results_dir": Path("/events"),
-        "environment": "prod",
         "ref": "v1.0.0",
-        "ecs_metadata_uri": "http://169.254.170.2/v4/0123456789abcdef",
     }
 
 
@@ -92,13 +56,11 @@ def test_empty_settings_are_defaults(monkeypatch):
         "run_request": "",
         "results_bucket": None,
         "results_dir": None,
-        "environment": "local",
         "ref": "unknown",
-        "ecs_metadata_uri": None,
     }
 
 
-EVENT = Event(environment="prod", run_id="run-1", orcavault_ref="v1.0.0")
+EVENT = Event()
 EVENT_JSON = EVENT.model_dump_json(indent=2)
 
 
@@ -117,7 +79,7 @@ def test_write_event_to_s3(tmp_path, monkeypatch):
             },
         )
 
-        location = write_event(EVENT, Settings(results_bucket="bucket"), tmp_path)
+        location = write_event(EVENT, Settings(run_id="run-1", results_bucket="bucket"), tmp_path)
 
         stubber.assert_no_pending_responses()
     assert location == "s3://bucket/runs/run-1/event.json"
@@ -125,9 +87,9 @@ def test_write_event_to_s3(tmp_path, monkeypatch):
 
 def test_write_event_to_a_directory(tmp_path):
     path = tmp_path / "target" / "runs" / "run-1" / "event.json"
-    assert write_event(EVENT, Settings(), tmp_path) == str(path)
+    assert write_event(EVENT, Settings(run_id="run-1"), tmp_path) == str(path)
     assert path.read_text() == EVENT_JSON
 
     path = tmp_path / "events" / "run-1" / "event.json"
-    assert write_event(EVENT, Settings(results_dir=tmp_path / "events"), tmp_path) == str(path)
+    assert write_event(EVENT, Settings(run_id="run-1", results_dir=tmp_path / "events"), tmp_path) == str(path)
     assert path.read_text() == EVENT_JSON

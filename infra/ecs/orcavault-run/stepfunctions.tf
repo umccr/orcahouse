@@ -7,16 +7,21 @@
 #
 # The runner in the image checks the request, runs it, and writes how it went
 # to the results bucket, at runs/<execution name>/event.json. Whatever happens,
-# the execution then sends one "OrcaVault Run Finished" event to the default
-# event bus with the run's outcome. It succeeds when the outcome is succeeded or
-# warned, and otherwise fails with the outcome as its error.
+# the execution then adds the fields every run's event has, such as its run ID,
+# and sends one "OrcaVault Run Finished" event to the default event bus with
+# the run's outcome. It succeeds when the outcome is succeeded or warned, and
+# otherwise fails with the outcome as its error.
 
 locals {
   run_timeout_seconds = var.run_timeout_hours * 3600
 
+  # The outcomes that end an execution in success. Any other fails it. Outcome
+  # in docker/runner/orcavault_runner/results.py has every outcome a run can
+  # have.
+  succeeded_outcomes = ["succeeded", "warned"]
+
   # The event's detail, for when the runner didn't get to write one.
   empty_event_detail = {
-    environment       = var.environment
     modelsSucceeded   = 0
     modelsFailed      = 0
     modelsSkipped     = 0
@@ -26,8 +31,6 @@ locals {
     failedNodes       = ""
     warnedNodes       = ""
     positionsAdvanced = null
-    orcavaultRef      = var.orcavault_release_ref
-    logsUrl           = null
   }
 
   # Each reason the runner might not write the event, which is then its error.
@@ -49,13 +52,22 @@ locals {
   }
 
   no_runner_event_detail = {
-    for name, event in local.no_runner_events : name => join("", [
-      "{% $merge([",
-      jsonencode(merge(local.empty_event_detail, event)),
-      ", {'runId': $states.context.Execution.Name, ",
-      "'durationMinutes': $round(($millis() - $toMillis($states.context.Execution.StartTime)) / 60000)}]) %}",
-    ])
+    for name, event in local.no_runner_events : name => merge(local.empty_event_detail, event)
   }
+
+  # The fields every run's event has, however the run ended, as JSONata. The
+  # runner's event, or a no_runner_event_detail, has the rest. $taskArn is the
+  # dbt task's, or null if it didn't start.
+  run_fields = {
+    environment     = jsonencode(var.environment)
+    runId           = "$states.context.Execution.Name"
+    orcavaultRef    = jsonencode(var.orcavault_release_ref)
+    durationMinutes = "$round(($millis() - $toMillis($states.context.Execution.StartTime)) / 60000)"
+    logsUrl         = "$taskArn ? '${local.logs_url_prefix}' & $split($taskArn, '/')[-1] : null"
+    executionUrl    = "'${local.execution_url_prefix}' & $states.context.Execution.Id"
+  }
+
+  with_run_fields = "{% $merge([$detail, {${join(", ", [for name, value in local.run_fields : "'${name}': ${value}"])}}]) %}"
 }
 
 resource "aws_sfn_state_machine" "run" {
@@ -92,8 +104,8 @@ resource "aws_sfn_state_machine" "run" {
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
-            Assign      = { detail = local.no_runner_event_detail["check_failed"] }
-            Next        = "SendEvent"
+            Assign      = { detail = local.no_runner_event_detail["check_failed"], taskArn = null }
+            Next        = "AddRunFields"
           }
         ]
         Next = "IsRunInProgress"
@@ -113,8 +125,8 @@ resource "aws_sfn_state_machine" "run" {
       RunInProgress = {
         Type    = "Pass"
         Comment = "Another OrcaVault dbt task is still running, so this run doesn't start."
-        Assign  = { detail = local.no_runner_event_detail["run_in_progress"] }
-        Next    = "SendEvent"
+        Assign  = { detail = local.no_runner_event_detail["run_in_progress"], taskArn = null }
+        Next    = "AddRunFields"
       }
 
       # The .sync integration waits for the task to stop, and fails this state
@@ -123,7 +135,11 @@ resource "aws_sfn_state_machine" "run" {
       # the state times out, or the execution is stopped, Step Functions stops
       # the task.
       #
-      # The execution name is the run ID, which names the run's event.
+      # The execution name is the run ID, which names the run's event. The
+      # task's ARN names its log stream, for the run's logs URL. A failed task's
+      # error has its description, with the ARN, as the cause. The ARN is read
+      # from it with a regex, which unlike $parse can't fail, so that the
+      # execution still sends the run's event.
       RunDbt = {
         Type           = "Task"
         Resource       = "arn:aws:states:::ecs:runTask.sync"
@@ -163,10 +179,14 @@ resource "aws_sfn_state_machine" "run" {
             BackoffRate     = 2
           }
         ]
+        Assign = { taskArn = "{% $states.result.TaskArn %}" }
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
-            Next        = "ReadEvent"
+            Assign = {
+              taskArn = "{% ($task := $match($states.errorOutput.Cause, /\"TaskArn\"\\s*:\\s*\"([^\"]+)\"/, 1); $task ? $task[0].groups[0] : null) %}"
+            }
+            Next = "ReadEvent"
           }
         ]
         Next = "ReadEvent"
@@ -201,10 +221,17 @@ resource "aws_sfn_state_machine" "run" {
           {
             ErrorEquals = ["States.ALL"]
             Assign      = { detail = local.no_runner_event_detail["no_event"] }
-            Next        = "SendEvent"
+            Next        = "AddRunFields"
           }
         ]
-        Next = "SendEvent"
+        Next = "AddRunFields"
+      }
+
+      AddRunFields = {
+        Type    = "Pass"
+        Comment = "Adds the fields every run's event has, however the run ended."
+        Assign  = { detail = local.with_run_fields }
+        Next    = "SendEvent"
       }
 
       SendEvent = {
@@ -216,7 +243,7 @@ resource "aws_sfn_state_machine" "run" {
               EventBusName = "default"
               Source       = local.event_source
               DetailType   = local.event_detail_type
-              Detail       = "{% $merge([$detail, {'executionUrl': '${local.execution_url_prefix}' & $states.context.Execution.Id}]) %}"
+              Detail       = "{% $detail %}"
             }
           ]
         }
@@ -244,7 +271,7 @@ resource "aws_sfn_state_machine" "run" {
         Type = "Choice"
         Choices = [
           {
-            Condition = "{% $detail.outcome in ['succeeded', 'warned'] %}"
+            Condition = "{% $detail.outcome in ${jsonencode(local.succeeded_outcomes)} %}"
             Next      = "Succeeded"
           }
         ]

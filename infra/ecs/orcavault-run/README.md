@@ -10,8 +10,9 @@ EventBridge Scheduler, 03:00 Australia/Melbourne, input {}
        2. RunDbt                 ECS Fargate task running the request, and waits for it
                                    └─ writes to S3 orcavault-run-results-…/runs/<execution name>/event.json
        3. ReadEvent              reads the event the task wrote
-       4. SendEvent              sends "OrcaVault Run Finished" to the default event bus
-       5. Finish                 succeeds if the run succeeded or only warned
+       4. AddRunFields           adds the fields every run's event has, such as runId
+       5. SendEvent              sends "OrcaVault Run Finished" to the default event bus
+       6. Finish                 succeeds if the run succeeded or only warned
   └─ SNS topic orcavault-run-alerts
        - a run failed, timed out or was stopped
        - no run has succeeded in the last 30 hours
@@ -331,13 +332,14 @@ A redriven stopped one runs the whole request again, under the same name.
 Every execution ends by sending this event to the default event bus, whatever
 happened. Notifications, and anything else that reacts to a run, should use it.
 
-The runner writes the detail, less `executionUrl`, to
+The runner writes how the run went, from `outcome` to `positionsAdvanced`, to
 `runs/<execution name>/event.json` in the results bucket
-(`terraform output -raw results_bucket`), and the state machine reads it from
-there to send it. It's kept for `results_retention_days` (90 by default). When
-the runner didn't write one, because the run was skipped or the task didn't
-start or was killed, the state machine sends one with counts of 0 and says why
-in `error`.
+(`terraform output -raw results_bucket`). It's kept for
+`results_retention_days` (90 by default). The state machine reads it, adds the
+fields every run's event has, `environment`, `runId`, `orcavaultRef`,
+`durationMinutes`, `logsUrl` and `executionUrl`, and sends it. When the runner
+didn't write one, because the run was skipped or the task didn't start or was
+killed, the state machine sends one with counts of 0 and says why in `error`.
 
 ```json
 {
@@ -376,7 +378,10 @@ in `error`.
   logs have the full lists.
 - `positionsAdvanced` is whether the CDC positions moved, or null when dbt
   didn't say, such as for a `seed`.
-- `logsUrl` is null, and the counts are 0, when the task never started.
+- `durationMinutes` is from when the execution started.
+- `logsUrl` is the task's log stream. It's null when the task never started,
+  and when the run timed out, since Step Functions doesn't then say which task
+  it was. The execution has it, under RunDbt.
 
 ### Running the image by hand
 

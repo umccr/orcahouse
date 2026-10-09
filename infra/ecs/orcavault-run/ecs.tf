@@ -70,7 +70,6 @@ resource "aws_ecs_task_definition" "dbt" {
         { name = "ORCAVAULT_REDSHIFT_HOST", value = data.aws_redshiftserverless_workgroup.this.endpoint[0].address },
         { name = "ORCAVAULT_DBT_THREADS", value = tostring(var.dbt_threads) },
         { name = "ORCAVAULT_RESULTS_BUCKET", value = aws_s3_bucket.results.bucket },
-        { name = "ORCAVAULT_ENVIRONMENT", value = var.environment },
       ]
 
       # A stopped run is given this long to let dbt cancel its queries and to

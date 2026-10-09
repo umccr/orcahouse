@@ -45,6 +45,14 @@ locals {
   event_detail_type = "OrcaVault Run Finished"
 
   execution_url_prefix = "https://${data.aws_region.current.region}.console.aws.amazon.com/states/home?region=${data.aws_region.current.region}#/v2/executions/details/"
+
+  # A task's log stream is <stream prefix>/<container>/<task ID>, see ecs.tf.
+  # The console escapes names twice, with $ in place of %.
+  logs_url_prefix = join("", [
+    "https://${data.aws_region.current.region}.console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.region}",
+    "#logsV2:log-groups/log-group/${replace(aws_cloudwatch_log_group.dbt.name, "/", "$252F")}",
+    "/log-events/${local.container_name}$252F${local.container_name}$252F",
+  ])
 }
 
 data "aws_caller_identity" "current" {}

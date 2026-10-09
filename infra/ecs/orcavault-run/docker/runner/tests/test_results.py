@@ -66,7 +66,7 @@ def test_classify(exit_code, results, outcome):
 
 def test_outcomes():
     assert Outcome.worst([Outcome.WARNED, Outcome.ERROR, Outcome.MODELS_FAILED]) == Outcome.ERROR
-    assert [outcome.exit_code for outcome in Outcome] == [0, 0, 1, 1, 2]
+    assert [outcome.exit_code for outcome in Outcome] == [0, 0, 1, 1, 1, 2]
 
 
 def test_summarise_nodes():

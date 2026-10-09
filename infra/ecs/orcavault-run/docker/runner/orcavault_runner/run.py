@@ -1,15 +1,13 @@
 """Running a request and recording how it went.
 
 A run is one dbt command, and its event says how it went. The entrypoint
-writes the event to event.json, which the state machine sends as the detail of
-the run's EventBridge event, see stepfunctions.tf. dbt's run_results.json is
-only read for the event, and the logs have the rest.
+writes the event to event.json, which the state machine adds to and sends as
+the detail of the run's EventBridge event, see stepfunctions.tf. dbt's
+run_results.json is only read for the event, and the logs have the rest.
 """
 
 import json
 import logging
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
@@ -26,19 +24,11 @@ log = logging.getLogger(__name__)
 ERROR_LIMIT = 300
 
 
-@dataclass(frozen=True)
-class Config:
-    run_id: str
-    environment: str
-    project_dir: Path
-    orcavault_ref: str
-    logs_url: str | None = None
-
-
 class Event(Counts):
-    """The detail of the run's EventBridge event, less executionUrl, which the
-    state machine adds. It's flat and already formatted, so that EventBridge
-    input transformers can use it as it is."""
+    """How the run went, for the detail of its EventBridge event. The state
+    machine adds the fields every run's event has, such as runId. It's flat and
+    already formatted, so that EventBridge input transformers can use it as it
+    is."""
 
     # In camelCase in event.json. A field is checked when it's set, so that a
     # wrong type is an error rather than a value the notifications can't use.
@@ -49,17 +39,12 @@ class Event(Counts):
         validate_assignment=True,
     )
 
-    environment: str
     outcome: Outcome = Outcome.ERROR
     # Why the outcome is error, otherwise None.
     error: str | None = None
-    run_id: str
     failed_nodes: str = ""
     warned_nodes: str = ""
     positions_advanced: bool | None = None
-    orcavault_ref: str
-    duration_minutes: int = 0
-    logs_url: str | None = None
 
 
 class Dbt(Protocol):
@@ -79,9 +64,9 @@ def one_line(text: str, limit: int = ERROR_LIMIT) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
-def run_dbt(args: tuple[str, ...], config: Config, dbt: Dbt, event: Event) -> Outcome:
+def run_dbt(args: tuple[str, ...], project_dir: Path, dbt: Dbt, event: Event) -> Outcome:
     """Runs dbt, and records how it went in the event."""
-    results_path = config.project_dir / "target" / "run_results.json"
+    results_path = project_dir / "target" / "run_results.json"
     # A file left by an earlier dbt command, such as one run by hand, would be
     # read as this run's results if dbt fails early.
     results_path.unlink(missing_ok=True)
@@ -109,15 +94,9 @@ def run_dbt(args: tuple[str, ...], config: Config, dbt: Dbt, event: Event) -> Ou
     return outcome
 
 
-def run(raw_request: str, config: Config, dbt: Dbt) -> tuple[Outcome, Event]:
-    """Runs the request, and returns its outcome and event."""
-    started_at = datetime.now(timezone.utc)
-    event = Event(
-        environment=config.environment,
-        run_id=config.run_id,
-        orcavault_ref=config.orcavault_ref,
-        logs_url=config.logs_url,
-    )
+def run(raw_request: str, project_dir: Path, dbt: Dbt) -> tuple[Outcome, Event]:
+    """Runs the request in the dbt project, and returns its outcome and event."""
+    event = Event()
 
     outcomes: list[Outcome] = []
     try:
@@ -127,7 +106,7 @@ def run(raw_request: str, config: Config, dbt: Dbt) -> tuple[Outcome, Event]:
         outcomes.append(Outcome.ERROR)
     else:
         if not dbt.stopping:
-            outcomes.append(run_dbt(request.args, config, dbt, event))
+            outcomes.append(run_dbt(request.args, project_dir, dbt, event))
 
     if dbt.stopping:
         event.error = "The run was stopped"
@@ -138,5 +117,4 @@ def run(raw_request: str, config: Config, dbt: Dbt) -> tuple[Outcome, Event]:
     if event.error is not None:
         log.error("%s", event.error)
         event.error = one_line(event.error)
-    event.duration_minutes = round((datetime.now(timezone.utc) - started_at).total_seconds() / 60)
     return outcome, event
