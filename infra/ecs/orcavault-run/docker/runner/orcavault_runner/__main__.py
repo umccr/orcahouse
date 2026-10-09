@@ -13,6 +13,8 @@ Environment:
                               target/runs.
     ORCAVAULT_ENVIRONMENT     Named in the run's event, such as prod.
 
+They're read into Settings, where one that's empty is the same as unset.
+
 dbt reads its own variables as well, such as DBT_TARGET. The image sets a few,
 see the Dockerfile.
 """
@@ -23,12 +25,13 @@ import os
 import signal
 import sys
 import urllib.request
-from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
 import boto3
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .dbt import Dbt
 from .run import Config, Event, run
@@ -36,6 +39,28 @@ from .run import Config, Event, run
 log = logging.getLogger("orcavault_runner")
 
 RESULTS_PREFIX = "runs/"
+
+
+def manual_run_id() -> str:
+    return datetime.now(timezone.utc).strftime("manual-%Y%m%dT%H%M%SZ")
+
+
+class Settings(BaseSettings):
+    """The environment above, where each variable is ORCAVAULT_ and its field's
+    name. Other ORCAVAULT_ variables, such as dbt's ORCAVAULT_REDSHIFT_HOST, are
+    ignored."""
+
+    model_config = SettingsConfigDict(env_prefix="ORCAVAULT_", env_ignore_empty=True, frozen=True)
+
+    run_request: str = ""
+    run_id: str = Field(default_factory=manual_run_id)
+    results_bucket: str | None = None
+    results_dir: Path | None = None
+    environment: str = "local"
+    # The umccr/orcavault ref in the image, which the Dockerfile sets.
+    ref: str = "unknown"
+    # Set by ECS, for the run's logs URL.
+    ecs_metadata_uri: str | None = Field(None, validation_alias="ECS_CONTAINER_METADATA_URI_V4")
 
 
 def console_logs_url(region: str, group: str, stream: str) -> str:
@@ -49,12 +74,11 @@ def console_logs_url(region: str, group: str, stream: str) -> str:
     )
 
 
-def ecs_logs_url(environ: Mapping[str, str]) -> str | None:
+def ecs_logs_url(uri: str | None) -> str | None:
     """This container's CloudWatch log stream, from the ECS task metadata.
 
     https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-metadata-endpoint-v4-fargate.html
     """
-    uri = environ.get("ECS_CONTAINER_METADATA_URI_V4")
     if not uri:
         return None
     try:
@@ -70,12 +94,12 @@ def ecs_logs_url(environ: Mapping[str, str]) -> str | None:
     return console_logs_url(region, group, stream)
 
 
-def write_event(event: Event, environ: Mapping[str, str], project_dir: Path) -> str:
+def write_event(event: Event, settings: Settings, project_dir: Path) -> str:
     """Writes the run's event to <run ID>/event.json, under runs/ in the results
     bucket, or else in a directory, and returns where it went."""
     key = f"{event.run_id}/event.json"
     body = event.model_dump_json(indent=2)
-    bucket = environ.get("ORCAVAULT_RESULTS_BUCKET")
+    bucket = settings.results_bucket
     if bucket:
         boto3.client("s3").put_object(
             Bucket=bucket,
@@ -85,17 +109,13 @@ def write_event(event: Event, environ: Mapping[str, str], project_dir: Path) -> 
         )
         return f"s3://{bucket}/{RESULTS_PREFIX}{key}"
 
-    path = Path(environ.get("ORCAVAULT_RESULTS_DIR", project_dir / "target" / "runs")) / key
+    path = (settings.results_dir or project_dir / "target" / "runs") / key
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body)
     return str(path)
 
 
-def run_id(environ: Mapping[str, str]) -> str:
-    return environ.get("ORCAVAULT_RUN_ID") or datetime.now(timezone.utc).strftime("manual-%Y%m%dT%H%M%SZ")
-
-
-def main(argv: list[str], environ: Mapping[str, str]) -> int:
+def main(argv: list[str], settings: Settings) -> int:
     logging.basicConfig(
         stream=sys.stdout,
         level=logging.INFO,
@@ -106,29 +126,28 @@ def main(argv: list[str], environ: Mapping[str, str]) -> int:
     project_dir = Path.cwd()
     commit_file = project_dir / "ORCAVAULT_COMMIT"
     commit = commit_file.read_text().strip() if commit_file.exists() else "unknown"
-    ref = environ.get("ORCAVAULT_REF", "unknown")
-    log.info("umccr/orcavault %s at %s", ref, commit)
+    log.info("umccr/orcavault %s at %s", settings.ref, commit)
 
     if argv:
         sys.stdout.flush()
         os.execvp("dbt", ["dbt", *argv])
 
     config = Config(
-        run_id=run_id(environ),
-        environment=environ.get("ORCAVAULT_ENVIRONMENT", "local"),
+        run_id=settings.run_id,
+        environment=settings.environment,
         project_dir=project_dir,
-        orcavault_ref=ref,
-        logs_url=ecs_logs_url(environ),
+        orcavault_ref=settings.ref,
+        logs_url=ecs_logs_url(settings.ecs_metadata_uri),
     )
     dbt = Dbt(project_dir)
     signal.signal(signal.SIGTERM, dbt.stop)
     signal.signal(signal.SIGINT, dbt.stop)
 
-    outcome, event = run(environ.get("ORCAVAULT_RUN_REQUEST", ""), config, dbt)
-    location = write_event(event, environ, project_dir)
+    outcome, event = run(settings.run_request, config, dbt)
+    location = write_event(event, settings, project_dir)
     log.info("Run %s: %s, event at %s", config.run_id, outcome, location)
     return outcome.exit_code
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:], os.environ))
+    sys.exit(main(sys.argv[1:], Settings()))
