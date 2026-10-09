@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from pydantic import BaseModel
+
 
 class Outcome(StrEnum):
     """How a run went, from best to worst."""
@@ -45,24 +47,16 @@ SUCCEEDED_STATUSES = {"success", "pass", "no-op"}
 FAILED_STATUSES = {"error", "fail", "runtime error", "partial success"}
 
 
-@dataclass
-class Counts:
+class Counts(BaseModel):
+    """A pydantic model, so that the run's event can have the counts as its
+    own fields, see run.Event."""
+
     models_succeeded: int = 0
     models_failed: int = 0
     models_skipped: int = 0
     tests_passed: int = 0
     tests_warned: int = 0
     tests_failed: int = 0
-
-    def to_json(self) -> dict[str, int]:
-        return {
-            "modelsSucceeded": self.models_succeeded,
-            "modelsFailed": self.models_failed,
-            "modelsSkipped": self.models_skipped,
-            "testsPassed": self.tests_passed,
-            "testsWarned": self.tests_warned,
-            "testsFailed": self.tests_failed,
-        }
 
 
 @dataclass

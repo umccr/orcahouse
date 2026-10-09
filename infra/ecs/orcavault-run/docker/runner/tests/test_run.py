@@ -25,7 +25,8 @@ def test_scheduled_run(config, project_dir):
 
     assert dbt.calls == [["build"]]
     assert outcome is Outcome.SUCCEEDED
-    assert event == {
+    # As event.json has it.
+    assert json.loads(event.model_dump_json()) == {
         "environment": "prod",
         "outcome": "succeeded",
         "error": None,
@@ -67,12 +68,12 @@ def test_failed_test(config, project_dir):
     outcome, event = run("{}", config, dbt)
 
     assert outcome is Outcome.TESTS_FAILED
-    assert event["outcome"] == "tests_failed"
-    assert event["error"] is None
-    assert event["positionsAdvanced"] is False
-    assert event["failedNodes"] == "unique_hub_library_library_hk"
-    assert event["warnedNodes"] == "accepted_values_lims_type"
-    assert event["modelsSkipped"] == 1
+    assert event.outcome == "tests_failed"
+    assert event.error is None
+    assert event.positions_advanced is False
+    assert event.failed_nodes == "unique_hub_library_library_hk"
+    assert event.warned_nodes == "accepted_values_lims_type"
+    assert event.models_skipped == 1
 
 
 def test_failed_hook(config, project_dir):
@@ -80,9 +81,9 @@ def test_failed_hook(config, project_dir):
 
     _, event = run("{}", config, dbt)
 
-    assert event["outcome"] == "error"
-    assert event["error"] == "A hook failed: orcavault-on-run-end-0"
-    assert event["failedNodes"] == "orcavault-on-run-end-0"
+    assert event.outcome == "error"
+    assert event.error == "A hook failed: orcavault-on-run-end-0"
+    assert event.failed_nodes == "orcavault-on-run-end-0"
 
 
 def test_dbt_that_fails_after_writing_results(config, project_dir):
@@ -90,9 +91,9 @@ def test_dbt_that_fails_after_writing_results(config, project_dir):
 
     _, event = run("{}", config, dbt)
 
-    assert event["outcome"] == "error"
-    assert event["error"] == "dbt exited with 2, see the logs"
-    assert event["modelsSucceeded"] == 1
+    assert event.outcome == "error"
+    assert event.error == "dbt exited with 2, see the logs"
+    assert event.models_succeeded == 1
 
 
 def test_invalid_request_runs_nothing(config, project_dir):
@@ -102,15 +103,15 @@ def test_invalid_request_runs_nothing(config, project_dir):
 
     assert dbt.calls == []
     assert outcome is Outcome.ERROR
-    assert event["outcome"] == "error"
-    assert "run-operation" in event["error"]
+    assert event.outcome == "error"
+    assert "run-operation" in event.error
 
 
 def test_error_is_one_line(config, project_dir):
     _, event = run(json.dumps({'say "hi"\\\nthere': 1}), config, FakeDbt(project_dir))
 
     # The unknown field's name, without its quotes, backslash or line break.
-    assert "say 'hi' there" in event["error"]
+    assert "say 'hi' there" in event.error
 
 
 @pytest.mark.parametrize(
@@ -133,8 +134,8 @@ def test_dbt_that_writes_no_results(config, project_dir):
 
     _, event = run("{}", config, dbt)
 
-    assert event["outcome"] == "error"
-    assert event["error"] == "dbt exited with 2 and wrote no run_results.json, see the logs"
+    assert event.outcome == "error"
+    assert event.error == "dbt exited with 2 and wrote no run_results.json, see the logs"
 
 
 def test_earlier_results_are_not_read_as_this_runs(config, project_dir):
@@ -145,8 +146,8 @@ def test_earlier_results_are_not_read_as_this_runs(config, project_dir):
 
     _, event = run("{}", config, dbt)
 
-    assert event["modelsSucceeded"] == 0
-    assert event["error"] == "dbt exited with 2 and wrote no run_results.json, see the logs"
+    assert event.models_succeeded == 0
+    assert event.error == "dbt exited with 2 and wrote no run_results.json, see the logs"
 
 
 def test_stopped_run(config, project_dir):
@@ -155,8 +156,8 @@ def test_stopped_run(config, project_dir):
     outcome, event = run("{}", config, dbt)
 
     assert outcome is Outcome.ERROR
-    assert event["error"] == "The run was stopped"
-    assert event["modelsSucceeded"] == 1
+    assert event.error == "The run was stopped"
+    assert event.models_succeeded == 1
 
 
 def test_stopped_before_dbt_starts(config, project_dir):
@@ -166,5 +167,5 @@ def test_stopped_before_dbt_starts(config, project_dir):
     _, event = run("{}", config, dbt)
 
     assert dbt.calls == []
-    assert event["outcome"] == "error"
-    assert event["error"] == "The run was stopped"
+    assert event.outcome == "error"
+    assert event.error == "The run was stopped"

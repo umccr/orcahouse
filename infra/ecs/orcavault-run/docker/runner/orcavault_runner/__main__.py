@@ -26,13 +26,12 @@ import urllib.request
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 from urllib.parse import quote
 
 import boto3
 
 from .dbt import Dbt
-from .run import Config, run
+from .run import Config, Event, run
 
 log = logging.getLogger("orcavault_runner")
 
@@ -71,11 +70,11 @@ def ecs_logs_url(environ: Mapping[str, str]) -> str | None:
     return console_logs_url(region, group, stream)
 
 
-def write_event(event: dict[str, Any], environ: Mapping[str, str], project_dir: Path) -> str:
+def write_event(event: Event, environ: Mapping[str, str], project_dir: Path) -> str:
     """Writes the run's event to <run ID>/event.json, under runs/ in the results
     bucket, or else in a directory, and returns where it went."""
-    key = f"{event['runId']}/event.json"
-    body = json.dumps(event, indent=2)
+    key = f"{event.run_id}/event.json"
+    body = event.model_dump_json(indent=2)
     bucket = environ.get("ORCAVAULT_RESULTS_BUCKET")
     if bucket:
         boto3.client("s3").put_object(

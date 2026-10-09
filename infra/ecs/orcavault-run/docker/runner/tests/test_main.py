@@ -6,7 +6,7 @@ import pytest
 from botocore.stub import Stubber
 
 from orcavault_runner.__main__ import console_logs_url, ecs_logs_url, run_id, write_event
-from orcavault_runner.results import Outcome
+from orcavault_runner.run import Event
 
 LOGS_URL = (
     "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-southeast-2"
@@ -53,9 +53,8 @@ def test_run_id():
     assert re.fullmatch(r"manual-\d{8}T\d{6}Z", run_id({}))
 
 
-# The outcome is written as its value.
-EVENT = {"runId": "run-1", "outcome": Outcome.SUCCEEDED}
-EVENT_JSON = json.dumps({"runId": "run-1", "outcome": "succeeded"}, indent=2)
+EVENT = Event(environment="prod", run_id="run-1", orcavault_ref="v1.0.0")
+EVENT_JSON = EVENT.model_dump_json(indent=2)
 
 
 def test_write_event_to_s3(tmp_path, monkeypatch):
