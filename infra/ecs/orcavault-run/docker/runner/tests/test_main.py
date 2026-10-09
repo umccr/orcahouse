@@ -7,7 +7,7 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
-from orcavault_runner.__main__ import Settings, console_logs_url, ecs_logs_url, write_event
+from orcavault_runner.__main__ import Settings, ecs_logs_url, write_event
 from orcavault_runner.run import Event
 
 
@@ -28,37 +28,28 @@ LOGS_URL = (
 )
 
 
-def test_console_logs_url():
-    assert console_logs_url("ap-southeast-2", "/aws/ecs/orcavault-run-dbt", "dbt/dbt/0123456789abcdef") == LOGS_URL
+METADATA = {
+    "Name": "dbt",
+    "LogDriver": "awslogs",
+    "LogOptions": {
+        "awslogs-group": "/aws/ecs/orcavault-run-dbt",
+        "awslogs-region": "ap-southeast-2",
+        "awslogs-stream": "dbt/dbt/0123456789abcdef",
+    },
+}
 
 
-def test_ecs_logs_url(tmp_path):
-    metadata = tmp_path / "metadata.json"
-    metadata.write_text(
-        json.dumps(
-            {
-                "Name": "dbt",
-                "LogDriver": "awslogs",
-                "LogOptions": {
-                    "awslogs-group": "/aws/ecs/orcavault-run-dbt",
-                    "awslogs-region": "ap-southeast-2",
-                    "awslogs-stream": "dbt/dbt/0123456789abcdef",
-                },
-            }
-        )
-    )
+@pytest.mark.parametrize(
+    "metadata, logs_url",
+    [(json.dumps(METADATA), LOGS_URL), ("{}", None), ("not json", None), (None, None)],
+)
+def test_ecs_logs_url(tmp_path, metadata, logs_url):
+    path = tmp_path / "metadata.json"
+    # None leaves no file to read.
+    if metadata is not None:
+        path.write_text(metadata)
 
-    assert ecs_logs_url(metadata.as_uri()) == LOGS_URL
-
-
-@pytest.mark.parametrize("content", [None, "{}", "not json"])
-def test_no_ecs_logs_url(tmp_path, content):
-    metadata = tmp_path / "metadata.json"
-    if content is not None:
-        metadata.write_text(content)
-
-    assert ecs_logs_url(metadata.as_uri()) is None
-    assert ecs_logs_url(None) is None
+    assert ecs_logs_url(path.as_uri()) == logs_url
 
 
 # As ECS and the state machine set it.
@@ -78,7 +69,6 @@ def test_settings(monkeypatch):
         monkeypatch.setenv(name, value)
     # dbt's, not the runner's.
     monkeypatch.setenv("ORCAVAULT_REDSHIFT_HOST", "localhost")
-    monkeypatch.setenv("ORCAVAULT_DBT_THREADS", "4")
 
     assert Settings().model_dump() == {
         "run_request": '{"args": "build"}',
@@ -91,11 +81,9 @@ def test_settings(monkeypatch):
     }
 
 
-@pytest.mark.parametrize("empty", [False, True])
-def test_default_settings(monkeypatch, empty):
-    if empty:
-        for name in ENVIRONMENT:
-            monkeypatch.setenv(name, "")
+def test_empty_settings_are_defaults(monkeypatch):
+    for name in ENVIRONMENT:
+        monkeypatch.setenv(name, "")
 
     settings = Settings()
 

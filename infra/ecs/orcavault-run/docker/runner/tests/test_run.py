@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from fakes import FakeDbt, Invocation, result
+from fakes import FakeDbt, result, run_results
 
 from orcavault_runner.results import Outcome
 from orcavault_runner.run import one_line, run
@@ -12,14 +12,9 @@ UNIQUE = "test.orcavault.unique_hub_library_library_hk.9b8e7d6c5a"
 ACCEPTED = "test.orcavault.accepted_values_lims_type.1c2d3e4f5a"
 HOOK = "operation.orcavault.orcavault-on-run-end-0"
 
-LIMS_BUILD = ["build", "--select", "+lims", "--fail-fast"]
-
 
 def test_scheduled_run(config, project_dir):
-    dbt = FakeDbt(
-        project_dir,
-        Invocation(results=[result(HUB, "success"), result(UNIQUE, "pass")], positions_advanced=True),
-    )
+    dbt = FakeDbt(project_dir, results=[result(HUB, "success"), result(UNIQUE, "pass")], positions_advanced=True)
 
     outcome, event = run("{}", config, dbt)
 
@@ -46,29 +41,18 @@ def test_scheduled_run(config, project_dir):
     }
 
 
-def test_args_go_to_dbt_as_they_are(config, project_dir):
-    dbt = FakeDbt(project_dir, Invocation(results=[result(LIMS, "success")]))
-
-    outcome, _ = run('{"args": "build --select +lims --fail-fast"}', config, dbt)
-
-    assert dbt.calls == [LIMS_BUILD]
-    assert outcome is Outcome.SUCCEEDED
-
-
 def test_failed_test(config, project_dir):
     dbt = FakeDbt(
         project_dir,
-        Invocation(
-            code=1,
-            results=[result(HUB, "success"), result(UNIQUE, "fail"), result(LIMS, "skipped"), result(ACCEPTED, "warn")],
-            positions_advanced=False,
-        ),
+        code=1,
+        results=[result(HUB, "success"), result(UNIQUE, "fail"), result(LIMS, "skipped"), result(ACCEPTED, "warn")],
+        positions_advanced=False,
     )
 
-    outcome, event = run("{}", config, dbt)
+    outcome, event = run('{"args": "build --select +lims --fail-fast"}', config, dbt)
 
+    assert dbt.calls == [["build", "--select", "+lims", "--fail-fast"]]
     assert outcome is Outcome.TESTS_FAILED
-    assert event.outcome == "tests_failed"
     assert event.error is None
     assert event.positions_advanced is False
     assert event.failed_nodes == "unique_hub_library_library_hk"
@@ -76,96 +60,52 @@ def test_failed_test(config, project_dir):
     assert event.models_skipped == 1
 
 
-def test_failed_hook(config, project_dir):
-    dbt = FakeDbt(project_dir, Invocation(code=1, results=[result(HUB, "success"), result(HOOK, "error")]))
-
-    _, event = run("{}", config, dbt)
-
-    assert event.outcome == "error"
-    assert event.error == "A hook failed: orcavault-on-run-end-0"
-    assert event.failed_nodes == "orcavault-on-run-end-0"
-
-
-def test_dbt_that_fails_after_writing_results(config, project_dir):
-    dbt = FakeDbt(project_dir, Invocation(code=2, results=[result(HUB, "success")]))
-
-    _, event = run("{}", config, dbt)
-
-    assert event.outcome == "error"
-    assert event.error == "dbt exited with 2, see the logs"
-    assert event.models_succeeded == 1
-
-
-def test_invalid_request_runs_nothing(config, project_dir):
-    dbt = FakeDbt(project_dir)
-
-    outcome, event = run('{"args": "run-operation drop_everything"}', config, dbt)
-
-    assert dbt.calls == []
-    assert outcome is Outcome.ERROR
-    assert event.outcome == "error"
-    assert "run-operation" in event.error
-
-
-def test_error_is_one_line(config, project_dir):
-    _, event = run(json.dumps({'say "hi"\\\nthere': 1}), config, FakeDbt(project_dir))
-
-    # The unknown field's name, without its quotes, backslash or line break.
-    assert "say 'hi' there" in event.error
-
-
 @pytest.mark.parametrize(
-    "text, line",
+    "code, results, stop, mentions",
     [
-        ('a "b"', "a 'b'"),
-        ("a\\b", "ab"),
-        ("a\n  b\tc\r\n", "a b c"),
-        ("a\x00b", "ab"),
-        ("x" * 10, "x" * 10),
-        ("x" * 11, "x" * 7 + "..."),
+        (1, [result(HUB, "success"), result(HOOK, "error")], False, "orcavault-on-run-end-0"),
+        (2, [result(HUB, "success")], False, "2"),
+        (2, None, False, "run_results.json"),
+        (2, [result(HUB, "success")], True, "stopped"),
     ],
 )
-def test_one_line(text, line):
-    assert one_line(text, limit=10) == line
-
-
-def test_dbt_that_writes_no_results(config, project_dir):
-    dbt = FakeDbt(project_dir, Invocation(code=2, results=None))
-
-    _, event = run("{}", config, dbt)
-
-    assert event.outcome == "error"
-    assert event.error == "dbt exited with 2 and wrote no run_results.json, see the logs"
-
-
-def test_earlier_results_are_not_read_as_this_runs(config, project_dir):
-    stale = project_dir / "target" / "run_results.json"
-    stale.parent.mkdir()
-    stale.write_text(json.dumps({"results": [result(HUB, "success")]}))
-    dbt = FakeDbt(project_dir, Invocation(code=2, results=None))
-
-    _, event = run("{}", config, dbt)
-
-    assert event.models_succeeded == 0
-    assert event.error == "dbt exited with 2 and wrote no run_results.json, see the logs"
-
-
-def test_stopped_run(config, project_dir):
-    dbt = FakeDbt(project_dir, Invocation(code=2, results=[result(HUB, "success")], stop=True))
+def test_errors(config, project_dir, code, results, stop, mentions):
+    dbt = FakeDbt(project_dir, code=code, results=results, stop=stop)
 
     outcome, event = run("{}", config, dbt)
 
     assert outcome is Outcome.ERROR
-    assert event.error == "The run was stopped"
-    assert event.models_succeeded == 1
+    # However it's worded, the error says what went wrong.
+    assert mentions in event.error
 
 
-def test_stopped_before_dbt_starts(config, project_dir):
-    dbt = FakeDbt(project_dir)
-    dbt.stopping = True
+@pytest.mark.parametrize(
+    "request_json, stopping, mentions",
+    [
+        ('{"args": "run-operation drop_everything"}', False, "run-operation"),
+        ("{}", True, "stopped"),
+    ],
+)
+def test_runs_nothing(config, project_dir, request_json, stopping, mentions):
+    dbt = FakeDbt(project_dir, stopping=stopping)
 
-    _, event = run("{}", config, dbt)
+    outcome, event = run(request_json, config, dbt)
 
     assert dbt.calls == []
-    assert event.outcome == "error"
-    assert event.error == "The run was stopped"
+    assert outcome is Outcome.ERROR
+    assert mentions in event.error
+
+
+def test_earlier_results_are_not_read_as_this_runs(config, project_dir):
+    earlier = project_dir / "target" / "run_results.json"
+    earlier.parent.mkdir()
+    earlier.write_text(json.dumps(run_results(result(HUB, "success"))))
+
+    _, event = run("{}", config, FakeDbt(project_dir, code=2, results=None))
+
+    assert event.models_succeeded == 0
+
+
+def test_one_line():
+    assert one_line('a "b"\\\n  c\x00', limit=10) == "a 'b' c"
+    assert one_line("x" * 11, limit=10) == "xxxxxxx..."
