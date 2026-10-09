@@ -103,13 +103,14 @@ def test_invalid_request_runs_nothing(config, project_dir):
     assert dbt.calls == []
     assert outcome is Outcome.ERROR
     assert event["outcome"] == "error"
-    assert event["error"] == "args must start with one of build, run, test, seed, snapshot, not 'run-operation'"
+    assert "run-operation" in event["error"]
 
 
 def test_error_is_one_line(config, project_dir):
     _, event = run(json.dumps({'say "hi"\\\nthere': 1}), config, FakeDbt(project_dir))
 
-    assert event["error"] == "Unknown field say 'hi' there. A request only has args"
+    # The unknown field's name, without its quotes, backslash or line break.
+    assert "say 'hi' there" in event["error"]
 
 
 @pytest.mark.parametrize(

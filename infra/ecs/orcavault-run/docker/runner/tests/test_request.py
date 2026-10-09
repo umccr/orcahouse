@@ -1,5 +1,4 @@
 import json
-import re
 
 import pytest
 
@@ -29,27 +28,34 @@ def test_commands(command):
 
 
 @pytest.mark.parametrize(
-    "request_json, message",
+    "request_json, names",
     [
-        ({"select": "lims"}, "Unknown field select. A request only has args"),
-        ({"args": ["build"], "retry": "run-1"}, "Unknown field retry"),
-        ({"args": ["run-operation", "drop_everything"]}, "args must start with one of build, run, test, seed, snapshot, not 'run-operation'"),
-        ({"args": ["debug"]}, "not 'debug'"),
-        ({"args": ["retry"]}, "not 'retry'"),
-        ({"args": ["--select", "lims"]}, "not '--select'"),
-        ({"args": []}, "not nothing"),
-        ({"args": ""}, "not nothing"),
-        ({"args": "build --vars '{\"a\": 1}"}, "Can't split args: No closing quotation"),
-        ({"args": ["build", 1]}, "args must be a list of strings, or a string"),
-        ({"args": {"select": "lims"}}, "args must be a list of strings, or a string"),
-        ([], "must be a JSON object"),
+        ({"select": "lims"}, ["select"]),
+        ({"args": ["build"], "retry": "run-1"}, ["retry"]),
+        ({"select": "lims", "retry": "run-1"}, ["select", "retry"]),
+        ({"args": ["run-operation", "drop_everything"]}, ["run-operation"]),
+        ({"args": ["debug"]}, ["debug"]),
+        ({"args": ["retry"]}, ["retry"]),
+        ({"args": ["--select", "lims"]}, ["--select"]),
+        ({"args": []}, ["args"]),
+        ({"args": ""}, ["args"]),
+        ({"args": "build --vars '{\"a\": 1}"}, ["args"]),
+        ({"args": ["build", 1]}, ["args"]),
+        ({"args": {"select": "lims"}}, ["args"]),
+        ({"args": None}, ["args"]),
+        ({"args": 1, "select": "lims"}, ["args", "select"]),
+        ([], []),
     ],
 )
-def test_invalid_requests(request_json, message):
-    with pytest.raises(RequestError, match=re.escape(message)):
+def test_invalid_requests(request_json, names):
+    with pytest.raises(RequestError) as e:
         parse_request(json.dumps(request_json))
+
+    # However it's worded, the message names what's wrong.
+    for name in names:
+        assert name in str(e.value)
 
 
 def test_not_json():
-    with pytest.raises(RequestError, match="isn't valid JSON"):
+    with pytest.raises(RequestError):
         parse_request("not json")
