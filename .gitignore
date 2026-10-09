@@ -23,3 +23,7 @@ logs/
 *.log
 
 .DS_Store
+
+# Ignore AI agents files and skills
+.agents
+.claude

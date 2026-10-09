@@ -1,66 +1,60 @@
 # Notification Infrastructure
 
-Foundation for the OrcaHouse warehouse notification system.
+Sends failures of OrcaHouse warehouse processes in account `115253169271` to Slack.
+EventBridge rules match failed Glue jobs, Glue crawlers and DMS tasks, turn them into
+Amazon Q messages, and publish them to each environment's Slack SNS topic. Alerts that
+cannot be delivered go to a dead-letter queue, and an alarm on that queue posts to the same
+channel.
 
-This stack provisions **only** the publisher-role + SSM-parameter foundation.
+| Env  | Slack channel | Watches |
+| ---- | ------------- | ------- |
+| dev  | `alerts-dev`  | `orcaglue-dev-*` Glue jobs, crawler `orcavault-db-dev-mart-crawler` |
+| prod | `alerts-prod` | `orcaglue-prod-*` Glue jobs, `orcabus-db` DMS instance and tasks, `orcabus-db-crawler-*` crawlers |
 
-The `dev` and `prod` environments are managed separately for isolation and share
-the `modules/publisher-role` module.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the diagram, rules and design notes.
 
 ## Layout
 
-```
+```text
 infra/notification/
-  modules/publisher-role/   # shared role + inline policy + SSM parameters
-  environments/dev/         # dev stack (account 115253169271)
-  environments/prod/        # prod stack (account 115253169271)
+  modules/publisher-role/      # IAM role that publishes to the Slack topic, SSM parameters
+  modules/target-dlq/          # dead-letter queue, queue policy, DLQ alarm, SSM parameter
+  modules/notification-rules/  # EventBridge rules and Slack targets
+  environments/dev/            # dev root module
+  environments/prod/           # prod root module
 ```
-
-## Per-environment resources
-
-Each environment creates (with `<env>` = `dev` or `prod`):
-
-- **IAM role** `orcahouse-notify-<env>-publisher-role` — trusted by `events.amazonaws.com`. The trust policy applies confused-deputy protection:
-  - `StringEquals` on `aws:SourceAccount` = `115253169271`
-  - `ArnLike` on `aws:SourceArn` = `arn:aws:events:ap-southeast-2:115253169271:rule/orcahouse-notify-<env>-*`
-- **Inline policy** `orcahouse-notify-<env>-publisher-role-inline-policy` — allows only `sns:Publish` on that environment's Slack topic. No KMS permissions are granted; the Slack topics are treated as unencrypted / not customer-managed-key. If a topic were encrypted with a CMK, the role would also need `kms:GenerateDataKey*` and `kms:Decrypt` on that key.
-- **SSM parameters** (type `String`):
-  - `/orcahouse/notification/<env>/slack_topic_arn`
-  - `/orcahouse/notification/<env>/publisher_role_arn`
 
 ## Usage
 
-```
+```bash
 export AWS_PROFILE=unimelb-warehouse-prod-admin
 aws sso login
-```
 
-### dev
-
-```
-cd environments/dev
+cd environments/<env>
 terraform init
 terraform plan
 terraform apply
 ```
 
-### prod
+For the first deployment of an environment:
 
-```
-cd environments/prod
-terraform init
-terraform plan
-terraform apply
-```
+1. After the apply, ask the Slack topic owner to add the statement in
+   [CROSS_ACCOUNT_TOPIC_POLICY.md](CROSS_ACCOUNT_TOPIC_POLICY.md). Until they do, alerts
+   wait in the dead-letter queue.
+2. Test the whole path. An alarm message should appear in `#alerts-<env>`, then a
+   "Resolved" message about 5 minutes later:
 
-## Verification (local — CI does not cover this stack)
+   ```bash
+   aws cloudwatch set-alarm-state --alarm-name orcahouse-notify-<env>-target-dlq-not-empty \
+     --state-value ALARM --state-reason "Deployment test"
+   ```
 
-CI does not run against this stack, so `terraform fmt` and `terraform validate`
-must be run locally before merging:
+## Before merging
 
-```
+CI does not cover this stack. From the repository root:
+
+```bash
 terraform fmt -check -recursive infra/notification
-
-cd infra/notification/environments/dev  && terraform init -backend=false && terraform validate
-cd infra/notification/environments/prod && terraform init -backend=false && terraform validate
+(cd infra/notification/environments/dev && terraform init -backend=false && terraform validate)
+(cd infra/notification/environments/prod && terraform init -backend=false && terraform validate)
 ```
