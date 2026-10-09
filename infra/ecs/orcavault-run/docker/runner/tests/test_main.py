@@ -1,10 +1,12 @@
 import json
 import re
 
+import boto3
 import pytest
+from botocore.stub import Stubber
 
-from orcavault_runner.__main__ import console_logs_url, ecs_logs_url, make_store, run_id
-from orcavault_runner.store import DirStore, S3Store
+from orcavault_runner.__main__ import console_logs_url, ecs_logs_url, run_id, write_event
+from orcavault_runner.results import Outcome
 
 LOGS_URL = (
     "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-southeast-2"
@@ -51,12 +53,37 @@ def test_run_id():
     assert re.fullmatch(r"manual-\d{8}T\d{6}Z", run_id({}))
 
 
-def test_make_store(tmp_path, monkeypatch):
-    monkeypatch.setenv("AWS_DEFAULT_REGION", "ap-southeast-2")
-    s3 = make_store({"ORCAVAULT_RESULTS_BUCKET": "bucket"}, tmp_path)
-    assert isinstance(s3, S3Store)
-    assert s3.location("run-1/event.json") == "s3://bucket/runs/run-1/event.json"
+# The outcome is written as its value.
+EVENT = {"runId": "run-1", "outcome": Outcome.SUCCEEDED}
+EVENT_JSON = json.dumps({"runId": "run-1", "outcome": "succeeded"}, indent=2)
 
-    assert make_store({}, tmp_path).root == tmp_path / "target" / "runs"
-    assert make_store({"ORCAVAULT_RESULTS_DIR": str(tmp_path / "x")}, tmp_path).root == tmp_path / "x"
-    assert isinstance(make_store({}, tmp_path), DirStore)
+
+def test_write_event_to_s3(tmp_path, monkeypatch):
+    client = boto3.client("s3", region_name="ap-southeast-2", aws_access_key_id="x", aws_secret_access_key="x")
+    monkeypatch.setattr(boto3, "client", lambda service: client)
+    with Stubber(client) as stubber:
+        stubber.add_response(
+            "put_object",
+            {},
+            {
+                "Bucket": "bucket",
+                "Key": "runs/run-1/event.json",
+                "Body": EVENT_JSON.encode(),
+                "ContentType": "application/json",
+            },
+        )
+
+        location = write_event(EVENT, {"ORCAVAULT_RESULTS_BUCKET": "bucket"}, tmp_path)
+
+        stubber.assert_no_pending_responses()
+    assert location == "s3://bucket/runs/run-1/event.json"
+
+
+def test_write_event_to_a_directory(tmp_path):
+    path = tmp_path / "target" / "runs" / "run-1" / "event.json"
+    assert write_event(EVENT, {}, tmp_path) == str(path)
+    assert path.read_text() == EVENT_JSON
+
+    path = tmp_path / "events" / "run-1" / "event.json"
+    assert write_event(EVENT, {"ORCAVAULT_RESULTS_DIR": str(tmp_path / "events")}, tmp_path) == str(path)
+    assert path.read_text() == EVENT_JSON

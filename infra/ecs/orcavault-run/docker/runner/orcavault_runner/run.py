@@ -1,9 +1,9 @@
 """Running a request and recording how it went.
 
-A run is one dbt command. It ends by writing event.json, which the state
-machine sends as the detail of the run's EventBridge event, see
-stepfunctions.tf. dbt's run_results.json is only read for the event, and the
-logs have the rest.
+A run is one dbt command, and its event says how it went. The entrypoint
+writes the event to event.json, which the state machine sends as the detail of
+the run's EventBridge event, see stepfunctions.tf. dbt's run_results.json is
+only read for the event, and the logs have the rest.
 """
 
 import json
@@ -16,7 +16,6 @@ from typing import Any, Protocol
 from .dbt import DbtExit
 from .request import RequestError, parse_request
 from .results import Counts, Outcome, classify, read_results, resource_type, summarise_nodes
-from .store import Store, event_key
 
 log = logging.getLogger(__name__)
 
@@ -79,8 +78,8 @@ def run_dbt(args: tuple[str, ...], config: Config, dbt: Dbt, event: dict[str, An
     return outcome
 
 
-def run(raw_request: str, config: Config, store: Store, dbt: Dbt) -> Outcome:
-    """Runs the request and writes its event.
+def run(raw_request: str, config: Config, dbt: Dbt) -> tuple[Outcome, dict[str, Any]]:
+    """Runs the request, and returns its outcome and event.
 
     The event is the detail of the run's EventBridge event, less executionUrl,
     which the state machine adds. It's flat and already formatted, so that
@@ -89,7 +88,7 @@ def run(raw_request: str, config: Config, store: Store, dbt: Dbt) -> Outcome:
     started_at = datetime.now(timezone.utc)
     event: dict[str, Any] = {
         "environment": config.environment,
-        "outcome": Outcome.ERROR.value,
+        "outcome": Outcome.ERROR,
         # Why the outcome is error, otherwise None.
         "error": None,
         "runId": config.run_id,
@@ -117,13 +116,9 @@ def run(raw_request: str, config: Config, store: Store, dbt: Dbt) -> Outcome:
         outcomes.append(Outcome.ERROR)
 
     outcome = Outcome.worst(outcomes)
-    event["outcome"] = outcome.value
+    event["outcome"] = outcome
     if event["error"] is not None:
         log.error("%s", event["error"])
         event["error"] = one_line(event["error"])
     event["durationMinutes"] = round((datetime.now(timezone.utc) - started_at).total_seconds() / 60)
-
-    key = event_key(config.run_id)
-    store.put_json(key, event)
-    log.info("Run %s: %s, event at %s", config.run_id, outcome.value, store.location(key))
-    return outcome
+    return outcome, event

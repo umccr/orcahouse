@@ -26,11 +26,13 @@ import urllib.request
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
+
+import boto3
 
 from .dbt import Dbt
 from .run import Config, run
-from .store import DirStore, S3Store, Store
 
 log = logging.getLogger("orcavault_runner")
 
@@ -69,11 +71,25 @@ def ecs_logs_url(environ: Mapping[str, str]) -> str | None:
     return console_logs_url(region, group, stream)
 
 
-def make_store(environ: Mapping[str, str], project_dir: Path) -> Store:
+def write_event(event: dict[str, Any], environ: Mapping[str, str], project_dir: Path) -> str:
+    """Writes the run's event to <run ID>/event.json, under runs/ in the results
+    bucket, or else in a directory, and returns where it went."""
+    key = f"{event['runId']}/event.json"
+    body = json.dumps(event, indent=2)
     bucket = environ.get("ORCAVAULT_RESULTS_BUCKET")
     if bucket:
-        return S3Store(bucket, RESULTS_PREFIX)
-    return DirStore(Path(environ.get("ORCAVAULT_RESULTS_DIR", project_dir / "target" / "runs")))
+        boto3.client("s3").put_object(
+            Bucket=bucket,
+            Key=RESULTS_PREFIX + key,
+            Body=body.encode(),
+            ContentType="application/json",
+        )
+        return f"s3://{bucket}/{RESULTS_PREFIX}{key}"
+
+    path = Path(environ.get("ORCAVAULT_RESULTS_DIR", project_dir / "target" / "runs")) / key
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body)
+    return str(path)
 
 
 def run_id(environ: Mapping[str, str]) -> str:
@@ -109,7 +125,9 @@ def main(argv: list[str], environ: Mapping[str, str]) -> int:
     signal.signal(signal.SIGTERM, dbt.stop)
     signal.signal(signal.SIGINT, dbt.stop)
 
-    outcome = run(environ.get("ORCAVAULT_RUN_REQUEST", ""), config, make_store(environ, project_dir), dbt)
+    outcome, event = run(environ.get("ORCAVAULT_RUN_REQUEST", ""), config, dbt)
+    location = write_event(event, environ, project_dir)
+    log.info("Run %s: %s, event at %s", config.run_id, outcome, location)
     return outcome.exit_code
 
 

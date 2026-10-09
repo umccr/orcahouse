@@ -4,11 +4,11 @@ https://docs.getdbt.com/reference/artifacts/run-results-json
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class Outcome(str, Enum):
+class Outcome(StrEnum):
     """How a run went, from best to worst."""
 
     SUCCEEDED = "succeeded"
