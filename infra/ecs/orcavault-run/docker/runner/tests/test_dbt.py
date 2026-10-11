@@ -13,7 +13,7 @@ posix_only = pytest.mark.skipif(sys.platform == "win32", reason="SIGINT can't be
 
 @pytest.fixture
 def dbt(project_dir):
-    return Dbt(project_dir, out=io.StringIO(), executable=[sys.executable, FAKE_DBT], kill_after_seconds=0.5)
+    return Dbt(project_dir, out=io.StringIO(), executable=[sys.executable, FAKE_DBT])
 
 
 @pytest.mark.parametrize("action, positions_advanced", [("advance", True), ("hold", False), ("other", None)])
@@ -33,14 +33,11 @@ class StopWhenReady(io.StringIO):
         return super().write(s)
 
 
-# -9 is killed by SIGKILL, which Windows doesn't have.
 @posix_only
-@pytest.mark.parametrize("action, code", [("wait", 2), ("hang", -9)])
-def test_stop(dbt, action, code):
-    # Killed if it doesn't stop.
+def test_stop(dbt):
     dbt.out = StopWhenReady(dbt)
 
-    assert dbt([action, "0"]).code == code
+    assert dbt(["wait", "0"]).code == 2
 
 
 @posix_only

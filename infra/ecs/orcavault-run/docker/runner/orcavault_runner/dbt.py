@@ -9,7 +9,6 @@ import shlex
 import signal
 import subprocess
 import sys
-import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,11 +20,6 @@ log = logging.getLogger(__name__)
 # only moves the CDC positions forward when every model succeeded.
 POSITIONS_ADVANCED = "CDC positions updated to pending"
 POSITIONS_HELD = "CDC positions not updated"
-
-# ECS kills the task 120 seconds after stopping it, see stopTimeout in ecs.tf.
-# dbt is killed before then if it hasn't exited, so that the runner can still
-# write the event.
-KILL_AFTER_SECONDS = 90
 
 
 @dataclass(frozen=True)
@@ -42,40 +36,24 @@ class Dbt:
         project_dir: Path,
         out: TextIO = sys.stdout,
         executable: Sequence[str] = ("dbt",),
-        kill_after_seconds: float = KILL_AFTER_SECONDS,
     ) -> None:
         self.project_dir = project_dir
         self.out = out
         self.executable = list(executable)
-        self.kill_after_seconds = kill_after_seconds
         self.process: subprocess.Popen[str] | None = None
         self.stopping = False
-        self.killing = False
 
     def stop(self, *_: object) -> None:
         """Signal handler for SIGTERM, which ECS sends when the task is stopped.
 
         dbt cancels its running queries on SIGINT, like Ctrl-C, and still writes
-        run_results.json. It can take a while to, such as when it's waiting on a
-        connection, so it's killed if it hasn't exited by kill_after_seconds.
+        run_results.json. If it hasn't exited by the container's stopTimeout,
+        ECS kills it along with the runner, and the state machine sends the
+        event instead.
         """
-        if not self.stopping:
-            self.stopping = True
-            timer = threading.Timer(self.kill_after_seconds, self._kill)
-            timer.daemon = True
-            timer.start()
-        self._interrupt()
-
-    def _interrupt(self) -> None:
+        self.stopping = True
         if self.process is not None and self.process.poll() is None:
             self.process.send_signal(signal.SIGINT)
-
-    def _kill(self) -> None:
-        self.killing = True
-        process = self.process
-        if process is not None and process.poll() is None:
-            log.warning("dbt didn't stop within %g seconds, killing it", self.kill_after_seconds)
-            process.kill()
 
     def __call__(self, args: list[str]) -> DbtExit:
         log.info("Running: dbt %s", shlex.join(args))
@@ -91,10 +69,9 @@ class Dbt:
             bufsize=1,
             start_new_session=True,
         )
-        if self.killing:
-            self.process.kill()
-        elif self.stopping:
-            self._interrupt()
+        # Stopped while dbt was starting.
+        if self.stopping:
+            self.stop()
 
         assert self.process.stdout is not None
         for line in self.process.stdout:

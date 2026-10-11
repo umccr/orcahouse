@@ -5,7 +5,6 @@ and exits with the second.
 """
 
 import os
-import signal
 import sys
 import time
 
@@ -24,9 +23,4 @@ elif action == "wait":
         time.sleep(30)
     except KeyboardInterrupt:
         sys.exit(2)
-elif action == "hang":
-    # Without stopping.
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    print("ready", flush=True)
-    time.sleep(30)
 sys.exit(int(code))

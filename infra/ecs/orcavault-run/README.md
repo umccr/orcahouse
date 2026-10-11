@@ -253,10 +253,9 @@ its event.
 the no-success alarm's notifications.
 
 **Stop a run** by stopping its execution. Step Functions stops the task, and
-the runner tells dbt to cancel its queries. dbt is killed if it hasn't
-exited after 90 seconds, leaving the runner time to write the event before
-ECS kills the task at two minutes. A run that reaches `run_timeout_hours` is
-stopped the same way.
+the runner tells dbt to cancel its queries. If dbt hasn't exited after two
+minutes, ECS kills the task, and the state machine sends the run's event
+instead. A run that reaches `run_timeout_hours` is stopped the same way.
 
 **Read the logs** with `terraform output -raw logs_command`, or from the
 `logsUrl` in the run's event.

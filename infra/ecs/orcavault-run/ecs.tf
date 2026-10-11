@@ -73,9 +73,8 @@ resource "aws_ecs_task_definition" "dbt" {
       ]
 
       # A stopped run is given this long to let dbt cancel its queries and to
-      # write its event. 120 seconds is the most Fargate allows. The runner
-      # kills dbt before then, see KILL_AFTER_SECONDS in
-      # docker/runner/orcavault_runner/dbt.py.
+      # write its event. 120 seconds is the most Fargate allows. A task that's
+      # still running then is killed, and the state machine sends the event.
       stopTimeout = 120
 
       logConfiguration = {
