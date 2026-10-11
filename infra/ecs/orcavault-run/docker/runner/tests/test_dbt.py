@@ -1,5 +1,4 @@
 import io
-import signal
 import sys
 from pathlib import Path
 
@@ -34,8 +33,9 @@ class StopWhenReady(io.StringIO):
         return super().write(s)
 
 
+# -9 is killed by SIGKILL, which Windows doesn't have.
 @posix_only
-@pytest.mark.parametrize("action, code", [("wait", 2), ("hang", -signal.SIGKILL)])
+@pytest.mark.parametrize("action, code", [("wait", 2), ("hang", -9)])
 def test_stop(dbt, action, code):
     # Killed if it doesn't stop.
     dbt.out = StopWhenReady(dbt)
