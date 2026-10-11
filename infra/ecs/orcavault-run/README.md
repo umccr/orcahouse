@@ -144,8 +144,9 @@ aws ecr get-login-password | docker login --username AWS --password-stdin "${REP
 docker buildx build --platform linux/arm64 --build-arg "ORCAVAULT_REF=$REF" -t "$REPO:$REF" --push docker/
 ```
 
-The image holds orcavault at that ref, the dbt version it pins, and the runner
-from `docker/runner`. The build runs `dbt parse`, so a project that doesn't
+The image holds orcavault at that ref with the dbt version it pins, and the
+runner from `docker/runner` with the versions in its `uv.lock`, each in an
+environment of its own. The build runs `dbt parse`, so a project that doesn't
 parse fails here rather than at 3am.
 
 ### 2. Apply
@@ -401,13 +402,17 @@ Without `ORCAVAULT_RESULTS_BUCKET`, the event stays in the container, under
 `ORCAVAULT_RESULTS_DIR`. See `docker/runner/orcavault_runner/__main__.py` for
 the rest of the environment.
 
-The runner's tests don't need dbt or AWS:
+The runner's tests don't need dbt or AWS, only
+[uv](https://docs.astral.sh/uv/getting-started/installation/):
 
 ```bash
 cd docker/runner
-pip install -r requirements-dev.txt
-pytest
+uv run pytest
 ```
+
+Its dependencies are in `docker/runner/pyproject.toml`. After changing them, run
+`uv lock`, and commit `uv.lock`, which is what the image installs. dbt isn't one
+of them: the image has the version orcavault pins.
 
 ## Limits and risks
 

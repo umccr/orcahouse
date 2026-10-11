@@ -17,10 +17,10 @@ baseline:
 test:
 	@(cd orcavault && dbt deps && dbt test)
 
-# The OrcaVault run's runner, see infra/ecs/orcavault-run/README.md. Needs its
-# requirements-dev.txt installed, but neither dbt nor AWS.
+# The OrcaVault run's runner, see infra/ecs/orcavault-run/README.md. Needs uv,
+# but neither dbt nor AWS. Fails if its uv.lock is out of date.
 test-runner:
-	@(cd infra/ecs/orcavault-run/docker/runner && python3 -m pytest)
+	@(cd infra/ecs/orcavault-run/docker/runner && uv run --locked pytest)
 
 # NOTE: not suitable target for local running but specifically setup for anonymous CI runner  ~victor
 test-iac:

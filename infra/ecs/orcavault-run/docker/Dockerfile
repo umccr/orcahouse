@@ -1,16 +1,39 @@
+FROM ghcr.io/astral-sh/uv:0.12.19 AS uv
+
 FROM public.ecr.aws/docker/library/python:3.13-slim
-
-# A release tag or commit of umccr/orcavault. Pin one, never a branch, so that
-# the code behind a load can be recovered from the image.
-ARG ORCAVAULT_REF
-
-RUN test -n "$ORCAVAULT_REF" || { echo "ORCAVAULT_REF is required" >&2; exit 1; }
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home --uid 1000 dbt
+
+# uv is mounted only while installing, so the image doesn't keep it. It installs
+# into the image's Python rather than downloading one, and compiles bytecode now
+# rather than when a run starts. Its cache is a mount, so it copies from it.
+ENV UV_PYTHON_DOWNLOADS=0 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+# The runner, in an environment of its own with the versions in its uv.lock, so
+# that the image runs what its tests ran. It runs dbt's CLI rather than
+# importing dbt, so it doesn't need dbt's environment. It's installed before
+# orcavault, which changes more often, and its dependencies before its code.
+WORKDIR /opt/runner
+COPY runner/pyproject.toml runner/uv.lock runner/.python-version ./
+RUN --mount=from=uv,source=/uv,target=/bin/uv \
+    --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-install-project
+COPY runner/orcavault_runner orcavault_runner
+RUN --mount=from=uv,source=/uv,target=/bin/uv \
+    --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-editable
+
+# A release tag or commit of umccr/orcavault. Pin one, never a branch, so that
+# the code behind a load can be recovered from the image.
+ARG ORCAVAULT_REF
+
+RUN test -n "$ORCAVAULT_REF" || { echo "ORCAVAULT_REF is required" >&2; exit 1; }
 
 WORKDIR /orcavault
 
@@ -23,16 +46,15 @@ RUN git init -q . \
     && git rev-parse HEAD > ORCAVAULT_COMMIT \
     && rm -rf .git profiles.yml
 
-# Installed together, so that pip resolves the runner's few requirements
-# against the dbt versions orcavault pins.
-COPY runner/requirements.txt /opt/runner/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt -r /opt/runner/requirements.txt
+# dbt, with the versions orcavault pins, into the image's Python. This is the
+# dbt on the PATH, which the runner runs.
+RUN --mount=from=uv,source=/uv,target=/bin/uv \
+    --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system -r requirements.txt
 
 COPY profiles.yml /etc/dbt/profiles.yml
-COPY runner/orcavault_runner /opt/runner/orcavault_runner
 
 ENV ORCAVAULT_REF=$ORCAVAULT_REF \
-    PYTHONPATH=/opt/runner \
     PYTHONUNBUFFERED=1 \
     DBT_PROFILES_DIR=/etc/dbt \
     DBT_SEND_ANONYMOUS_USAGE_STATS=false \
@@ -60,4 +82,4 @@ USER dbt
 # Runs the request in ORCAVAULT_RUN_REQUEST, which is dbt arguments, or, given
 # arguments, runs them as a dbt command that's not recorded, such as debug.
 # See runner/orcavault_runner/__main__.py.
-ENTRYPOINT ["python", "-m", "orcavault_runner"]
+ENTRYPOINT ["/opt/runner/.venv/bin/python", "-m", "orcavault_runner"]

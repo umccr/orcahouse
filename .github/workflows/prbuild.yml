@@ -25,6 +25,7 @@ permissions: read-all
 #  https://github.com/marketplace/actions/checkout
 #  https://github.com/marketplace/actions/trufflehog-oss
 #  https://github.com/hashicorp/setup-terraform
+#  https://github.com/astral-sh/setup-uv
 
 jobs:
   pre-commit-lint-security-testing:
@@ -70,9 +71,14 @@ jobs:
           pip3 install dbt-core dbt-postgres
           make test
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          # The same as infra/ecs/orcavault-run/docker/Dockerfile's.
+          version: "0.12.19"
+
       - name: Run OrcaVault runner testing
         run: |
-          pip3 install -r infra/ecs/orcavault-run/docker/runner/requirements-dev.txt
           make test-runner
 
       - name: Run terraform testing
