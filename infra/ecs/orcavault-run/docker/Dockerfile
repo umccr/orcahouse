@@ -19,6 +19,9 @@ ENV UV_PYTHON_DOWNLOADS=0 \
 # that the image runs what its tests ran. It runs dbt's CLI rather than
 # importing dbt, so it doesn't need dbt's environment. It's installed before
 # orcavault, which changes more often, and its dependencies before its code.
+# The code is installed editable, so that the image runs the code copied here.
+# A non-editable install can be a build of it that uv cached, which uv only
+# rebuilds when pyproject.toml changes.
 WORKDIR /opt/runner
 COPY runner/pyproject.toml runner/uv.lock runner/.python-version ./
 RUN --mount=from=uv,source=/uv,target=/bin/uv \
@@ -27,7 +30,7 @@ RUN --mount=from=uv,source=/uv,target=/bin/uv \
 COPY runner/orcavault_runner orcavault_runner
 RUN --mount=from=uv,source=/uv,target=/bin/uv \
     --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --no-editable
+    uv sync --locked --no-dev
 
 # A release tag or commit of umccr/orcavault. Pin one, never a branch, so that
 # the code behind a load can be recovered from the image.
