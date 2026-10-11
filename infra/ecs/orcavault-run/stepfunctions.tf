@@ -22,15 +22,14 @@ locals {
 
   # The event's detail, for when the runner didn't get to write one.
   empty_event_detail = {
-    modelsSucceeded   = 0
-    modelsFailed      = 0
-    modelsSkipped     = 0
-    testsPassed       = 0
-    testsWarned       = 0
-    testsFailed       = 0
-    failedNodes       = ""
-    warnedNodes       = ""
-    positionsAdvanced = null
+    modelsSucceeded = 0
+    modelsFailed    = 0
+    modelsSkipped   = 0
+    testsPassed     = 0
+    testsWarned     = 0
+    testsFailed     = 0
+    failedNodes     = ""
+    warnedNodes     = ""
   }
 
   # Each reason the runner might not write the event, which is then its error.

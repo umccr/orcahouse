@@ -332,7 +332,7 @@ A redriven stopped one runs the whole request again, under the same name.
 Every execution ends by sending this event to the default event bus, whatever
 happened. Notifications, and anything else that reacts to a run, should use it.
 
-The runner writes how the run went, from `outcome` to `positionsAdvanced`, to
+The runner writes how the run went, from `outcome` to `warnedNodes`, to
 `runs/<execution name>/event.json` in the results bucket
 (`terraform output -raw results_bucket`). It's kept for
 `results_retention_days` (90 by default). The state machine reads it, adds the
@@ -358,7 +358,6 @@ killed, the state machine sends one with counts of 0 and says why in `error`.
     "testsFailed": 1,
     "failedNodes": "unique_hub_library_library_hk",
     "warnedNodes": "accepted_values_lims_type",
-    "positionsAdvanced": false,
     "orcavaultRef": "v1.2.3",
     "durationMinutes": 42,
     "logsUrl": "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?…",
@@ -376,8 +375,6 @@ killed, the state machine sends one with counts of 0 and says why in `error`.
   can quote data. The logs have that.
 - `failedNodes` and `warnedNodes` name at most 10 nodes, then "and N more". The
   logs have the full lists.
-- `positionsAdvanced` is whether the CDC positions moved, or null when dbt
-  didn't say, such as for a `seed`.
 - `durationMinutes` is from when the execution started.
 - `logsUrl` is the task's log stream. It's null when the task never started,
   and when the run timed out, since Step Functions doesn't then say which task

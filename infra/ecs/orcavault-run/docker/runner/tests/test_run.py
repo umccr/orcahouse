@@ -14,7 +14,7 @@ HOOK = "operation.orcavault.orcavault-on-run-end-0"
 
 
 def test_scheduled_run(project_dir):
-    dbt = FakeDbt(project_dir, results=[result(HUB, "success"), result(UNIQUE, "pass")], positions_advanced=True)
+    dbt = FakeDbt(project_dir, results=[result(HUB, "success"), result(UNIQUE, "pass")])
 
     outcome, event = run("{}", project_dir, dbt)
 
@@ -32,7 +32,6 @@ def test_scheduled_run(project_dir):
         "testsFailed": 0,
         "failedNodes": "",
         "warnedNodes": "",
-        "positionsAdvanced": True,
     }
 
 
@@ -41,7 +40,6 @@ def test_failed_test(project_dir):
         project_dir,
         code=1,
         results=[result(HUB, "success"), result(UNIQUE, "fail"), result(LIMS, "skipped"), result(ACCEPTED, "warn")],
-        positions_advanced=False,
     )
 
     outcome, event = run('{"args": "build --select +lims --fail-fast"}', project_dir, dbt)
@@ -49,7 +47,6 @@ def test_failed_test(project_dir):
     assert dbt.calls == [["build", "--select", "+lims", "--fail-fast"]]
     assert outcome is Outcome.TESTS_FAILED
     assert event.error is None
-    assert event.positions_advanced is False
     assert event.failed_nodes == "unique_hub_library_library_hk"
     assert event.warned_nodes == "accepted_values_lims_type"
     assert event.models_skipped == 1

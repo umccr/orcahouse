@@ -14,7 +14,6 @@ from typing import Protocol
 from pydantic import ConfigDict
 from pydantic.alias_generators import to_camel
 
-from .dbt import DbtExit
 from .request import RequestError, parse_request
 from .results import Counts, Outcome, classify, read_results, resource_type, summarise_nodes
 
@@ -44,7 +43,6 @@ class Event(Counts):
     error: str | None = None
     failed_nodes: str = ""
     warned_nodes: str = ""
-    positions_advanced: bool | None = None
 
 
 class Dbt(Protocol):
@@ -52,7 +50,7 @@ class Dbt(Protocol):
 
     stopping: bool
 
-    def __call__(self, args: list[str]) -> DbtExit: ...
+    def __call__(self, args: list[str]) -> int: ...
 
 
 def one_line(text: str, limit: int = ERROR_LIMIT) -> str:
@@ -71,11 +69,10 @@ def run_dbt(args: tuple[str, ...], project_dir: Path, dbt: Dbt, event: Event) ->
     # read as this run's results if dbt fails early.
     results_path.unlink(missing_ok=True)
 
-    dbt_exit = dbt(list(args))
-    event.positions_advanced = dbt_exit.positions_advanced
+    code = dbt(list(args))
 
     if not results_path.exists():
-        event.error = f"dbt exited with {dbt_exit.code} and wrote no run_results.json, see the logs"
+        event.error = f"dbt exited with {code} and wrote no run_results.json, see the logs"
         return Outcome.ERROR
 
     results = read_results(json.loads(results_path.read_text()))
@@ -84,13 +81,13 @@ def run_dbt(args: tuple[str, ...], project_dir: Path, dbt: Dbt, event: Event) ->
     event.failed_nodes = summarise_nodes(results.failed_nodes)
     event.warned_nodes = summarise_nodes(results.warned_nodes)
 
-    outcome = classify(dbt_exit.code, results)
+    outcome = classify(code, results)
     if outcome is Outcome.ERROR:
         hooks = [unique_id for unique_id in results.failed_nodes if resource_type(unique_id) == "operation"]
         if hooks:
             event.error = f"A hook failed: {summarise_nodes(hooks)}"
         else:
-            event.error = f"dbt exited with {dbt_exit.code}, see the logs"
+            event.error = f"dbt exited with {code}, see the logs"
     return outcome
 
 

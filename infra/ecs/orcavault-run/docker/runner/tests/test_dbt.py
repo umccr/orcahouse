@@ -1,10 +1,10 @@
-import io
 import sys
+import threading
 from pathlib import Path
 
 import pytest
 
-from orcavault_runner.dbt import Dbt, DbtExit
+from orcavault_runner.dbt import Dbt
 
 FAKE_DBT = Path(__file__).parent / "fake_dbt.py"
 
@@ -13,31 +13,21 @@ posix_only = pytest.mark.skipif(sys.platform == "win32", reason="SIGINT can't be
 
 @pytest.fixture
 def dbt(project_dir):
-    return Dbt(project_dir, out=io.StringIO(), executable=[sys.executable, FAKE_DBT])
+    return Dbt(project_dir, executable=[sys.executable, FAKE_DBT])
 
 
-@pytest.mark.parametrize("action, positions_advanced", [("advance", True), ("hold", False), ("other", None)])
-def test_dbt(dbt, action, positions_advanced):
-    assert dbt([action, "1", "--select", "+lims"]) == DbtExit(1, positions_advanced)
-    assert dbt.out.getvalue().startswith(f"args: {action} 1 --select +lims\ncwd: orcavault\n")
-
-
-class StopWhenReady(io.StringIO):
-    def __init__(self, dbt):
-        super().__init__()
-        self.dbt = dbt
-
-    def write(self, s):
-        if s == "ready\n":
-            self.dbt.stop()
-        return super().write(s)
+def test_dbt(dbt, capfd):
+    assert dbt(["exit", "1", "--select", "+lims"]) == 1
+    # Straight to the runner's stdout.
+    assert capfd.readouterr().out.splitlines()[:2] == ["args: exit 1 --select +lims", "cwd: orcavault"]
 
 
 @posix_only
 def test_stop(dbt):
-    dbt.out = StopWhenReady(dbt)
+    threading.Timer(0.5, dbt.stop).start()
 
-    assert dbt(["wait", "0"]).code == 2
+    # Interrupted, rather than after sleeping.
+    assert dbt(["wait", "0"]) != 0
 
 
 @posix_only
@@ -45,4 +35,4 @@ def test_stopped_before_starting(dbt):
     dbt.stop()
 
     # Interrupted wherever it got to, rather than after sleeping.
-    assert dbt(["wait", "0"]).code != 0
+    assert dbt(["wait", "0"]) != 0
