@@ -24,7 +24,8 @@ class Outcome(StrEnum):
     # hook failed. Only what depends on a failed node was held back, or
     # everything after it with --fail-fast.
     FAILED = "failed"
-    # dbt didn't run to completion, or the request was invalid.
+    # dbt didn't run to completion, a node failed that dbt records no result
+    # for, such as an ephemeral model, or the request was invalid.
     ERROR = "error"
 
     @property
@@ -115,7 +116,8 @@ def classify(exit_code: int, event: Event) -> Outcome:
         return Outcome.ERROR
     if event.failed_nodes:
         return Outcome.FAILED
-    # dbt failed without a node failing.
+    # dbt failed without a node failing, such as when an ephemeral model fails,
+    # which only the skipped nodes that depend on it show.
     if exit_code:
         return Outcome.ERROR
     return Outcome.WARNED if event.warned_nodes else Outcome.SUCCEEDED

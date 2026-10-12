@@ -11,6 +11,7 @@ HUB = "model.orcavault.hub_library"
 LIMS = "model.orcavault.lims"
 UNIQUE = "test.orcavault.unique_hub_library_library_hk.9b8e7d6c5a"
 ACCEPTED = "test.orcavault.accepted_values_lims_type.1c2d3e4f5a"
+EPHEMERAL = "model.orcavault.int_cdc_mm_library_sample"
 
 
 def test_scheduled_run():
@@ -51,21 +52,24 @@ def test_failed_test():
 
 
 @pytest.mark.parametrize(
-    "results, stop, mentions",
+    "code, results, stop, mentions",
     [
-        ([result(HUB, "success")], False, "2"),
-        (None, False, "run_results.json"),
-        ([result(HUB, "success")], True, "stopped"),
+        (2, [result(HUB, "success")], False, "2"),
+        (2, None, False, "run_results.json"),
+        (2, [result(HUB, "success")], True, "stopped"),
+        # An ephemeral model has no result, so a failed one is only in why dbt
+        # skipped what depends on it.
+        (1, [result(LIMS, "skipped"), result(HUB, "skipped", f"caused by {EPHEMERAL}")], False, EPHEMERAL),
     ],
 )
-def test_errors(results, stop, mentions):
+def test_errors(code, results, stop, mentions):
     # Left by an earlier dbt command, such as one run by hand. It's not read as
     # this run's when dbt writes none.
     earlier = Path("target", "run_results.json")
     earlier.parent.mkdir()
     earlier.write_text(json.dumps(run_results(result(LIMS, "success"))))
 
-    event = run("{}", FakeDbt(code=2, results=results, stop=stop))
+    event = run("{}", FakeDbt(code=code, results=results, stop=stop))
 
     assert event.outcome is Outcome.ERROR
     # However it's worded, the error says what went wrong.

@@ -21,7 +21,7 @@ def one_line(text: str, limit: int = 300) -> str:
     """The text as one short line without double quotes or backslashes, so that
     an EventBridge input transformer, which doesn't escape what it puts into a
     JSON string, can use it. The limit is long enough for the runner's own
-    errors. dbt's are in the logs."""
+    errors and dbt's reasons for a skip. dbt's errors are in the logs."""
     text = " ".join(text.replace('"', "'").replace("\\", "").split())
     text = "".join(c for c in text if c.isprintable())
     return text if len(text) <= limit else text[: limit - 3] + "..."
@@ -39,10 +39,14 @@ def run_dbt(args: tuple[str, ...], dbt: Dbt) -> Event:
     if not results_path.exists():
         return Event(error=f"dbt exited with {code} and wrote no run_results.json, see the logs")
 
-    event = read_results(json.loads(results_path.read_text()))
+    run_results = json.loads(results_path.read_text())
+    event = read_results(run_results)
     event.outcome = classify(code, event)
     if event.outcome is Outcome.ERROR:
-        event.error = f"dbt exited with {code}, see the logs"
+        # Such as that an ephemeral model failed, which dbt gives as the reason
+        # it skipped a node that depends on it.
+        reasons = (r["message"] for r in run_results.get("results", []) if r["status"] == "skipped" and r["message"])
+        event.error = next(reasons, f"dbt exited with {code}, see the logs")
     return event
 
 

@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any
 
 
-def result(unique_id: str, status: str) -> dict[str, Any]:
+def result(unique_id: str, status: str, message: str | None = None) -> dict[str, Any]:
     """One entry of run_results.json, with only the fields the runner reads."""
-    return {"unique_id": unique_id, "status": status}
+    return {"unique_id": unique_id, "status": status, "message": message}
 
 
 def run_results(*results: dict[str, Any]) -> dict[str, Any]:
