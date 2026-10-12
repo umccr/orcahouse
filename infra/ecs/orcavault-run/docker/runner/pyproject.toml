@@ -1,28 +1,24 @@
 [project]
 name = "orcavault-runner"
 version = "0.1.0"
-description = "Runs dbt for an OrcaVault run, and records how it went."
-requires-python = ">=3.13"
+# The image's Python, see ../Dockerfile.
+requires-python = "==3.13.*"
 # Not dbt, which the image installs from umccr/orcavault's requirements.txt at
 # the ref it's built from. The runner runs dbt's CLI rather than importing it,
 # so each has an environment of its own, see ../Dockerfile.
 dependencies = [
-    "boto3>=1.34,<2",
-    "pydantic>=2,<3",
-    "pydantic-settings>=2,<3",
+    "boto3~=1.34",
+    "pydantic~=2.11",
+    "pydantic-settings~=2.2",
 ]
 
 [dependency-groups]
 dev = ["pytest>=8"]
 
 [build-system]
-requires = ["uv_build>=0.12.19,<0.13"]
+requires = ["uv_build~=0.12.19"]
 build-backend = "uv_build"
 
 # The package is here, rather than under src/.
 [tool.uv.build-backend]
 module-root = ""
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra"

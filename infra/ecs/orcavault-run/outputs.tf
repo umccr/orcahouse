@@ -18,6 +18,7 @@ output "results_bucket" {
   value       = aws_s3_bucket.results.bucket
 }
 
+# --connection, because debug also checks for git, which the image doesn't have.
 output "debug_command" {
   description = "Run dbt debug in the task, to check it can reach Redshift."
   value       = <<-EOT
@@ -26,7 +27,7 @@ output "debug_command" {
       --task-definition ${aws_ecs_task_definition.dbt.arn} \
       --launch-type FARGATE \
       --network-configuration 'awsvpcConfiguration={subnets=[${join(",", data.aws_subnets.uom_private_subnets_ids.ids)}],securityGroups=[${data.aws_security_group.uom_primary_sg.id}],assignPublicIp=DISABLED}' \
-      --overrides '{"containerOverrides":[{"name":"${local.container_name}","command":["debug"]}]}'
+      --overrides '{"containerOverrides":[{"name":"${local.container_name}","command":["debug","--connection"]}]}'
   EOT
 }
 
