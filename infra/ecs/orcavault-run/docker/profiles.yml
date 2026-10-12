@@ -4,10 +4,13 @@
 # iam_role connects as the ECS task role, through
 # redshift-serverless:GetCredentials, so there is no user or password. The
 # database user is IAMR:<task role name>.
+#
+# Every environment uses this one target, named for where it runs. The
+# environment's workgroup is ORCAVAULT_REDSHIFT_HOST, set by its task.
 orcavault:
-  target: prod
+  target: ecs
   outputs:
-    prod:
+    ecs:
       type: redshift
       method: iam_role
       host: "{{ env_var('ORCAVAULT_REDSHIFT_HOST') }}"

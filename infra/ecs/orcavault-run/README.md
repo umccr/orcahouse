@@ -1,19 +1,19 @@
 # OrcaVault daily run
 
 Builds the [umccr/orcavault](https://github.com/umccr/orcavault) dbt project on
-Redshift Serverless once a day.
+Redshift Serverless once a day, in dev and in prod.
 
 ```
 EventBridge Scheduler, 03:00 Australia/Melbourne, input {}
-  └─ Step Functions state machine orcavault-run
-       1. CheckNoRunInProgress   skips the run if an OrcaVault dbt task is already running
+  └─ Step Functions state machine orcavault-run-<env>
+       1. CheckNoRunInProgress   skips the run if the environment's dbt task is already running
        2. RunDbt                 ECS Fargate task running the request, and waits for it
-                                   └─ writes to S3 orcavault-run-results-…/runs/<execution name>/event.json
+                                   └─ writes to S3 orcavault-run-<env>-results-…/runs/<execution name>/event.json
        3. ReadEvent              reads the event the task wrote
        4. AddRunFields           adds the fields every run's event has, such as runId
        5. SendEvent              sends "OrcaVault Run Finished" to the default event bus
        6. Finish                 succeeds if the run succeeded or only warned
-  └─ SNS topic orcavault-run-alerts
+  └─ SNS topic orcavault-run-<env>-alerts
        - a run failed, timed out or was stopped
        - no run has succeeded in the last 30 hours
 ```
@@ -21,6 +21,30 @@ EventBridge Scheduler, 03:00 Australia/Melbourne, input {}
 This replaces `infra/ecs/legacy/orcavault-dbt`, which runs the retired
 `orcahouse/orcavault` project against Aurora. That stack still has its own
 daily schedule, and decommissioning it is a separate change.
+
+## Environments
+
+Dev and prod each have their own run, which builds the orcavault database in
+their own workgroup, `orcahouse-dev` or `orcahouse-prod`. Both are in the
+warehouse account, so everything an environment creates is named after it,
+such as `orcavault-run-dev`, and neither touches the other's runs.
+
+| Directory                                | What it has                                                         | Applied         |
+|------------------------------------------|---------------------------------------------------------------------|-----------------|
+| `account-wide`                           | The image repository, `orcavault-run-dbt`                           | once            |
+| `environments/dev`, `environments/prod`  | The run: schedule, state machine, task, roles, results and alerts   | per environment |
+| `modules/orcavault-run`                  | What each environment applies                                       |                 |
+
+- **One image for both.** An image is built once for an orcavault ref, and dev
+  runs it first. A release reaches prod by applying prod with the same ref, so
+  prod runs the very image dev ran, rather than a rebuild that could resolve
+  different dependencies.
+- **The same CDC.** Both read the OrcaBus CDC from the prod landing zone and
+  the `orcabus_*` Glue databases, since only prod has DMS. Each writes only to
+  its own workgroup.
+- **Each workgroup's own `tsa`.** OrcaVault also reads the `tsa` schema in its
+  own database, so OrcaGlue has to load it in dev as well as prod. Without it,
+  dev's `tsa` models fail, and so does everything downstream of them.
 
 ## Why this design
 
@@ -103,8 +127,10 @@ automatically.
 
 OrcaVault's incremental models assume runs don't overlap. Two things prevent it:
 
-- `CheckNoRunInProgress` skips the run if an OrcaVault dbt task is already
-  running, however it was started. The execution fails with `skipped`.
+- `CheckNoRunInProgress` skips the run if the environment's OrcaVault dbt task
+  is already running, however it was started. The execution fails with
+  `skipped`. Dev and prod don't hold each other up, as they build different
+  workgroups.
 - A run is stopped after `run_timeout_hours` (4 by default), well before the
   next scheduled run.
 
@@ -121,24 +147,29 @@ run could see.
 
 ## First-time setup
 
-### 1. Build and push the image
+Create the image repository once, then set up each environment, dev first.
+The commands are run from this directory:
+
+```bash
+export AWS_PROFILE=unimelb-warehouse-prod-admin
+```
+
+### 1. Create the image repository
+
+```bash
+terraform -chdir=account-wide init
+terraform -chdir=account-wide apply
+```
+
+### 2. Build and push the image
 
 `orcavault_release_ref` is the orcavault tag or commit the image is built from,
 and its ECR tag. Tags are immutable. Pin a release tag or commit, never a
 branch, so that the code behind any load can be found again.
 
-The repository is created by the stack, so on the very first deploy create it
-first:
-
-```bash
-terraform apply -target=aws_ecr_repository.dbt -var orcavault_release_ref=v1.2.3
-```
-
-Then build and push:
-
 ```bash
 REF=v1.2.3
-REPO=$(terraform output -raw ecr_repository_url)
+REPO=$(terraform -chdir=account-wide output -raw ecr_repository_url)
 aws ecr get-login-password | docker login --username AWS --password-stdin "${REPO%%/*}"
 docker buildx build --platform linux/arm64 --build-arg "ORCAVAULT_REF=$REF" -t "$REPO:$REF" --push docker/
 ```
@@ -146,44 +177,48 @@ docker buildx build --platform linux/arm64 --build-arg "ORCAVAULT_REF=$REF" -t "
 The image holds orcavault at that ref with the dbt version it pins, and the
 runner from `docker/runner` with the versions in its `uv.lock`, each in an
 environment of its own. The build runs `dbt parse`, so a project that doesn't
-parse fails here rather than at 3am.
+parse fails here rather than at 3am. Both environments run the same image, so
+push each ref once.
 
-### 2. Apply
+### 3. Apply the environment
 
 ```bash
-export AWS_PROFILE=unimelb-warehouse-prod-admin
-terraform init
-terraform apply -var orcavault_release_ref=v1.2.3
+ENV=dev
+terraform -chdir=environments/$ENV init
+terraform -chdir=environments/$ENV apply -var orcavault_release_ref=$REF
 ```
 
-The applying role must be a Lake Formation admin, because `lakeformation.tf`
-grants the task role read on the CDC Glue databases.
+The applying role must be a Lake Formation admin, because
+`modules/orcavault-run/lakeformation.tf` grants the task role read on the CDC
+Glue databases.
 
-### 3. Grant the task's database user
+### 4. Grant the task's database user
 
 dbt connects with Redshift IAM auth as the task role, so its database user is
-`IAMR:orcavault-run-dbt-task-role` (`terraform output -raw dbt_task_db_identity`).
-It creates and owns everything OrcaVault writes: the `psa`, `dcl`, `mart`,
-`seed`, `dbt_test__audit` and `ops` schemas.
+`IAMR:orcavault-run-<env>-dbt-task-role`
+(`terraform -chdir=environments/$ENV output -raw dbt_task_db_identity`). It
+creates and owns everything OrcaVault writes: the `psa`, `dcl`, `mart`, `seed`,
+`dbt_test__audit` and `ops` schemas.
 
-As a Redshift admin, before the first run:
+As a Redshift admin, in the environment's workgroup, before its first run, with
+`<env>` replaced by `dev` or `prod`:
 
 ```sql
 -- Created on first connection anyway, but the grants need it to exist.
-create user "IAMR:orcavault-run-dbt-task-role" password disable;
+create user "IAMR:orcavault-run-<env>-dbt-task-role" password disable;
 
 -- dbt creates its schemas when they're missing.
-grant create on database orcavault to "IAMR:orcavault-run-dbt-task-role";
+grant create on database orcavault to "IAMR:orcavault-run-<env>-dbt-task-role";
 
 -- The CDC sources.
-grant usage on database awsdatacatalog to "IAMR:orcavault-run-dbt-task-role";
+grant usage on database awsdatacatalog to "IAMR:orcavault-run-<env>-dbt-task-role";
 
 -- tsa is written by OrcaGlue and read by OrcaVault.
-grant usage on schema tsa to "IAMR:orcavault-run-dbt-task-role";
-grant select on all tables in schema tsa to "IAMR:orcavault-run-dbt-task-role";
+grant usage on schema tsa to "IAMR:orcavault-run-<env>-dbt-task-role";
+grant select on all tables in schema tsa to "IAMR:orcavault-run-<env>-dbt-task-role";
 -- Only needed if OrcaGlue creates new tsa tables rather than reloading them.
 alter default privileges for user "<orcaglue-user>" in schema tsa
-    grant select on tables to "IAMR:orcavault-run-dbt-task-role";
+    grant select on tables to "IAMR:orcavault-run-<env>-dbt-task-role";
 ```
 
 **If OrcaVault has already been built here as another user**, that user owns
@@ -192,19 +227,19 @@ renaming the old table, and only the owner can rename it. This query prints the
 statements that hand them over; run each one:
 
 ```sql
-select 'alter schema ' || nspname || ' owner to "IAMR:orcavault-run-dbt-task-role";'
+select 'alter schema ' || nspname || ' owner to "IAMR:orcavault-run-<env>-dbt-task-role";'
 from pg_namespace
 where nspname in ('psa', 'dcl', 'mart', 'seed', 'dbt_test__audit', 'ops')
 union all
-select 'alter table ' || schemaname || '.' || tablename || ' owner to "IAMR:orcavault-run-dbt-task-role";'
+select 'alter table ' || schemaname || '.' || tablename || ' owner to "IAMR:orcavault-run-<env>-dbt-task-role";'
 from pg_tables
 where schemaname in ('psa', 'dcl', 'mart', 'seed', 'dbt_test__audit', 'ops')
-  and tableowner <> 'IAMR:orcavault-run-dbt-task-role'
+  and tableowner <> 'IAMR:orcavault-run-<env>-dbt-task-role'
 union all
-select 'alter table ' || schemaname || '.' || viewname || ' owner to "IAMR:orcavault-run-dbt-task-role";'
+select 'alter table ' || schemaname || '.' || viewname || ' owner to "IAMR:orcavault-run-<env>-dbt-task-role";'
 from pg_views
 where schemaname in ('psa', 'dcl', 'mart', 'seed', 'dbt_test__audit', 'ops')
-  and viewowner <> 'IAMR:orcavault-run-dbt-task-role';
+  and viewowner <> 'IAMR:orcavault-run-<env>-dbt-task-role';
 ```
 
 **Readers** get their own identities with read only. Default privileges make
@@ -212,36 +247,40 @@ tables the task creates later readable. Schema usage can only be granted once a
 schema exists, so for new schemas that's after the first run:
 
 ```sql
-alter default privileges for user "IAMR:orcavault-run-dbt-task-role"
+alter default privileges for user "IAMR:orcavault-run-<env>-dbt-task-role"
     grant select on tables to "IAMR:<reader-role>";
 
 grant usage on schema psa, dcl, mart, seed, dbt_test__audit, ops to "IAMR:<reader-role>";
 grant select on all tables in schema psa, dcl, mart, seed, dbt_test__audit, ops to "IAMR:<reader-role>";
 ```
 
-### 4. Subscribe to the alerts
+### 5. Subscribe to the alerts
 
 ```bash
-aws sns subscribe --topic-arn "$(terraform output -raw alerts_topic_arn)" \
+aws sns subscribe --topic-arn "$(terraform -chdir=environments/$ENV output -raw alerts_topic_arn)" \
   --protocol email --notification-endpoint you@example.com
 ```
 
-The no-success alarm is in ALARM until the first run succeeds.
+Each environment has its own topic, and its alerts name the environment. The
+no-success alarm is in ALARM until the first run succeeds.
 
-### 5. Check the task, then run it
+### 6. Check the task, then run it
 
 The task needs the network access listed under
 [Limits and risks](#limits-and-risks).
 
 ```bash
 # Checks the task can get credentials and connect to Redshift.
-eval "$(terraform output -raw debug_command)"
+eval "$(terraform -chdir=environments/$ENV output -raw debug_command)"
 
 # A first full run, rather than waiting for the schedule.
-eval "$(terraform output -raw start_run_command)"
+eval "$(terraform -chdir=environments/$ENV output -raw start_run_command)"
 ```
 
 ## Operating
+
+Each environment is run on its own. The `terraform` commands here are run in
+its directory, `environments/dev` or `environments/prod`.
 
 **Start a run** with `terraform output -raw start_run_command`, or from the Step
 Functions console with input `{}`. Leave the execution name to Step Functions,
@@ -259,8 +298,11 @@ instead. A run that reaches `run_timeout_hours` is stopped the same way.
 **Read the logs** with `terraform output -raw logs_command`, or from the
 `logsUrl` in the run's event.
 
-**Release a new version** by building and pushing an image for the new ref,
-then applying with the new `orcavault_release_ref`.
+**Release a new version** by building and pushing an image for the new ref, and
+applying dev with it as `orcavault_release_ref`. Once dev's runs have gone
+well, apply prod with the same ref. Every apply needs `orcavault_release_ref`:
+to change something else, give the ref the environment already runs, which its
+runs' events have as `orcavaultRef`.
 
 ### Requests
 
@@ -286,7 +328,8 @@ CDC.
   `--exclude` that matches nothing is an error (`DBT_WARN_ERROR_OPTIONS`), so
   a misspelt model fails the run, rather than the run succeeding having done
   nothing.
-- **The target is `prod`**, the only one in the image's profile.
+- **The target is `ecs`**, the only one in the image's profile, in every
+  environment. The task's environment decides which workgroup it builds.
 - **A request is checked before dbt starts.** One that isn't one of these
   shapes, or names another command, ends the run with `error` straight away.
   So does a misspelt flag, which dbt rejects before it connects.
@@ -367,6 +410,8 @@ killed, the state machine sends one with counts of 0 and says why in `error`.
 
 - The detail is flat, and every field is always there, so that an EventBridge
   input transformer can use it as it is.
+- `environment` is `dev` or `prod`. Both send to the same event bus with the
+  same source and detail type, so a rule for one environment matches on it.
 - `error` says why the outcome is `error` or `skipped`, such as
   `The run was stopped`, and is null otherwise. It's one line of at most 300
   characters, without double quotes or backslashes, so that an input
@@ -409,17 +454,30 @@ Its dependencies are in `docker/runner/pyproject.toml`. After changing them, run
 `uv lock`, and commit `uv.lock`, which is what the image installs. dbt isn't one
 of them: the image has the version orcavault pins.
 
+The Terraform tests are the module's, and don't need AWS either:
+
+```bash
+cd modules/orcavault-run
+terraform init -backend=false
+terraform test
+```
+
 ## Limits and risks
 
-- **Query time limit.** The prod workgroup stops any query that runs longer
-  than 900 seconds (`max_query_execution_time`). A large rebuild, such as the
-  first full run or a reread from far back, can hit it. The run then fails, and
-  the limit has to be raised for it.
-- **Monthly compute limit.** The prod workgroup is deactivated once it uses 120
+- **Query time limit.** Each workgroup stops any query that runs longer than
+  900 seconds (`max_query_execution_time`). A large rebuild, such as the first
+  full run or a reread from far back, can hit it. The run then fails, and the
+  limit has to be raised for it.
+- **Monthly compute limit.** Each workgroup is deactivated once it uses 120
   RPU-hours in a month (`breach_action = "deactivate"`). Every run, and
-  everything else on the workgroup, counts towards it. When it's reached, runs
-  fail until the next month or until the limit is raised. Check the workgroup's
-  usage after the first few runs.
+  everything else on the workgroup, counts towards it, so dev's daily runs
+  count towards dev's. When it's reached, runs fail until the next month or
+  until the limit is raised. Check the workgroup's usage after the first few
+  runs.
+- **Image archiving.** An image that no environment has pulled for 90 days is
+  archived, and deleted a year later, see `account-wide/main.tf`. An
+  environment paused for that long needs its image restored, or a new one,
+  before it runs again.
 - **Network.** The task runs in the private subnets of `UomPrimaryVpc`, without
   a public IP. It needs to reach ECR and CloudWatch Logs to start, the
   `redshift-serverless` API to get credentials, the workgroup on port 5439, and

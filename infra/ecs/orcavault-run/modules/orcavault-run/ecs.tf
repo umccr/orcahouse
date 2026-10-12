@@ -4,36 +4,6 @@
 # starts it, see stepfunctions.tf. This replaces infra/ecs/legacy/orcavault-dbt,
 # which runs the retired orcahouse/orcavault project against Aurora.
 
-resource "aws_ecr_repository" "dbt" {
-  name                 = "${local.name_prefix}-dbt"
-  image_tag_mutability = "IMMUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-resource "aws_ecr_lifecycle_policy" "dbt" {
-  repository = aws_ecr_repository.dbt.name
-
-  policy = jsonencode({
-    rules = [
-      {
-        rulePriority = 1
-        description  = "Keep the last 20 images."
-        selection = {
-          tagStatus   = "any"
-          countType   = "imageCountMoreThan"
-          countNumber = 20
-        }
-        action = {
-          type = "expire"
-        }
-      }
-    ]
-  })
-}
-
 resource "aws_cloudwatch_log_group" "dbt" {
   name              = "/aws/ecs/${local.name_prefix}-dbt"
   retention_in_days = 90
@@ -60,7 +30,7 @@ resource "aws_ecs_task_definition" "dbt" {
   container_definitions = jsonencode([
     {
       name      = local.container_name
-      image     = "${aws_ecr_repository.dbt.repository_url}:${var.orcavault_release_ref}"
+      image     = "${data.aws_ecr_repository.dbt.repository_url}:${var.orcavault_release_ref}"
       essential = true
 
       # The first two are read by profiles.yml in the image. There is no

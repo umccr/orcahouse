@@ -1,7 +1,21 @@
-variable "redshift_workgroup_name" {
-  description = "Redshift Serverless workgroup hosting the orcavault database."
+variable "environment" {
+  description = <<-EOT
+    The environment, such as dev or prod. It names everything here, so that
+    each environment's run is separate, and is in each run's event, so that
+    notifications can tell environments apart.
+  EOT
   type        = string
-  default     = "orcahouse-prod"
+}
+
+variable "redshift_workgroup_name" {
+  description = "This environment's Redshift Serverless workgroup, hosting its orcavault database."
+  type        = string
+}
+
+variable "ecr_repository_name" {
+  description = "The image repository, which ../../account-wide creates for every environment."
+  type        = string
+  default     = "orcavault-run-dbt"
 }
 
 variable "cdc_glue_databases" {
@@ -34,12 +48,6 @@ variable "orcavault_release_ref" {
     given load can be recovered from the image.
   EOT
   type        = string
-}
-
-variable "environment" {
-  description = "Named in each run's event, so that notifications can tell environments apart."
-  type        = string
-  default     = "prod"
 }
 
 variable "dbt_threads" {

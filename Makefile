@@ -26,4 +26,7 @@ test-runner:
 test-iac:
 	@(cd infra/ec2/umccr-mgmt && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
 	@(cd infra/ec2/warehouse-mgmt && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
-	@(cd infra/ecs/orcavault-run && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
+	@(cd infra/ecs/orcavault-run/modules/orcavault-run && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
+	@(cd infra/ecs/orcavault-run/account-wide && terraform init -backend=false && terraform fmt -check && terraform validate)
+	@(cd infra/ecs/orcavault-run/environments/dev && terraform init -backend=false && terraform fmt -check && terraform validate)
+	@(cd infra/ecs/orcavault-run/environments/prod && terraform init -backend=false && terraform fmt -check && terraform validate)

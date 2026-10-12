@@ -76,7 +76,9 @@ mock_provider "aws" {
 }
 
 variables {
-  orcavault_release_ref = "v1.0.0"
+  environment             = "prod"
+  redshift_workgroup_name = "orcahouse-prod"
+  orcavault_release_ref   = "v1.0.0"
 }
 
 run "schedule_builds_everything" {
@@ -146,7 +148,7 @@ run "every_run_sends_its_event" {
   }
 
   assert {
-    condition     = local.logs_url_prefix == "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-southeast-2#logsV2:log-groups/log-group/$252Faws$252Fecs$252Forcavault-run-dbt/log-events/dbt$252Fdbt$252F"
+    condition     = local.logs_url_prefix == "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-southeast-2#logsV2:log-groups/log-group/$252Faws$252Fecs$252Forcavault-run-prod-dbt/log-events/dbt$252Fdbt$252F"
     error_message = "the logs URL should open the task's log stream, given its ID"
   }
 
@@ -178,5 +180,38 @@ run "task_writes_its_event" {
   assert {
     condition     = one(aws_s3_bucket_lifecycle_configuration.results.rule[0].expiration).days == 90
     error_message = "events should expire after results_retention_days"
+  }
+}
+
+# Every environment is in the same account, so names must not collide.
+run "environments_are_separate" {
+  variables {
+    environment = "dev"
+  }
+
+  assert {
+    condition = alltrue([
+      for name in [
+        aws_sfn_state_machine.run.name,
+        aws_ecs_cluster.this.name,
+        aws_ecs_task_definition.dbt.family,
+        aws_cloudwatch_log_group.dbt.name,
+        aws_s3_bucket.results.bucket,
+        aws_iam_role.ecs_execution.name,
+        aws_iam_role.dbt_task.name,
+        aws_iam_role.states.name,
+        aws_iam_role.scheduler.name,
+        aws_scheduler_schedule.daily.name,
+        aws_sns_topic.alerts.name,
+        aws_cloudwatch_event_rule.run_failed.name,
+        aws_cloudwatch_metric_alarm.no_recent_success.alarm_name,
+      ] : strcontains(name, "-dev")
+    ])
+    error_message = "everything an environment creates should be named after it"
+  }
+
+  assert {
+    condition     = jsondecode(local.run_fields.environment) == "dev"
+    error_message = "each run's event should say which environment it's from"
   }
 }

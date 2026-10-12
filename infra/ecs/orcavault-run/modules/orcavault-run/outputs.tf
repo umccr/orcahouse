@@ -1,8 +1,3 @@
-output "ecr_repository_url" {
-  description = "Push the dbt image here, tagged with orcavault_release_ref."
-  value       = aws_ecr_repository.dbt.repository_url
-}
-
 output "state_machine_arn" {
   description = "The OrcaVault run state machine."
   value       = aws_sfn_state_machine.run.arn

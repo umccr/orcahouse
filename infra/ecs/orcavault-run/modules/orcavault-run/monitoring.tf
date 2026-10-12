@@ -43,7 +43,7 @@ resource "aws_sns_topic_policy" "alerts" {
 
 resource "aws_cloudwatch_event_rule" "run_failed" {
   name        = "${local.name_prefix}-failed"
-  description = "An OrcaVault dbt run failed, timed out or was stopped."
+  description = "An OrcaVault ${var.environment} dbt run failed, timed out or was stopped."
 
   event_pattern = jsonencode({
     source      = ["aws.states"]
@@ -69,7 +69,7 @@ resource "aws_cloudwatch_event_target" "run_failed" {
 
     # Written by hand, not with jsonencode, which would escape the angle
     # brackets around the placeholders.
-    input_template = "\"OrcaVault dbt run <status>, error: <error>. Execution: https://${data.aws_region.current.region}.console.aws.amazon.com/states/home?region=${data.aws_region.current.region}#/v2/executions/details/<execution> Logs: https://${data.aws_region.current.region}.console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.region}#logsV2:log-groups/log-group/${replace(aws_cloudwatch_log_group.dbt.name, "/", "$252F")}\""
+    input_template = "\"OrcaVault ${var.environment} dbt run <status>, error: <error>. Execution: https://${data.aws_region.current.region}.console.aws.amazon.com/states/home?region=${data.aws_region.current.region}#/v2/executions/details/<execution> Logs: https://${data.aws_region.current.region}.console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.region}#logsV2:log-groups/log-group/${replace(aws_cloudwatch_log_group.dbt.name, "/", "$252F")}\""
   }
 }
 
@@ -80,7 +80,7 @@ resource "aws_cloudwatch_event_target" "run_failed" {
 
 resource "aws_cloudwatch_metric_alarm" "no_recent_success" {
   alarm_name        = "${local.name_prefix}-no-recent-success"
-  alarm_description = "No OrcaVault dbt run has succeeded in the last ${var.max_hours_without_success} hours."
+  alarm_description = "No OrcaVault ${var.environment} dbt run has succeeded in the last ${var.max_hours_without_success} hours."
   actions_enabled   = var.schedule_enabled
 
   namespace   = "AWS/States"
