@@ -1,12 +1,4 @@
-# The runner's profile. It replaces the one in the orcavault repository, which
-# is for local development.
-#
-# iam_role connects as the ECS task role, through
-# redshift-serverless:GetCredentials, so there is no user or password. The
-# database user is IAMR:<task role name>.
-#
-# Every environment uses this one target, named for where it runs. The
-# environment's workgroup is ORCAVAULT_REDSHIFT_HOST, set by its task.
+# The profile for the runner, which replaces the one inside the orcavault repo.
 orcavault:
   target: ecs
   outputs:
@@ -21,5 +13,4 @@ orcavault:
       threads: "{{ env_var('ORCAVAULT_DBT_THREADS', '4') | as_number }}"
       ra3_node: true
       datasharing: true
-      # Retries opening a connection, for example while the workgroup resumes.
       retries: 3
