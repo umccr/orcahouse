@@ -81,7 +81,7 @@ BUILT_TYPES = {"model", "seed", "snapshot"}
 TEST_TYPES = {"test", "unit_test"}
 
 # dbt's NodeStatus values, by what they mean here.
-SUCCEEDED_STATUSES = {"success", "pass", "no-op"}
+SUCCEEDED_STATUSES = {"success", "pass", "no-op", "reused"}
 FAILED_STATUSES = {"error", "fail", "runtime error", "partial success"}
 
 

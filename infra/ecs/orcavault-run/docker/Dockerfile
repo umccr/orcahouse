@@ -1,8 +1,7 @@
 FROM ghcr.io/astral-sh/uv:0.12.19 AS uv
 
-# dbt runs on this Python, so it's the newest that the dbt orcavault pins
-# supports: 3.13 for dbt 1.11, and 3.14 from dbt 1.12. The runner's
-# requires-python is the same.
+# dbt runs on this Python, so it's the newest that orcavault's dbt-core and
+# dbt-redshift both support: 3.13. The runner's requires-python is the same.
 FROM public.ecr.aws/docker/library/python:3.13-slim
 
 RUN useradd --create-home dbt
