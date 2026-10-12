@@ -72,21 +72,18 @@ class Request(BaseModel):
 
 
 def parse_request(raw: str) -> Request:
-    """Parses the execution input, where an empty string is the same as {}."""
+    """Parses the execution input."""
     try:
-        return Request.model_validate_json(raw.strip() or "{}")
+        return Request.model_validate_json(raw)
     except ValidationError as e:
-        raise RequestError(describe(e.errors())) from e
-
-
-def describe(errors: list[ErrorDetails]) -> str:
-    # pydantic has an error for each unknown field, which are named together.
-    unknown = sorted(f"`{error['loc'][0]}`" for error in errors if error["type"] == "extra_forbidden")
-    messages = [message(error) for error in errors if error["type"] != "extra_forbidden"]
-    if unknown:
-        fields = "fields" if len(unknown) > 1 else "field"
-        messages.insert(0, f"Unknown {fields} {', '.join(unknown)}. A request only has `args`")
-    return ". ".join(messages)
+        errors = e.errors()
+        # pydantic has an error for each unknown field, which are named together.
+        unknown = sorted(f"`{error['loc'][0]}`" for error in errors if error["type"] == "extra_forbidden")
+        messages = [message(error) for error in errors if error["type"] != "extra_forbidden"]
+        if unknown:
+            fields = "fields" if len(unknown) > 1 else "field"
+            messages.insert(0, f"Unknown {fields} {', '.join(unknown)}. A request only has `args`")
+        raise RequestError(". ".join(messages)) from e
 
 
 def message(error: ErrorDetails) -> str:

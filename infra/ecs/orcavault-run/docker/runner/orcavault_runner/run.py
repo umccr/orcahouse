@@ -9,104 +9,59 @@ run_results.json is only read for the event, and the logs have the rest.
 import json
 import logging
 from pathlib import Path
-from typing import Protocol
 
-from pydantic import ConfigDict
-from pydantic.alias_generators import to_camel
-
+from .dbt import Dbt
 from .request import RequestError, parse_request
-from .results import Counts, Outcome, classify, read_results, summarise_nodes
+from .results import Event, Outcome, classify, read_results
 
 log = logging.getLogger(__name__)
 
-# Long enough for the runner's own errors. dbt's are in the logs.
-ERROR_LIMIT = 300
 
-
-class Event(Counts):
-    """How the run went, for the detail of its EventBridge event. The state
-    machine adds the fields every run's event has, such as runId. It's flat and
-    already formatted, so that EventBridge input transformers can use it as it
-    is."""
-
-    # In camelCase in event.json. A field is checked when it's set, so that a
-    # wrong type is an error rather than a value the notifications can't use.
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        validate_by_name=True,
-        serialize_by_alias=True,
-        validate_assignment=True,
-    )
-
-    outcome: Outcome = Outcome.ERROR
-    # Why the outcome is error, otherwise None.
-    error: str | None = None
-    failed_nodes: str = ""
-    warned_nodes: str = ""
-
-
-class Dbt(Protocol):
-    """What the runner needs from dbt.Dbt, so that tests can stand in for it."""
-
-    stopping: bool
-
-    def __call__(self, args: list[str]) -> int: ...
-
-
-def one_line(text: str, limit: int = ERROR_LIMIT) -> str:
+def one_line(text: str, limit: int = 300) -> str:
     """The text as one short line without double quotes or backslashes, so that
     an EventBridge input transformer, which doesn't escape what it puts into a
-    JSON string, can use it."""
+    JSON string, can use it. The limit is long enough for the runner's own
+    errors. dbt's are in the logs."""
     text = " ".join(text.replace('"', "'").replace("\\", "").split())
     text = "".join(c for c in text if c.isprintable())
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
-def run_dbt(args: tuple[str, ...], project_dir: Path, dbt: Dbt, event: Event) -> Outcome:
-    """Runs dbt, and records how it went in the event."""
-    results_path = project_dir / "target" / "run_results.json"
+def run_dbt(args: tuple[str, ...], dbt: Dbt) -> Event:
+    """Runs dbt, and returns how it went."""
+    results_path = Path("target", "run_results.json")
     # A file left by an earlier dbt command, such as one run by hand, would be
     # read as this run's results if dbt fails early.
     results_path.unlink(missing_ok=True)
 
-    code = dbt(list(args))
+    code = dbt(args)
 
     if not results_path.exists():
-        event.error = f"dbt exited with {code} and wrote no run_results.json, see the logs"
-        return Outcome.ERROR
+        return Event(error=f"dbt exited with {code} and wrote no run_results.json, see the logs")
 
-    results = read_results(json.loads(results_path.read_text()))
-    for name, count in results.counts:
-        setattr(event, name, count)
-    event.failed_nodes = summarise_nodes(results.failed_nodes)
-    event.warned_nodes = summarise_nodes(results.warned_nodes)
-
-    outcome = classify(code, results)
-    if outcome is Outcome.ERROR:
+    event = read_results(json.loads(results_path.read_text()))
+    event.outcome = classify(code, event)
+    if event.outcome is Outcome.ERROR:
         event.error = f"dbt exited with {code}, see the logs"
-    return outcome
+    return event
 
 
-def run(raw_request: str, project_dir: Path, dbt: Dbt) -> tuple[Outcome, Event]:
-    """Runs the request in the dbt project, and returns its outcome and event."""
-    event = Event()
-
-    outcome = Outcome.ERROR
+def run(raw_request: str, dbt: Dbt) -> Event:
+    """Runs the request in the dbt project, which is the working directory, and
+    returns its event."""
     try:
         request = parse_request(raw_request)
     except RequestError as e:
-        event.error = str(e)
+        event = Event(error=str(e))
     else:
-        if not dbt.stopping:
-            outcome = run_dbt(request.args, project_dir, dbt, event)
+        event = run_dbt(request.args, dbt)
 
     # An error, however far dbt got.
     if dbt.stopping:
         event.error = "The run was stopped"
-        outcome = Outcome.ERROR
+        event.outcome = Outcome.ERROR
 
-    event.outcome = outcome
     if event.error is not None:
         log.error("%s", event.error)
         event.error = one_line(event.error)
-    return outcome, event
+    return event

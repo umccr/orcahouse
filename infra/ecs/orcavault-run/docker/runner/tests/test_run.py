@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 from fakes import FakeDbt, result, run_results
@@ -12,13 +13,12 @@ UNIQUE = "test.orcavault.unique_hub_library_library_hk.9b8e7d6c5a"
 ACCEPTED = "test.orcavault.accepted_values_lims_type.1c2d3e4f5a"
 
 
-def test_scheduled_run(project_dir):
-    dbt = FakeDbt(project_dir, results=[result(HUB, "success"), result(UNIQUE, "pass")])
+def test_scheduled_run():
+    dbt = FakeDbt(results=[result(HUB, "success"), result(UNIQUE, "pass")])
 
-    outcome, event = run("{}", project_dir, dbt)
+    event = run("{}", dbt)
 
-    assert dbt.calls == [["build"]]
-    assert outcome is Outcome.SUCCEEDED
+    assert dbt.calls == [("build",)]
     # As event.json has it.
     assert json.loads(event.model_dump_json()) == {
         "outcome": "succeeded",
@@ -34,66 +34,52 @@ def test_scheduled_run(project_dir):
     }
 
 
-def test_failed_test(project_dir):
+def test_failed_test():
     dbt = FakeDbt(
-        project_dir,
         code=1,
         results=[result(HUB, "success"), result(UNIQUE, "fail"), result(LIMS, "skipped"), result(ACCEPTED, "warn")],
     )
 
-    outcome, event = run('{"args": "build --select +lims --fail-fast"}', project_dir, dbt)
+    event = run('{"args": "build --select +lims --fail-fast"}', dbt)
 
-    assert dbt.calls == [["build", "--select", "+lims", "--fail-fast"]]
-    assert outcome is Outcome.FAILED
+    assert dbt.calls == [("build", "--select", "+lims", "--fail-fast")]
+    assert event.outcome is Outcome.FAILED
     assert event.error is None
-    assert event.failed_nodes == "unique_hub_library_library_hk"
-    assert event.warned_nodes == "accepted_values_lims_type"
+    assert event.failed_nodes == [UNIQUE]
+    assert event.warned_nodes == [ACCEPTED]
     assert event.models_skipped == 1
 
 
 @pytest.mark.parametrize(
-    "code, results, stop, mentions",
+    "results, stop, mentions",
     [
-        (2, [result(HUB, "success")], False, "2"),
-        (2, None, False, "run_results.json"),
-        (2, [result(HUB, "success")], True, "stopped"),
+        ([result(HUB, "success")], False, "2"),
+        (None, False, "run_results.json"),
+        ([result(HUB, "success")], True, "stopped"),
     ],
 )
-def test_errors(project_dir, code, results, stop, mentions):
-    dbt = FakeDbt(project_dir, code=code, results=results, stop=stop)
+def test_errors(results, stop, mentions):
+    # Left by an earlier dbt command, such as one run by hand. It's not read as
+    # this run's when dbt writes none.
+    earlier = Path("target", "run_results.json")
+    earlier.parent.mkdir()
+    earlier.write_text(json.dumps(run_results(result(LIMS, "success"))))
 
-    outcome, event = run("{}", project_dir, dbt)
+    event = run("{}", FakeDbt(code=2, results=results, stop=stop))
 
-    assert outcome is Outcome.ERROR
+    assert event.outcome is Outcome.ERROR
     # However it's worded, the error says what went wrong.
     assert mentions in event.error
 
 
-@pytest.mark.parametrize(
-    "request_json, stopping, mentions",
-    [
-        ('{"args": "run-operation drop_everything"}', False, "run-operation"),
-        ("{}", True, "stopped"),
-    ],
-)
-def test_runs_nothing(project_dir, request_json, stopping, mentions):
-    dbt = FakeDbt(project_dir, stopping=stopping)
+def test_invalid_request():
+    dbt = FakeDbt()
 
-    outcome, event = run(request_json, project_dir, dbt)
+    event = run('{"args": "run-operation drop_everything"}', dbt)
 
     assert dbt.calls == []
-    assert outcome is Outcome.ERROR
-    assert mentions in event.error
-
-
-def test_earlier_results_are_not_read_as_this_runs(project_dir):
-    earlier = project_dir / "target" / "run_results.json"
-    earlier.parent.mkdir()
-    earlier.write_text(json.dumps(run_results(result(HUB, "success"))))
-
-    _, event = run("{}", project_dir, FakeDbt(project_dir, code=2, results=None))
-
-    assert event.models_succeeded == 0
+    assert event.outcome is Outcome.ERROR
+    assert "run-operation" in event.error
 
 
 def test_one_line():

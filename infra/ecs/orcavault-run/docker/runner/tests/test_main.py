@@ -7,7 +7,7 @@ import pytest
 from botocore.stub import Stubber
 
 from orcavault_runner.__main__ import Settings, write_event
-from orcavault_runner.run import Event
+from orcavault_runner.results import Event
 
 
 @pytest.fixture(autouse=True)
@@ -53,9 +53,9 @@ def test_empty_settings_are_defaults(monkeypatch):
 
     assert re.fullmatch(r"manual-\d{8}T\d{6}Z", settings.run_id)
     assert settings.model_dump(exclude={"run_id"}) == {
-        "run_request": "",
+        "run_request": "{}",
         "results_bucket": None,
-        "results_dir": None,
+        "results_dir": Path("target"),
         "ref": "unknown",
     }
 
@@ -64,32 +64,23 @@ EVENT = Event()
 EVENT_JSON = EVENT.model_dump_json(indent=2)
 
 
-def test_write_event_to_s3(tmp_path, monkeypatch):
-    client = boto3.client("s3", region_name="ap-southeast-2", aws_access_key_id="x", aws_secret_access_key="x")
+def test_write_event_to_s3(monkeypatch):
+    client = boto3.client("s3", region_name="ap-southeast-2")
     monkeypatch.setattr(boto3, "client", lambda service: client)
     with Stubber(client) as stubber:
         stubber.add_response(
             "put_object",
             {},
-            {
-                "Bucket": "bucket",
-                "Key": "runs/run-1/event.json",
-                "Body": EVENT_JSON.encode(),
-                "ContentType": "application/json",
-            },
+            {"Bucket": "bucket", "Key": "runs/run-1/event.json", "Body": EVENT_JSON, "ContentType": "application/json"},
         )
 
-        location = write_event(EVENT, Settings(run_id="run-1", results_bucket="bucket"), tmp_path)
+        location = write_event(EVENT, Settings(run_id="run-1", results_bucket="bucket"))
 
         stubber.assert_no_pending_responses()
     assert location == "s3://bucket/runs/run-1/event.json"
 
 
-def test_write_event_to_a_directory(tmp_path):
-    path = tmp_path / "target" / "runs" / "run-1" / "event.json"
-    assert write_event(EVENT, Settings(run_id="run-1"), tmp_path) == str(path)
-    assert path.read_text() == EVENT_JSON
-
-    path = tmp_path / "events" / "run-1" / "event.json"
-    assert write_event(EVENT, Settings(run_id="run-1", results_dir=tmp_path / "events"), tmp_path) == str(path)
+def test_write_event_to_a_directory():
+    path = Path("target", "runs", "run-1", "event.json")
+    assert write_event(EVENT, Settings(run_id="run-1")) == str(path)
     assert path.read_text() == EVENT_JSON

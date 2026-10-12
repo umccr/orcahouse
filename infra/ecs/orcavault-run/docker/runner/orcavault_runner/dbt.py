@@ -9,15 +9,13 @@ import shlex
 import signal
 import subprocess
 from collections.abc import Sequence
-from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 
 class Dbt:
-    def __init__(self, project_dir: Path, executable: Sequence[str] = ("dbt",)) -> None:
-        self.project_dir = project_dir
-        self.executable = list(executable)
+    def __init__(self, executable: Sequence[str] = ("dbt",)) -> None:
+        self.executable = executable
         self.process: subprocess.Popen[bytes] | None = None
         self.stopping = False
 
@@ -33,18 +31,17 @@ class Dbt:
         if self.process is not None and self.process.poll() is None:
             self.process.send_signal(signal.SIGINT)
 
-    def __call__(self, args: list[str]) -> int:
-        """Runs dbt, which writes to the runner's stdout, and returns its exit
-        code."""
+    def __call__(self, args: Sequence[str]) -> int:
+        """Runs dbt in the working directory, which writes to the runner's
+        stdout, and returns its exit code."""
         log.info("Running: dbt %s", shlex.join(args))
         # In its own session, so that a Ctrl-C in a terminal reaches only the
         # runner, which passes it on, the same as SIGTERM.
-        self.process = subprocess.Popen([*self.executable, *args], cwd=self.project_dir, start_new_session=True)
-        # Stopped while dbt was starting.
+        self.process = subprocess.Popen([*self.executable, *args], start_new_session=True)
+        # Stopped before dbt started, or while it was starting.
         if self.stopping:
             self.stop()
 
         code = self.process.wait()
-        self.process = None
         log.info("dbt exited with %d", code)
         return code

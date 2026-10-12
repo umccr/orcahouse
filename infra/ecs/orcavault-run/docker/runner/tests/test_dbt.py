@@ -12,14 +12,14 @@ posix_only = pytest.mark.skipif(sys.platform == "win32", reason="SIGINT can't be
 
 
 @pytest.fixture
-def dbt(project_dir):
-    return Dbt(project_dir, executable=[sys.executable, FAKE_DBT])
+def dbt():
+    return Dbt(executable=[sys.executable, FAKE_DBT])
 
 
 def test_dbt(dbt, capfd):
     assert dbt(["exit", "1", "--select", "+lims"]) == 1
     # Straight to the runner's stdout.
-    assert capfd.readouterr().out.splitlines()[:2] == ["args: exit 1 --select +lims", "cwd: orcavault"]
+    assert capfd.readouterr().out.splitlines() == ["args: exit 1 --select +lims"]
 
 
 @posix_only
