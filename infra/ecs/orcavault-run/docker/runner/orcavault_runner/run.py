@@ -18,10 +18,12 @@ log = logging.getLogger(__name__)
 
 
 def one_line(text: str, limit: int = 300) -> str:
-    """The text as one short line without double quotes or backslashes, so that
-    an EventBridge input transformer, which doesn't escape what it puts into a
-    JSON string, can use it. The limit is long enough for the runner's own
-    errors and dbt's reasons for a skip. dbt's errors are in the logs."""
+    """The text as one short line, without double quotes or backslashes.
+
+    An EventBridge input transformer, which doesn't escape what it puts into a
+    JSON string, can then use it. The limit is long enough for the runner's own
+    errors and dbt's reasons for a skip. dbt's errors are in the logs.
+    """
     text = " ".join(text.replace('"', "'").replace("\\", "").split())
     text = "".join(c for c in text if c.isprintable())
     return text if len(text) <= limit else text[: limit - 3] + "..."
@@ -51,8 +53,10 @@ def run_dbt(args: tuple[str, ...], dbt: Dbt) -> Event:
 
 
 def run(raw_request: str, dbt: Dbt) -> Event:
-    """Runs the request in the dbt project, which is the working directory, and
-    returns its event."""
+    """Runs the request in the dbt project, and returns its event.
+
+    The dbt project is the working directory.
+    """
     try:
         request = parse_request(raw_request)
     except RequestError as e:

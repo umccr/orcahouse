@@ -32,8 +32,10 @@ class Dbt:
             self.process.send_signal(signal.SIGINT)
 
     def __call__(self, args: Sequence[str]) -> int:
-        """Runs dbt in the working directory, which writes to the runner's
-        stdout, and returns its exit code."""
+        """Runs dbt in the working directory, and returns its exit code.
+
+        dbt writes to the runner's stdout.
+        """
         log.info("Running: dbt %s", shlex.join(args))
         # In its own session, so that a Ctrl-C in a terminal reaches only the
         # runner, which passes it on, the same as SIGTERM.

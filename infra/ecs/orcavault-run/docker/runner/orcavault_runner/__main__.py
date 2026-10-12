@@ -37,9 +37,11 @@ log = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
-    """The environment above, where each variable is ORCAVAULT_ and its field's
-    name. Other ORCAVAULT_ variables, such as dbt's ORCAVAULT_REDSHIFT_HOST, are
-    ignored."""
+    """The environment above, where each variable is ORCAVAULT_<field name>.
+
+    Other ORCAVAULT_ variables, such as dbt's ORCAVAULT_REDSHIFT_HOST, are
+    ignored.
+    """
 
     model_config = SettingsConfigDict(env_prefix="ORCAVAULT_", env_ignore_empty=True, frozen=True)
 
@@ -52,8 +54,11 @@ class Settings(BaseSettings):
 
 
 def write_event(event: Event, settings: Settings) -> str:
-    """Writes the run's event to runs/<run ID>/event.json, in the results bucket
-    or else the results directory, and returns where it went."""
+    """Writes the run's event, and returns where it went.
+
+    It goes to runs/<run ID>/event.json, in the results bucket or else the
+    results directory.
+    """
     key = f"runs/{settings.run_id}/event.json"
     body = event.model_dump_json(indent=2)
     if bucket := settings.results_bucket:

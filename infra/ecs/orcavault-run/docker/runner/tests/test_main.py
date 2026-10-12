@@ -12,9 +12,12 @@ from orcavault_runner.results import Event
 
 @pytest.fixture(autouse=True)
 def unset_environment(monkeypatch):
-    """Settings reads the process's environment, so without this a variable set
+    """Keeps the shell's environment out of the tests.
+
+    Settings reads the process's environment, so without this a variable set
     in the shell, such as from running the image by hand, would reach the tests.
-    Settings matches names in any case, and so does this."""
+    Settings matches names in any case, and so does this.
+    """
     for name in list(os.environ):
         if name.upper().startswith("ORCAVAULT_"):
             monkeypatch.delenv(name)

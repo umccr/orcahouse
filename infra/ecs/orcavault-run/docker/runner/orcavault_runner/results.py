@@ -11,8 +11,11 @@ from pydantic.alias_generators import to_camel
 
 
 class Outcome(StrEnum):
-    """How a run went. These are all the outcomes a run can have, which
-    stepfunctions.tf names too."""
+    """How a run went.
+
+    These are all the outcomes a run can have, which stepfunctions.tf names
+    too.
+    """
 
     SUCCEEDED = "succeeded"
     # Only warn severity tests failed. Nothing was held back.
@@ -35,10 +38,12 @@ class Outcome(StrEnum):
 
 
 class Event(BaseModel):
-    """How the run went, for the detail of its EventBridge event. The state
-    machine adds the fields every run's event has, such as runId. It's flat and
-    already formatted, so that EventBridge input transformers can use it as it
-    is."""
+    """How the run went, for the detail of its EventBridge event.
+
+    The state machine adds the fields every run's event has, such as runId.
+    It's flat and already formatted, so that EventBridge input transformers can
+    use it as it is.
+    """
 
     # In camelCase in event.json. A field is checked when it's set, so that a
     # wrong type is an error rather than a value the notifications can't use.
@@ -64,8 +69,10 @@ class Event(BaseModel):
 
     @field_serializer("failed_nodes", "warned_nodes")
     def summarise(self, unique_ids: list[str]) -> str:
-        """A short list for a notification, which can't loop over an array, by
-        the names people know the nodes by, once each.
+        """The nodes as a short list, for a notification.
+
+        A notification can't loop over an array. Each node is in the list once,
+        by the name people know it by.
 
         Unique IDs are <type>.<package>.<name>, where a data test also ends with
         a hash, a versioned model with its version, and a unit test has its
@@ -111,7 +118,10 @@ def read_results(run_results: dict[str, Any]) -> Event:
 
 
 def classify(exit_code: int, event: Event) -> Outcome:
-    """dbt exits 1 when a node fails and 2 when it couldn't run at all."""
+    """The run's outcome, from dbt's exit code and its results.
+
+    dbt exits 1 when a node fails and 2 when it couldn't run at all.
+    """
     if exit_code not in (0, 1):
         return Outcome.ERROR
     if event.failed_nodes:
