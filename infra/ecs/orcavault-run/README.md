@@ -450,6 +450,13 @@ cd docker/runner
 uv run pytest
 ```
 
+Its code is linted and formatted with ruff, which CI checks:
+
+```bash
+uv run ruff check --fix
+uv run ruff format
+```
+
 Its dependencies are in `docker/runner/pyproject.toml`. After changing them, run
 `uv lock`, and commit `uv.lock`, which is what the image installs. dbt isn't one
 of them: the image has the version orcavault pins.

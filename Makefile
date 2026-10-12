@@ -18,9 +18,10 @@ test:
 	@(cd orcavault && dbt deps && dbt test)
 
 # The OrcaVault run's runner, see infra/ecs/orcavault-run/README.md. Needs uv,
-# but neither dbt nor AWS. Fails if its uv.lock is out of date.
+# but neither dbt nor AWS. Fails if its uv.lock is out of date, or ruff finds
+# anything.
 test-runner:
-	@(cd infra/ecs/orcavault-run/docker/runner && uv run --locked pytest)
+	@(cd infra/ecs/orcavault-run/docker/runner && uv run --locked ruff check && uv run --locked ruff format --check && uv run --locked pytest)
 
 # NOTE: not suitable target for local running but specifically setup for anonymous CI runner  ~victor
 test-iac:
