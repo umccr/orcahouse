@@ -39,24 +39,17 @@ def test_read_results():
     )
     assert results.failed_nodes == [SAT, UNIQUE, UNIT, ON_RUN_END]
     assert results.warned_nodes == [SINGULAR]
-    assert results.hook_failed
-
-
-def counted(**counts: int) -> RunResults:
-    return RunResults(counts=Counts(**counts))
 
 
 @pytest.mark.parametrize(
     "exit_code, results, outcome",
     [
-        (0, counted(models_succeeded=3, tests_passed=4), Outcome.SUCCEEDED),
-        (0, counted(tests_warned=1), Outcome.WARNED),
-        (1, counted(tests_failed=1, models_skipped=1), Outcome.TESTS_FAILED),
-        (1, counted(models_failed=1, tests_failed=1), Outcome.MODELS_FAILED),
+        (0, RunResults(), Outcome.SUCCEEDED),
+        (0, RunResults(warned_nodes=[SINGULAR]), Outcome.WARNED),
+        (1, RunResults(failed_nodes=[UNIQUE, ON_RUN_END], warned_nodes=[SINGULAR]), Outcome.FAILED),
         # dbt failed without a node failing.
-        (1, counted(models_succeeded=3), Outcome.ERROR),
-        (0, RunResults(hook_failed=True), Outcome.ERROR),
-        (2, counted(models_succeeded=3), Outcome.ERROR),
+        (1, RunResults(), Outcome.ERROR),
+        (2, RunResults(failed_nodes=[SAT]), Outcome.ERROR),
         (1, None, Outcome.ERROR),
     ],
 )
@@ -64,9 +57,8 @@ def test_classify(exit_code, results, outcome):
     assert classify(exit_code, results) == outcome
 
 
-def test_outcomes():
-    assert Outcome.worst([Outcome.WARNED, Outcome.ERROR, Outcome.MODELS_FAILED]) == Outcome.ERROR
-    assert [outcome.exit_code for outcome in Outcome] == [0, 0, 1, 1, 1, 2]
+def test_exit_codes():
+    assert [outcome.exit_code for outcome in Outcome] == [0, 0, 1, 1, 2]
 
 
 def test_summarise_nodes():

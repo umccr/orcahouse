@@ -15,7 +15,7 @@ from pydantic import ConfigDict
 from pydantic.alias_generators import to_camel
 
 from .request import RequestError, parse_request
-from .results import Counts, Outcome, classify, read_results, resource_type, summarise_nodes
+from .results import Counts, Outcome, classify, read_results, summarise_nodes
 
 log = logging.getLogger(__name__)
 
@@ -83,11 +83,7 @@ def run_dbt(args: tuple[str, ...], project_dir: Path, dbt: Dbt, event: Event) ->
 
     outcome = classify(code, results)
     if outcome is Outcome.ERROR:
-        hooks = [unique_id for unique_id in results.failed_nodes if resource_type(unique_id) == "operation"]
-        if hooks:
-            event.error = f"A hook failed: {summarise_nodes(hooks)}"
-        else:
-            event.error = f"dbt exited with {code}, see the logs"
+        event.error = f"dbt exited with {code}, see the logs"
     return outcome
 
 
@@ -95,21 +91,20 @@ def run(raw_request: str, project_dir: Path, dbt: Dbt) -> tuple[Outcome, Event]:
     """Runs the request in the dbt project, and returns its outcome and event."""
     event = Event()
 
-    outcomes: list[Outcome] = []
+    outcome = Outcome.ERROR
     try:
         request = parse_request(raw_request)
     except RequestError as e:
         event.error = str(e)
-        outcomes.append(Outcome.ERROR)
     else:
         if not dbt.stopping:
-            outcomes.append(run_dbt(request.args, project_dir, dbt, event))
+            outcome = run_dbt(request.args, project_dir, dbt, event)
 
+    # An error, however far dbt got.
     if dbt.stopping:
         event.error = "The run was stopped"
-        outcomes.append(Outcome.ERROR)
+        outcome = Outcome.ERROR
 
-    outcome = Outcome.worst(outcomes)
     event.outcome = outcome
     if event.error is not None:
         log.error("%s", event.error)

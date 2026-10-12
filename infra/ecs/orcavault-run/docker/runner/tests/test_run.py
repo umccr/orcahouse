@@ -10,7 +10,6 @@ HUB = "model.orcavault.hub_library"
 LIMS = "model.orcavault.lims"
 UNIQUE = "test.orcavault.unique_hub_library_library_hk.9b8e7d6c5a"
 ACCEPTED = "test.orcavault.accepted_values_lims_type.1c2d3e4f5a"
-HOOK = "operation.orcavault.orcavault-on-run-end-0"
 
 
 def test_scheduled_run(project_dir):
@@ -45,7 +44,7 @@ def test_failed_test(project_dir):
     outcome, event = run('{"args": "build --select +lims --fail-fast"}', project_dir, dbt)
 
     assert dbt.calls == [["build", "--select", "+lims", "--fail-fast"]]
-    assert outcome is Outcome.TESTS_FAILED
+    assert outcome is Outcome.FAILED
     assert event.error is None
     assert event.failed_nodes == "unique_hub_library_library_hk"
     assert event.warned_nodes == "accepted_values_lims_type"
@@ -55,7 +54,6 @@ def test_failed_test(project_dir):
 @pytest.mark.parametrize(
     "code, results, stop, mentions",
     [
-        (1, [result(HUB, "success"), result(HOOK, "error")], False, "orcavault-on-run-end-0"),
         (2, [result(HUB, "success")], False, "2"),
         (2, None, False, "run_results.json"),
         (2, [result(HUB, "success")], True, "stopped"),

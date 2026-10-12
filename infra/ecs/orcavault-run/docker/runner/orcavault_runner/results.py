@@ -11,8 +11,8 @@ from pydantic import BaseModel
 
 
 class Outcome(StrEnum):
-    """How a run went, from best to worst. These are all the outcomes a run can
-    have, which stepfunctions.tf names too."""
+    """How a run went. These are all the outcomes a run can have, which
+    stepfunctions.tf names too."""
 
     SUCCEEDED = "succeeded"
     # Only warn severity tests failed. Nothing was held back.
@@ -20,27 +20,17 @@ class Outcome(StrEnum):
     # Another run was still going, so this one didn't start. Only the state
     # machine gives a run this outcome.
     SKIPPED = "skipped"
-    # An error severity test failed. Only what depends on the tested model
-    # was held back, or everything after it with --fail-fast.
-    TESTS_FAILED = "tests_failed"
-    # A model, seed or snapshot failed to build.
-    MODELS_FAILED = "models_failed"
+    # A model, seed or snapshot didn't build, or an error severity test or a
+    # hook failed. Only what depends on a failed node was held back, or
+    # everything after it with --fail-fast.
+    FAILED = "failed"
     # dbt didn't run to completion, or the request was invalid.
     ERROR = "error"
-
-    @property
-    def ok(self) -> bool:
-        return self in (Outcome.SUCCEEDED, Outcome.WARNED)
 
     @property
     def exit_code(self) -> int:
         # Non-zero fails the Step Functions task, the same as dbt's own codes.
         return {Outcome.SUCCEEDED: 0, Outcome.WARNED: 0, Outcome.ERROR: 2}.get(self, 1)
-
-    @classmethod
-    def worst(cls, outcomes: list["Outcome"]) -> "Outcome":
-        order = list(cls)
-        return max(outcomes, key=order.index, default=cls.SUCCEEDED)
 
 
 BUILT_TYPES = {"model", "seed", "snapshot"}
@@ -69,7 +59,6 @@ class RunResults:
     # Unique IDs, in the order dbt finished them.
     failed_nodes: list[str] = field(default_factory=list)
     warned_nodes: list[str] = field(default_factory=list)
-    hook_failed: bool = False
 
 
 def resource_type(unique_id: str) -> str:
@@ -80,31 +69,25 @@ def read_results(run_results: dict[str, Any]) -> RunResults:
     results = RunResults()
     counts = results.counts
     for result in run_results.get("results", []):
-        unique_id = result["unique_id"]
-        status = result["status"]
-        kind = resource_type(unique_id)
-
-        if kind in BUILT_TYPES:
-            if status in SUCCEEDED_STATUSES:
-                counts.models_succeeded += 1
-            elif status in FAILED_STATUSES:
-                counts.models_failed += 1
-                results.failed_nodes.append(unique_id)
-            elif status == "skipped":
-                counts.models_skipped += 1
-        elif kind in TEST_TYPES:
-            if status in SUCCEEDED_STATUSES:
-                counts.tests_passed += 1
-            elif status == "warn":
-                counts.tests_warned += 1
-                results.warned_nodes.append(unique_id)
-            elif status in FAILED_STATUSES:
-                counts.tests_failed += 1
-                results.failed_nodes.append(unique_id)
-        elif kind == "operation" and status in FAILED_STATUSES:
-            # An on-run-start or on-run-end hook, such as the CDC watermark.
-            results.hook_failed = True
+        unique_id, status = result["unique_id"], result["status"]
+        succeeded, failed = status in SUCCEEDED_STATUSES, status in FAILED_STATUSES
+        # Any node, including an on-run-start or on-run-end hook, such as the
+        # CDC watermark's.
+        if failed:
             results.failed_nodes.append(unique_id)
+        elif status == "warn":
+            results.warned_nodes.append(unique_id)
+
+        # Each bool adds 1 or 0.
+        kind = resource_type(unique_id)
+        if kind in BUILT_TYPES:
+            counts.models_succeeded += succeeded
+            counts.models_failed += failed
+            counts.models_skipped += status == "skipped"
+        elif kind in TEST_TYPES:
+            counts.tests_passed += succeeded
+            counts.tests_warned += status == "warn"
+            counts.tests_failed += failed
     return results
 
 
@@ -112,16 +95,12 @@ def classify(exit_code: int, results: RunResults | None) -> Outcome:
     """dbt exits 1 when a node fails and 2 when it couldn't run at all."""
     if results is None or exit_code not in (0, 1):
         return Outcome.ERROR
-    counts = results.counts
-    if counts.models_failed:
-        return Outcome.MODELS_FAILED
-    if counts.tests_failed:
-        return Outcome.TESTS_FAILED
-    if exit_code != 0 or results.hook_failed:
+    if results.failed_nodes:
+        return Outcome.FAILED
+    # dbt failed without a node failing.
+    if exit_code:
         return Outcome.ERROR
-    if counts.tests_warned:
-        return Outcome.WARNED
-    return Outcome.SUCCEEDED
+    return Outcome.WARNED if results.warned_nodes else Outcome.SUCCEEDED
 
 
 def node_name(unique_id: str) -> str:

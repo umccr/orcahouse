@@ -67,9 +67,8 @@ Each run ends with one of these, which is the `outcome` of its event:
 |-----------------|---------------------------------------------------------------------------|-----------|
 | `succeeded`     | Everything built and every test passed.                                   | succeeds  |
 | `warned`        | Only warn-severity tests failed. Nothing was held back.                   | succeeds  |
-| `tests_failed`  | An error-severity test failed, and what depends on its model was skipped. | fails     |
-| `models_failed` | A model, seed or snapshot failed to build.                                | fails     |
-| `error`         | dbt couldn't run, a hook failed, the request was invalid or selected nothing, or the run was stopped or never started. | fails |
+| `failed`        | A model didn't build, or an error-severity test or a hook failed.         | fails     |
+| `error`         | dbt couldn't run, the request was invalid or selected nothing, or the run was stopped or never started. | fails |
 | `skipped`       | Another run was still going, so this one didn't start.                    | fails     |
 
 A failed execution's error is the outcome, and its cause is the event's
@@ -347,7 +346,7 @@ killed, the state machine sends one with counts of 0 and says why in `error`.
   "detail-type": "OrcaVault Run Finished",
   "detail": {
     "environment": "prod",
-    "outcome": "tests_failed",
+    "outcome": "failed",
     "error": null,
     "runId": "4b8e1f3a-…",
     "modelsSucceeded": 140,
