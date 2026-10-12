@@ -75,7 +75,8 @@ def main() -> int:
     )
 
     settings = Settings()
-    commit_file = Path("ORCAVAULT_COMMIT")
+    # The image keeps the .git that fetched the ref, at the commit it resolved to.
+    commit_file = Path(".git/HEAD")
     commit = commit_file.read_text().strip() if commit_file.exists() else "unknown"
     log.info("umccr/orcavault %s at %s", settings.ref, commit)
 
