@@ -37,6 +37,12 @@ mock_provider "aws" {
     }
   }
 
+  mock_resource "aws_cloudwatch_log_group" {
+    defaults = {
+      arn = "arn:aws:logs:ap-southeast-2:123456789012:log-group:mock"
+    }
+  }
+
   mock_resource "aws_sfn_state_machine" {
     defaults = {
       arn = "arn:aws:states:ap-southeast-2:123456789012:stateMachine:mock"

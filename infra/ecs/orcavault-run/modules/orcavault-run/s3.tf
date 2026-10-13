@@ -46,3 +46,28 @@ resource "aws_s3_bucket_lifecycle_configuration" "results" {
     }
   }
 }
+
+# Deny any request that doesn't use TLS, see
+# https://docs.aws.amazon.com/securityhub/latest/userguide/s3-controls.html#s3-5.
+data "aws_iam_policy_document" "results" {
+  statement {
+    sid       = "DenyInsecureTransport"
+    effect    = "Deny"
+    actions   = ["s3:*"]
+    resources = [aws_s3_bucket.results.arn, "${aws_s3_bucket.results.arn}/*"]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "results" {
+  bucket = aws_s3_bucket.results.id
+  policy = data.aws_iam_policy_document.results.json
+}

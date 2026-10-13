@@ -53,10 +53,24 @@ locals {
   ), "\n", " ")
 }
 
+# The /aws/vendedlogs/ prefix keeps the account's log resource policy within its
+# size limit.
+resource "aws_cloudwatch_log_group" "states" {
+  name              = "/aws/vendedlogs/states/${local.name_prefix}"
+  retention_in_days = 90
+}
+
 resource "aws_sfn_state_machine" "run" {
   name     = local.name_prefix
   role_arn = aws_iam_role.states.arn
   type     = "STANDARD"
+
+  # Only errors are logged, without the execution's data, which its history has.
+  logging_configuration {
+    log_destination        = "${aws_cloudwatch_log_group.states.arn}:*"
+    include_execution_data = false
+    level                  = "ERROR"
+  }
 
   definition = jsonencode({
     Comment       = "Runs the OrcaVault dbt project on Redshift Serverless."
@@ -264,6 +278,9 @@ resource "aws_sfn_state_machine" "run" {
       }
     }
   })
+
+  # Creating the state machine checks that the role can deliver its logs.
+  depends_on = [aws_iam_role_policy.states]
 }
 
 resource "aws_scheduler_schedule" "daily" {

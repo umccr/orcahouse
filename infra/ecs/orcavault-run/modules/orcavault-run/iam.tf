@@ -21,10 +21,34 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Only this account's tasks can assume the dbt task role, see
+# https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html.
+# The source ARN can't name the cluster.
+data "aws_iam_policy_document" "dbt_task_assume" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:*"]
+    }
+  }
+}
+
 # The role for the dbt task, which connects to the database as a `IAMR:<role_name>` user.
 resource "aws_iam_role" "dbt_task" {
   name               = "${local.name_prefix}-dbt-task-role"
-  assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
+  assume_role_policy = data.aws_iam_policy_document.dbt_task_assume.json
 }
 
 data "aws_iam_policy_document" "dbt_task" {
@@ -190,6 +214,31 @@ data "aws_iam_policy_document" "states" {
     effect    = "Allow"
     actions   = ["events:PutEvents"]
     resources = ["arn:${data.aws_partition.current.partition}:events:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:event-bus/default"]
+  }
+
+  # Step Functions sets up its log delivery as this role, which needs these on
+  # every resource, see https://docs.aws.amazon.com/step-functions/latest/dg/cw-logs.html.
+  statement {
+    sid    = "DeliverLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogDelivery",
+      "logs:GetLogDelivery",
+      "logs:UpdateLogDelivery",
+      "logs:DeleteLogDelivery",
+      "logs:ListLogDeliveries",
+      "logs:PutResourcePolicy",
+      "logs:DescribeResourcePolicies",
+      "logs:DescribeLogGroups",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "WriteLogs"
+    effect    = "Allow"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.states.arn}:*"]
   }
 }
 
