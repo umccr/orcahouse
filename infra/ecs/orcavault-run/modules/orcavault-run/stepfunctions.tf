@@ -1,26 +1,12 @@
-# --- The run.
-#
-# An execution runs one request, which is its input, see the README. The
-# scheduled run's input is {}, which builds the whole project. dbt orders the
-# models by their dependencies and builds independent ones in parallel, up to
-# dbt_threads, so the state machine doesn't model the DAG.
-#
-# The runner in the image checks the request, runs it, and writes how it went
-# to the results bucket, at runs/<execution name>/event.json. Whatever happens,
-# the execution then adds the fields every run's event has, such as its run ID,
-# and sends one "OrcaVault Run Finished" event to the default event bus with
-# the run's outcome. It succeeds when the outcome is succeeded or warned, and
-# otherwise fails with the outcome as its error.
+# The Step Functions run definition for the orcavault runner.
 
 locals {
   run_timeout_seconds = var.run_timeout_hours * 3600
 
-  # The outcomes that end an execution in success. Any other fails it. Outcome
-  # in docker/runner/orcavault_runner/results.py has every outcome a run can
-  # have.
+  # Warning is a successful outcome because models were still applied correctly.
   succeeded_outcomes = ["succeeded", "warned"]
 
-  # The event's detail, for when the runner didn't get to write one.
+  # The event detail used if the runner didn't write one.
   empty_event_detail = {
     modelsSucceeded = 0
     modelsFailed    = 0
@@ -32,9 +18,7 @@ locals {
     warnedNodes     = ""
   }
 
-  # Each reason the runner might not write the event, which is then its error.
-  # Like the runner's errors, these are one line without double quotes, so that
-  # EventBridge input transformers can use them.
+  # Map the reasons for why the runner might not have written the event, which then defines the error message.
   no_runner_events = {
     run_in_progress = {
       outcome = "skipped"
@@ -42,11 +26,11 @@ locals {
     }
     check_failed = {
       outcome = "error"
-      error   = "Couldn't check for another run in progress, so this run didn't start. The execution has the details"
+      error   = "Couldn't check for another run, so this run didn't start. Check the execution for details"
     }
     no_event = {
       outcome = "error"
-      error   = "The runner wrote no event. Its task may have failed to start, or been killed. The execution has the details"
+      error   = "The runner wrote no event. The task may have failed to start, or been killed. Check the execution for details"
     }
   }
 
@@ -54,19 +38,19 @@ locals {
     for name, event in local.no_runner_events : name => merge(local.empty_event_detail, event)
   }
 
-  # The fields every run's event has, however the run ended, as JSONata. The
-  # runner's event, or a no_runner_event_detail, has the rest. $taskArn is the
-  # dbt task's, or null if it didn't start.
-  run_fields = {
-    environment     = jsonencode(var.environment)
-    runId           = "$states.context.Execution.Name"
-    orcavaultRef    = jsonencode(var.orcavault_release_ref)
-    durationMinutes = "$round(($millis() - $toMillis($states.context.Execution.StartTime)) / 60000)"
-    logsUrl         = "$taskArn ? '${local.logs_url_prefix}' & $split($taskArn, '/')[-1] : null"
-    executionUrl    = "'${local.execution_url_prefix}' & $states.context.Execution.Id"
-  }
-
-  with_run_fields = "{% $merge([$detail, {${join(", ", [for name, value in local.run_fields : "'${name}': ${value}"])}}]) %}"
+  # These are the fields from the run's event. The line breaks are replaced, so
+  # the expression is on one line in the definition.
+  with_run_fields = replace(trimspace(<<-EOT
+    {% $merge([$detail, {
+      'environment': ${jsonencode(var.environment)},
+      'runId': $states.context.Execution.Name,
+      'orcavaultRef': ${jsonencode(var.orcavault_release_ref)},
+      'durationMinutes': $round(($millis() - $toMillis($states.context.Execution.StartTime)) / 60000),
+      'logsUrl': $taskArn ? '${local.logs_url_prefix}' & $split($taskArn, '/')[-1] : null,
+      'executionUrl': '${local.execution_url_prefix}' & $states.context.Execution.Id
+    }]) %}
+  EOT
+  ), "\n", " ")
 }
 
 resource "aws_sfn_state_machine" "run" {
@@ -80,9 +64,7 @@ resource "aws_sfn_state_machine" "run" {
     StartAt       = "CheckNoRunInProgress"
 
     States = {
-      # Overlapping runs are not safe for OrcaVault's incremental models, and a
-      # run can be started by hand as well as by the schedule. This catches a
-      # run started any way, including with ecs run-task.
+      # Overlapping runs are not safe so ensure that there is no concurrent executions.
       CheckNoRunInProgress = {
         Type     = "Task"
         Resource = "arn:aws:states:::aws-sdk:ecs:listTasks"
@@ -129,16 +111,7 @@ resource "aws_sfn_state_machine" "run" {
       }
 
       # The .sync integration waits for the task to stop, and fails this state
-      # if the runner exits non-zero, which it does for any outcome but
-      # succeeded or warned. Either way, the runner has written the event. If
-      # the state times out, or the execution is stopped, Step Functions stops
-      # the task.
-      #
-      # The execution name is the run ID, which names the run's event. The
-      # task's ARN names its log stream, for the run's logs URL. A failed task's
-      # error has its description, with the ARN, as the cause. The ARN is read
-      # from it with a regex, which unlike $parse can't fail, so that the
-      # execution still sends the run's event.
+      # if the runner exits non-zero.
       RunDbt = {
         Type           = "Task"
         Resource       = "arn:aws:states:::ecs:runTask.sync"
@@ -166,10 +139,9 @@ resource "aws_sfn_state_machine" "run" {
             ]
           }
         }
+
         # Only failures to start the task are retried, such as throttling or no
-        # Fargate capacity. A failed run is not: whatever failed would most
-        # likely fail again, and the next daily run rereads the same window.
-        # Run it again by hand once the cause is fixed, see the README.
+        # Fargate capacity.
         Retry = [
           {
             ErrorEquals     = ["ECS.AmazonECSException", "AmazonECS.Unknown"]
@@ -183,7 +155,10 @@ resource "aws_sfn_state_machine" "run" {
           {
             ErrorEquals = ["States.ALL"]
             Assign = {
-              taskArn = "{% ($task := $match($states.errorOutput.Cause, /\"TaskArn\"\\s*:\\s*\"([^\"]+)\"/, 1); $task ? $task[0].groups[0] : null) %}"
+              taskArn = trimspace(<<-EOT
+                {% ($task := $match($states.errorOutput.Cause, /"TaskArn"\s*:\s*"([^"]+)"/, 1); $task ? $task[0].groups[0] : null) %}
+              EOT
+              )
             }
             Next = "ReadEvent"
           }
@@ -201,7 +176,7 @@ resource "aws_sfn_state_machine" "run" {
         Assign = { detail = "{% $parse($states.result.Body) %}" }
         Output = {}
         Retry = [
-          # A timed out task is stopped without waiting for it, and the runner
+          # A timed out task is stopped without waiting, which means the runner
           # can take up to the container's stopTimeout to write its event.
           {
             ErrorEquals     = ["S3.NoSuchKeyException"]
@@ -228,7 +203,7 @@ resource "aws_sfn_state_machine" "run" {
 
       AddRunFields = {
         Type    = "Pass"
-        Comment = "Adds the fields every run's event has, however the run ended."
+        Comment = "Adds the fields every run event has."
         Assign  = { detail = local.with_run_fields }
         Next    = "SendEvent"
       }
@@ -255,8 +230,8 @@ resource "aws_sfn_state_machine" "run" {
             BackoffRate     = 2
           }
         ]
-        # The execution still ends with the run's outcome, so that the
-        # execution status alert in monitoring.tf sees a failed run.
+        # The execution still ends with the run outcome, which means the
+        # no-success alarm in monitoring.tf doesn't count a failed run.
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
@@ -290,8 +265,6 @@ resource "aws_sfn_state_machine" "run" {
     }
   })
 }
-
-# --- The daily schedule.
 
 resource "aws_scheduler_schedule" "daily" {
   name       = "${local.name_prefix}-daily"

@@ -13,8 +13,7 @@ EventBridge Scheduler, 03:00 Australia/Melbourne, input {}
        4. AddRunFields           adds the fields every run's event has, such as runId
        5. SendEvent              sends "OrcaVault Run Finished" to the default event bus
        6. Finish                 succeeds if the run succeeded or only warned
-  └─ SNS topic orcavault-run-<env>-alerts
-       - a run failed, timed out or was stopped
+  └─ CloudWatch alarm orcavault-run-<env>-no-recent-success
        - no run has succeeded in the last 30 hours
 ```
 
@@ -32,7 +31,7 @@ such as `orcavault-run-dev`, and neither touches the other's runs.
 | Directory                                | What it has                                                         | Applied         |
 |------------------------------------------|---------------------------------------------------------------------|-----------------|
 | `account-wide`                           | The image repository, `orcavault-run-dbt`                           | once            |
-| `environments/dev`, `environments/prod`  | The run: schedule, state machine, task, roles, results and alerts   | per environment |
+| `environments/dev`, `environments/prod`  | The run: schedule, state machine, task, roles, results and alarm    | per environment |
 | `modules/orcavault-run`                  | What each environment applies                                       |                 |
 
 - **One image for both.** An image is built once for an orcavault ref, and dev
@@ -96,8 +95,8 @@ Each run ends with one of these, which is the `outcome` of its event:
 | `skipped`       | Another run was still going, so this one didn't start.                    | fails     |
 
 A failed execution's error is the outcome, and its cause is the event's
-`error`, or else the failed nodes, so the Step Functions console and the alerts
-show what happened.
+`error`, or else the failed nodes, so the Step Functions console shows what
+happened.
 
 ### When some models fail
 
@@ -196,7 +195,7 @@ Glue databases.
 
 dbt connects with Redshift IAM auth as the task role, so its database user is
 `IAMR:orcavault-run-<env>-dbt-task-role`
-(`terraform -chdir=environments/$ENV output -raw dbt_task_db_identity`). It
+(`terraform -chdir=environments/$ENV output -json orcavault_run | jq -r .dbt_task_db_identity`). It
 creates and owns everything OrcaVault writes: the `psa`, `dcl`, `mart`, `seed`,
 `dbt_test__audit` and `ops` schemas.
 
@@ -254,48 +253,38 @@ grant usage on schema psa, dcl, mart, seed, dbt_test__audit, ops to "IAMR:<reade
 grant select on all tables in schema psa, dcl, mart, seed, dbt_test__audit, ops to "IAMR:<reader-role>";
 ```
 
-### 5. Subscribe to the alerts
-
-```bash
-aws sns subscribe --topic-arn "$(terraform -chdir=environments/$ENV output -raw alerts_topic_arn)" \
-  --protocol email --notification-endpoint you@example.com
-```
-
-Each environment has its own topic, and its alerts name the environment. The
-no-success alarm is in ALARM until the first run succeeds.
-
-### 6. Check the task, then run it
+### 5. Check the task, then run it
 
 The task needs the network access listed under
 [Limits and risks](#limits-and-risks).
 
 ```bash
 # Checks the task can get credentials and connect to Redshift.
-eval "$(terraform -chdir=environments/$ENV output -raw debug_command)"
+eval "$(terraform -chdir=environments/$ENV output -json orcavault_run | jq -r .debug_command)"
 
 # A first full run, rather than waiting for the schedule.
-eval "$(terraform -chdir=environments/$ENV output -raw start_run_command)"
+eval "$(terraform -chdir=environments/$ENV output -json orcavault_run | jq -r .start_run_command)"
 ```
 
 ## Operating
 
 Each environment is run on its own. The `terraform` commands here are run in
-its directory, `environments/dev` or `environments/prod`.
+its directory, `environments/dev` or `environments/prod`. Its outputs are under
+`orcavault_run`, so read one with `terraform output -json orcavault_run | jq -r .<name>`.
 
-**Start a run** with `terraform output -raw start_run_command`, or from the Step
+**Start a run** with the `start_run_command` output, or from the Step
 Functions console with input `{}`. Leave the execution name to Step Functions,
 or use only letters, digits, `-` and `_`: the name is the run's ID, and names
 its event.
 
-**Pause the schedule** with `-var schedule_enabled=false`. This also turns off
-the no-success alarm's notifications.
+**Pause the schedule** with `-var schedule_enabled=false`.
 
 **Stop a run** by stopping its execution. Step Functions stops the task, and
 the runner tells dbt to cancel its queries. If dbt hasn't exited after two
 minutes, ECS kills the task, and the state machine sends the run's event
 instead. A run that reaches `run_timeout_hours` is stopped the same way.
 
-**Read the logs** with `terraform output -raw logs_command`, or from the
+**Read the logs** with the `logs_command` output, or from the
 `logsUrl` in the run's event.
 
 **Release a new version** by building and pushing an image for the new ref, and
@@ -376,7 +365,7 @@ happened. Notifications, and anything else that reacts to a run, should use it.
 
 The runner writes how the run went, from `outcome` to `warnedNodes`, to
 `runs/<execution name>/event.json` in the results bucket
-(`terraform output -raw results_bucket`). It's kept for
+(the `results_bucket` output). It's kept for
 `results_retention_days` (90 by default). The state machine reads it, adds the
 fields every run's event has, `environment`, `runId`, `orcavaultRef`,
 `durationMinutes`, `logsUrl` and `executionUrl`, and sends it. When the runner

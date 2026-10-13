@@ -1,4 +1,4 @@
-# --- ECS execution role: pulling the image and writing logs only.
+# The ECS execution role and policies.
 
 data "aws_iam_policy_document" "ecs_assume" {
   statement {
@@ -21,17 +21,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# --- dbt task role.
-#
-# Connects to Redshift with IAM auth, as the database user IAMR:<role name>. See
-# the README for its grants.
-#
-# The CDC sources are read through the auto-mounted awsdatacatalog database.
-# Redshift reads it as the connected IAM identity, not the namespace role, so
-# this role needs to be able to read the catalog and the CDC files itself. The
-# Glue actions are broad because Lake Formation decides which databases it can
-# see, see lakeformation.tf.
-
+# The role for the dbt task, which connects to the database as a `IAMR:<role_name>` user.
 resource "aws_iam_role" "dbt_task" {
   name               = "${local.name_prefix}-dbt-task-role"
   assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
@@ -88,7 +78,6 @@ data "aws_iam_policy_document" "dbt_task" {
     resources = [data.aws_s3_bucket.cdc.arn]
   }
 
-  # Writes this run's event, for the state machine to send.
   statement {
     sid       = "WriteRunEvent"
     effect    = "Allow"
@@ -103,10 +92,8 @@ resource "aws_iam_role_policy" "dbt_task" {
   policy = data.aws_iam_policy_document.dbt_task.json
 }
 
-# --- Step Functions role: start, watch and stop the dbt task.
-#
-# https://docs.aws.amazon.com/step-functions/latest/dg/ecs-iam.html
-
+# The policy and associated role defined for the Step Functions.
+# See https://docs.aws.amazon.com/step-functions/latest/dg/ecs-iam.html
 data "aws_iam_policy_document" "states_assume" {
   statement {
     effect  = "Allow"
@@ -161,7 +148,7 @@ data "aws_iam_policy_document" "states" {
     }
   }
 
-  # The .sync integration waits on the task through this managed rule.
+  # Required for the .sync integration wait.
   statement {
     sid       = "SyncRule"
     effect    = "Allow"
@@ -181,7 +168,7 @@ data "aws_iam_policy_document" "states" {
     }
   }
 
-  # The run's event, written by the runner.
+  # Allows reading the run event afterwards.
   statement {
     sid       = "ReadRunEvent"
     effect    = "Allow"
@@ -189,9 +176,8 @@ data "aws_iam_policy_document" "states" {
     resources = ["${aws_s3_bucket.results.arn}/${local.results_prefix}*/event.json"]
   }
 
-  # Without it, reading an event that doesn't exist yet is denied rather than
-  # reported missing, and isn't retried. S3 checks it without a prefix, so it
-  # can't be narrowed to one, but the bucket holds nothing else.
+  # This is also needed to avoid errors when an event is missing or wasn't written
+  # properly.
   statement {
     sid       = "ListRunResults"
     effect    = "Allow"
@@ -213,8 +199,7 @@ resource "aws_iam_role_policy" "states" {
   policy = data.aws_iam_policy_document.states.json
 }
 
-# --- Scheduler role: start the state machine and nothing else.
-
+# This defines the policy and role for the scheduler.
 data "aws_iam_policy_document" "scheduler_assume" {
   statement {
     effect  = "Allow"

@@ -1,3 +1,5 @@
+# The prod environment deployment.
+
 terraform {
   required_version = ">= 1.15.0"
 
@@ -37,17 +39,15 @@ locals {
 }
 
 variable "orcavault_release_ref" {
-  description = "The orcavault tag or commit to run. Its image must already be pushed, see the README."
+  description = "The orcavault tag or commit to deploy. The image must already be pushed."
   type        = string
 }
 
 variable "schedule_enabled" {
-  description = "Set to false to pause the daily run without removing anything."
+  description = "Set to false to pause the daily run."
   type        = bool
   default     = true
 }
-
-# ---
 
 module "orcavault_run" {
   source = "../../modules/orcavault-run"
@@ -58,37 +58,7 @@ module "orcavault_run" {
   schedule_enabled        = var.schedule_enabled
 }
 
-output "state_machine_arn" {
-  description = "The prod OrcaVault run state machine."
-  value       = module.orcavault_run.state_machine_arn
-}
-
-output "start_run_command" {
-  description = "Start a full prod run now. See the README for other requests."
-  value       = module.orcavault_run.start_run_command
-}
-
-output "results_bucket" {
-  description = "Each prod run's event, at runs/<execution name>/event.json."
-  value       = module.orcavault_run.results_bucket
-}
-
-output "debug_command" {
-  description = "Run dbt debug in the prod task, to check it can reach Redshift."
-  value       = module.orcavault_run.debug_command
-}
-
-output "logs_command" {
-  description = "Follow the prod dbt logs."
-  value       = module.orcavault_run.logs_command
-}
-
-output "dbt_task_db_identity" {
-  description = "Redshift database user the prod dbt task connects as. See the README for its grants."
-  value       = module.orcavault_run.dbt_task_db_identity
-}
-
-output "alerts_topic_arn" {
-  description = "SNS topic receiving prod run alerts. Subscribe to it after applying."
-  value       = module.orcavault_run.alerts_topic_arn
+output "orcavault_run" {
+  description = "The prod OrcaVault run outputs, see the module's outputs.tf."
+  value       = module.orcavault_run
 }

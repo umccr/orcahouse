@@ -1,5 +1,4 @@
-# The OrcaVault run's resources that every environment shares, created once
-# for the account. See the README.
+# The OrcaVault runner resources for the environment that is shared.
 
 terraform {
   required_version = ">= 1.15.0"
@@ -35,13 +34,7 @@ provider "aws" {
   }
 }
 
-# --- The dbt image.
-#
-# One repository for every environment, so that prod runs the very image dev
-# ran: an image is built once for each orcavault ref, and a release reaches
-# prod by applying it with the ref dev has. Building the ref again could
-# resolve different dependencies.
-
+# Configure the ecr repository that holds the dbt image.
 resource "aws_ecr_repository" "dbt" {
   name                 = "orcavault-run-dbt"
   image_tag_mutability = "IMMUTABLE"
@@ -51,12 +44,8 @@ resource "aws_ecr_repository" "dbt" {
   }
 }
 
-# An environment pulls its image on every run, so the images in use stay. One
-# that no environment has pulled for 90 days is archived, and deleted a year
-# later. Keeping only the newest images instead could delete the one prod runs
-# while dev moves ahead of it.
-#
-# https://docs.aws.amazon.com/AmazonECR/latest/userguide/lifecycle_policy_examples.html
+# This cleans up old images that haven't been used in a while.
+# See https://docs.aws.amazon.com/AmazonECR/latest/userguide/lifecycle_policy_examples.html
 resource "aws_ecr_lifecycle_policy" "dbt" {
   repository = aws_ecr_repository.dbt.name
 
@@ -64,7 +53,7 @@ resource "aws_ecr_lifecycle_policy" "dbt" {
     rules = [
       {
         rulePriority = 1
-        description  = "Archive images no environment has pulled for 90 days."
+        description  = "Archive images older than 90 days."
         selection = {
           tagStatus   = "any"
           countType   = "sinceImagePulled"
@@ -95,6 +84,6 @@ resource "aws_ecr_lifecycle_policy" "dbt" {
 }
 
 output "ecr_repository_url" {
-  description = "Push the dbt image here, tagged with its orcavault ref."
+  description = "The dbt image should be pushed here and tagged with the orcavault ref."
   value       = aws_ecr_repository.dbt.repository_url
 }

@@ -1,12 +1,8 @@
-# One environment's OrcaVault run, see the README. Everything here is the
-# environment's own, named after it, except the image repository, which
-# ../../account-wide creates once for both.
+# The entrypoint for the module.
 
 terraform {
   required_version = ">= 1.15.0"
 
-  # The environments pin the provider. The tests run here, with the version in
-  # this directory's lock file.
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -16,26 +12,19 @@ terraform {
 }
 
 locals {
-  name_prefix    = "orcavault-run-${var.environment}"
-  container_name = "dbt"
+  name_prefix          = "orcavault-run-${var.environment}"
+  container_name       = "dbt"
+  results_prefix       = "runs/"
+  event_source         = "orcahouse.orcavault"
+  event_detail_type    = "OrcaVault Run Finished"
+  region               = data.aws_region.current.region
+  console_url          = "https://${local.region}.console.aws.amazon.com"
+  execution_url_prefix = "${local.console_url}/states/home?region=${local.region}#/v2/executions/details/"
 
-  # Where the runner writes each run's event in the results bucket. The
-  # runner has the same prefix, see docker/runner/orcavault_runner/__main__.py.
-  results_prefix = "runs/"
-
-  # The event each run ends with, see the README.
-  event_source      = "orcahouse.orcavault"
-  event_detail_type = "OrcaVault Run Finished"
-
-  execution_url_prefix = "https://${data.aws_region.current.region}.console.aws.amazon.com/states/home?region=${data.aws_region.current.region}#/v2/executions/details/"
-
-  # A task's log stream is <stream prefix>/<container>/<task ID>, see ecs.tf.
-  # The console escapes names twice, with $ in place of %.
-  logs_url_prefix = join("", [
-    "https://${data.aws_region.current.region}.console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.region}",
-    "#logsV2:log-groups/log-group/${replace(aws_cloudwatch_log_group.dbt.name, "/", "$252F")}",
-    "/log-events/${local.container_name}$252F${local.container_name}$252F",
-  ])
+  # The console escapes names twice using $ in place of %.
+  log_group_name    = replace(urlencode(urlencode(aws_cloudwatch_log_group.dbt.name)), "%", "$")
+  log_stream_prefix = replace(urlencode(urlencode("${local.container_name}/${local.container_name}/")), "%", "$")
+  logs_url_prefix   = "${local.console_url}/cloudwatch/home?region=${local.region}#logsV2:log-groups/log-group/${local.log_group_name}/log-events/${local.log_stream_prefix}"
 }
 
 data "aws_caller_identity" "current" {}
@@ -62,7 +51,6 @@ data "aws_subnets" "uom_private_subnets_ids" {
   }
 }
 
-# The same group the Redshift workgroup uses, so the task can reach it on 5439.
 data "aws_security_group" "uom_primary_sg" {
   vpc_id = data.aws_vpc.primary.id
 

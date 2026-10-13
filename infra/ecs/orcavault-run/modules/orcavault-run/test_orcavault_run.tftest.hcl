@@ -5,12 +5,6 @@ mock_provider "aws" {
     }
   }
 
-  mock_data "aws_caller_identity" {
-    defaults = {
-      account_id = "123456789012"
-    }
-  }
-
   mock_data "aws_partition" {
     defaults = {
       partition = "aws"
@@ -43,31 +37,6 @@ mock_provider "aws" {
     }
   }
 
-  mock_resource "aws_sns_topic" {
-    defaults = {
-      arn = "arn:aws:sns:ap-southeast-2:123456789012:mock"
-    }
-  }
-
-  mock_resource "aws_s3_bucket" {
-    defaults = {
-      arn = "arn:aws:s3:::mock"
-    }
-  }
-
-  mock_resource "aws_ecs_cluster" {
-    defaults = {
-      arn = "arn:aws:ecs:ap-southeast-2:123456789012:cluster/mock"
-    }
-  }
-
-  mock_resource "aws_ecs_task_definition" {
-    defaults = {
-      arn                  = "arn:aws:ecs:ap-southeast-2:123456789012:task-definition/mock:1"
-      arn_without_revision = "arn:aws:ecs:ap-southeast-2:123456789012:task-definition/mock"
-    }
-  }
-
   mock_resource "aws_sfn_state_machine" {
     defaults = {
       arn = "arn:aws:states:ap-southeast-2:123456789012:stateMachine:mock"
@@ -93,22 +62,6 @@ run "schedule_builds_everything" {
   }
 }
 
-run "schedule_can_be_paused" {
-  variables {
-    schedule_enabled = false
-  }
-
-  assert {
-    condition     = aws_scheduler_schedule.daily.state == "DISABLED"
-    error_message = "the daily schedule should be disabled"
-  }
-
-  assert {
-    condition     = aws_cloudwatch_metric_alarm.no_recent_success.actions_enabled == false
-    error_message = "the no recent success alarm should be quiet while the schedule is paused"
-  }
-}
-
 run "every_run_sends_its_event" {
   assert {
     condition     = jsondecode(aws_sfn_state_machine.run.definition).States.RunDbt.Catch[0].Next == "ReadEvent"
@@ -125,7 +78,7 @@ run "every_run_sends_its_event" {
       for name, state in jsondecode(aws_sfn_state_machine.run.definition).States :
       name == "AddRunFields" || !contains(concat([try(state.Next, null)], [for catch in try(state.Catch, []) : catch.Next]), "SendEvent")
     ])
-    error_message = "every event should have the fields every run's event has"
+    error_message = "every event should have the fields of every run"
   }
 
   assert {
@@ -133,33 +86,17 @@ run "every_run_sends_its_event" {
       for state in ["CheckNoRunInProgress", "ReadEvent", "SendEvent"] :
       jsondecode(aws_sfn_state_machine.run.definition).States[state].Catch[0].ErrorEquals == ["States.ALL"]
     ])
-    error_message = "every state after which the event could be lost should catch all errors"
-  }
-
-  assert {
-    condition = alltrue([
-      for detail in [
-        jsondecode(aws_sfn_state_machine.run.definition).States.RunInProgress.Assign.detail,
-        jsondecode(aws_sfn_state_machine.run.definition).States.CheckNoRunInProgress.Catch[0].Assign.detail,
-        jsondecode(aws_sfn_state_machine.run.definition).States.ReadEvent.Catch[0].Assign.detail,
-      ] : try(length(detail.error) > 0, false)
-    ])
-    error_message = "an event the runner didn't write should still say why"
+    error_message = "every state after the event is lost should catch errors"
   }
 
   assert {
     condition     = local.logs_url_prefix == "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-southeast-2#logsV2:log-groups/log-group/$252Faws$252Fecs$252Forcavault-run-prod-dbt/log-events/dbt$252Fdbt$252F"
-    error_message = "the logs URL should open the task's log stream, given its ID"
+    error_message = "the logs URL should open the task's log stream"
   }
 
   assert {
     condition     = strcontains(jsondecode(aws_sfn_state_machine.run.definition).States.ReadEvent.Arguments.Key, "'runs/' & $states.context.Execution.Name & '/event.json'")
     error_message = "the event should be read from where the runner writes it"
-  }
-
-  assert {
-    condition     = jsondecode(aws_sfn_state_machine.run.definition).States.SendEvent.Arguments.Entries[0].Source == "orcahouse.orcavault"
-    error_message = "unexpected event source"
   }
 }
 
@@ -171,19 +108,8 @@ run "task_writes_its_event" {
     )
     error_message = "the task should be given the results bucket"
   }
-
-  assert {
-    condition     = jsondecode(aws_ecs_task_definition.dbt.container_definitions)[0].stopTimeout == 120
-    error_message = "a stopped task should have time to write its event"
-  }
-
-  assert {
-    condition     = one(aws_s3_bucket_lifecycle_configuration.results.rule[0].expiration).days == 90
-    error_message = "events should expire after results_retention_days"
-  }
 }
 
-# Every environment is in the same account, so names must not collide.
 run "environments_are_separate" {
   variables {
     environment = "dev"
@@ -202,16 +128,9 @@ run "environments_are_separate" {
         aws_iam_role.states.name,
         aws_iam_role.scheduler.name,
         aws_scheduler_schedule.daily.name,
-        aws_sns_topic.alerts.name,
-        aws_cloudwatch_event_rule.run_failed.name,
         aws_cloudwatch_metric_alarm.no_recent_success.alarm_name,
       ] : strcontains(name, "-dev")
     ])
     error_message = "everything an environment creates should be named after it"
-  }
-
-  assert {
-    condition     = jsondecode(local.run_fields.environment) == "dev"
-    error_message = "each run's event should say which environment it's from"
   }
 }

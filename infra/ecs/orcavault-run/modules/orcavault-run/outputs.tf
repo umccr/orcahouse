@@ -1,21 +1,20 @@
 output "state_machine_arn" {
-  description = "The OrcaVault run state machine."
+  description = "The OrcaVault runner state machine."
   value       = aws_sfn_state_machine.run.arn
 }
 
 output "start_run_command" {
-  description = "Start a full run now. See the README for other requests."
+  description = "The command to start a run now."
   value       = "aws stepfunctions start-execution --state-machine-arn ${aws_sfn_state_machine.run.arn} --input '{}'"
 }
 
 output "results_bucket" {
-  description = "Each run's event, at runs/<execution name>/event.json."
+  description = "The bucket for a run's event which is uploaded to runs/<run_id>/event.json."
   value       = aws_s3_bucket.results.bucket
 }
 
-# --connection, because debug also checks for git, which the image doesn't have.
 output "debug_command" {
-  description = "Run dbt debug in the task, to check it can reach Redshift."
+  description = "The command to run dbt debug in the task."
   value       = <<-EOT
     aws ecs run-task \
       --cluster ${aws_ecs_cluster.this.name} \
@@ -27,16 +26,11 @@ output "debug_command" {
 }
 
 output "logs_command" {
-  description = "Follow the dbt logs."
+  description = "The command to follow the dbt logs."
   value       = "aws logs tail ${aws_cloudwatch_log_group.dbt.name} --follow"
 }
 
 output "dbt_task_db_identity" {
-  description = "Redshift database user the dbt task connects as. See the README for its grants."
+  description = "The Redshift database user the dbt task connects as."
   value       = "IAMR:${aws_iam_role.dbt_task.name}"
-}
-
-output "alerts_topic_arn" {
-  description = "SNS topic receiving run alerts. Subscribe to it after applying."
-  value       = aws_sns_topic.alerts.arn
 }

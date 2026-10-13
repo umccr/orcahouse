@@ -1,8 +1,5 @@
-# --- The dbt task.
-#
-# Runs the umccr/orcavault project against Redshift Serverless. Step Functions
-# starts it, see stepfunctions.tf. This replaces infra/ecs/legacy/orcavault-dbt,
-# which runs the retired orcahouse/orcavault project against Aurora.
+# This defines the dbt Fargate task and definition, which runs the orcavault runner inside
+# the docker directory.
 
 resource "aws_cloudwatch_log_group" "dbt" {
   name              = "/aws/ecs/${local.name_prefix}-dbt"
@@ -33,18 +30,12 @@ resource "aws_ecs_task_definition" "dbt" {
       image     = "${data.aws_ecr_repository.dbt.repository_url}:${var.orcavault_release_ref}"
       essential = true
 
-      # The first two are read by profiles.yml in the image. There is no
-      # password: the task role is the credential. Step Functions adds the run
-      # ID and the request to these, see stepfunctions.tf.
       environment = [
         { name = "ORCAVAULT_REDSHIFT_HOST", value = data.aws_redshiftserverless_workgroup.this.endpoint[0].address },
         { name = "ORCAVAULT_DBT_THREADS", value = tostring(var.dbt_threads) },
         { name = "ORCAVAULT_RESULTS_BUCKET", value = aws_s3_bucket.results.bucket },
       ]
 
-      # A stopped run is given this long to let dbt cancel its queries and to
-      # write its event. 120 seconds is the most Fargate allows. A task that's
-      # still running then is killed, and the state machine sends the event.
       stopTimeout = 120
 
       logConfiguration = {

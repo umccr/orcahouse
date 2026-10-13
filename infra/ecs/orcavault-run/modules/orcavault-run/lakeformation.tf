@@ -1,9 +1,4 @@
-# --- Lake Formation grants for the dbt task role.
-#
-# The account uses Lake Formation only mode, so IAM alone doesn't let a role
-# see a Glue database. These grant the task role read on the CDC databases it
-# queries through awsdatacatalog, like the grants infra/glue-crawler/orcabus-db
-# makes for its crawler role. Applying this needs a Lake Formation admin.
+# The Lake Formation grants for the dbt task role.
 
 resource "aws_lakeformation_permissions" "cdc_database" {
   for_each  = toset(var.cdc_glue_databases)

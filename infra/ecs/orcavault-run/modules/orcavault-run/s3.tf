@@ -1,8 +1,5 @@
-# --- Run results.
-#
-# Each run writes its event to runs/<run ID>/event.json, and the state machine
-# reads it to send the run's EventBridge event, see the README. Nothing reads
-# it after that, so it's only kept to look back on.
+# The s3 bucket configuration for run results. Each run writes an event to
+# runs/<run_id>/event.json.
 
 resource "aws_s3_bucket" "results" {
   bucket           = "${local.name_prefix}-results-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.region}-an"
@@ -26,6 +23,7 @@ resource "aws_s3_bucket_public_access_block" "results" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+  skip_destroy            = true
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "results" {
