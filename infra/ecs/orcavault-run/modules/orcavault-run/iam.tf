@@ -21,9 +21,8 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Only this account's tasks can assume the dbt task role, see
-# https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html.
-# The source ARN can't name the cluster.
+# Only this account's tasks can assume the dbt task role,
+# see https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html.
 data "aws_iam_policy_document" "dbt_task_assume" {
   statement {
     effect  = "Allow"

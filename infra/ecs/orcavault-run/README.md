@@ -35,7 +35,7 @@ such as `orcavault-run-dev`, and neither touches the other's runs.
 | `modules/orcavault-run`                  | What each environment applies                                       |                 |
 
 - **One image for both.** An image is built once for an orcavault ref, and dev
-  runs it first. A release reaches prod by applying prod with the same ref, so
+  runs it first. A release reaches prod by setting prod to the same ref, so
   prod runs the very image dev ran, rather than a rebuild that could resolve
   different dependencies.
 - **The same CDC.** Both read the OrcaBus CDC from the prod landing zone and
@@ -163,11 +163,12 @@ terraform -chdir=account-wide apply
 ### 2. Build and push the image
 
 `orcavault_release_ref` is the orcavault tag or commit the image is built from,
-and its ECR tag. Tags are immutable. Pin a release tag or commit, never a
-branch, so that the code behind any load can be found again.
+and its ECR tag. Each environment sets it in its `release.auto.tfvars`. Tags
+are immutable. Pin a release tag or commit, never a branch, so that the code
+behind any load can be found again.
 
 ```bash
-REF=v1.2.3
+REF=$(sed -n 's/^orcavault_release_ref *= *"\(.*\)"$/\1/p' environments/dev/release.auto.tfvars)
 REPO=$(terraform -chdir=account-wide output -raw ecr_repository_url)
 aws ecr get-login-password | docker login --username AWS --password-stdin "${REPO%%/*}"
 docker buildx build --platform linux/arm64 --build-arg "ORCAVAULT_REF=$REF" -t "$REPO:$REF" --push docker/
@@ -184,7 +185,7 @@ push each ref once.
 ```bash
 ENV=dev
 terraform -chdir=environments/$ENV init
-terraform -chdir=environments/$ENV apply -var orcavault_release_ref=$REF
+terraform -chdir=environments/$ENV apply
 ```
 
 The applying role must be a Lake Formation admin, because
@@ -287,11 +288,11 @@ instead. A run that reaches `run_timeout_hours` is stopped the same way.
 **Read the logs** with the `logs_command` output, or from the
 `logsUrl` in the run's event.
 
-**Release a new version** by building and pushing an image for the new ref, and
-applying dev with it as `orcavault_release_ref`. Once dev's runs have gone
-well, apply prod with the same ref. Every apply needs `orcavault_release_ref`:
-to change something else, give the ref the environment already runs, which its
-runs' events have as `orcavaultRef`.
+**Release a new version** by setting the new ref as `orcavault_release_ref` in
+`environments/dev/release.auto.tfvars`, building and pushing its image, and
+applying dev. Once dev's runs have gone well, set prod's to the same ref and
+apply prod. Commit each change, so that the files say what each environment
+runs.
 
 ### Requests
 

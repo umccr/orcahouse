@@ -6,8 +6,6 @@ resource "aws_cloudwatch_log_group" "dbt" {
   retention_in_days = 90
 }
 
-# Container Insights creates this without a retention if it doesn't exist, so
-# it's created before the cluster.
 resource "aws_cloudwatch_log_group" "container_insights" {
   name              = "/aws/ecs/containerinsights/${local.name_prefix}-dbt/performance"
   retention_in_days = 90
