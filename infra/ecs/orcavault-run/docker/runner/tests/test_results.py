@@ -1,7 +1,7 @@
 import pytest
-from fakes import result, run_results
+from mocks import result, run_results
 
-from orcavault_runner.results import Event, Outcome, classify, read_results
+from orcavault_runner.results import NODES_LISTED, Event, Outcome, classify, read_results
 
 HUB = "model.orcavault.hub_library"
 SAT = "model.orcavault.sat_library"
@@ -45,7 +45,6 @@ def test_read_results():
         (0, Event(), Outcome.SUCCEEDED),
         (0, Event(warned_nodes=[SINGULAR]), Outcome.WARNED),
         (1, Event(failed_nodes=[UNIQUE, ON_RUN_END], warned_nodes=[SINGULAR]), Outcome.FAILED),
-        # dbt failed without a node failing.
         (1, Event(), Outcome.ERROR),
         (2, Event(failed_nodes=[SAT]), Outcome.ERROR),
     ],
@@ -58,11 +57,9 @@ def test_exit_codes():
     assert [outcome.exit_code for outcome in Outcome] == [0, 0, 1, 1, 1]
 
 
-def test_nodes_are_summarised():
-    # By the names people know them by, once each.
+def test_nodes_summarised():
     assert Event(failed_nodes=[HUB, NOT_NULL, SINGULAR, UNIT, HUB]).model_dump()["failedNodes"] == (
         "hub_library, not_null_hub_library_library_hk, assert_library_has_subject, test_sat_library_hash_diff"
     )
-    assert Event(warned_nodes=[f"model.orcavault.m{i}" for i in range(12)]).model_dump()["warnedNodes"] == (
-        "m0, m1, m2, m3, m4, m5, m6, m7, m8, m9 and 2 more"
-    )
+    nodes = [f"model.orcavault.m{i}" for i in range(NODES_LISTED + 2)]
+    assert Event(warned_nodes=nodes).model_dump()["warnedNodes"] == "m0, m1, m2, m3, m4, m5, m6, m7, m8, m9 and 2 more"

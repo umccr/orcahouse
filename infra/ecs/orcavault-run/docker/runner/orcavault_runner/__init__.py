@@ -1,1 +1,1 @@
-"""Runs umccr/orcavault's dbt project for the orcavault-run state machine."""
+"""Run the umccr/orcavault dbt project for the orcavault-run state machine."""

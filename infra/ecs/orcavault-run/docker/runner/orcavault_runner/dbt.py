@@ -1,8 +1,4 @@
-"""Running the dbt CLI.
-
-dbt runs as a child process rather than through dbtRunner, so that the runner
-can tell dbt to stop when ECS stops the task, and still record how it went.
-"""
+"""Module related to running the dbt CLI."""
 
 import logging
 import shlex
@@ -20,30 +16,24 @@ class Dbt:
         self.stopping = False
 
     def stop(self, *_: object) -> None:
-        """Signal handler for SIGTERM, which ECS sends when the task is stopped.
+        """Stop the dbt process by sending a SIGINT.
 
-        dbt cancels its running queries on SIGINT, like Ctrl-C, and still writes
-        run_results.json. If it hasn't exited by the container's stopTimeout,
-        ECS kills it along with the runner, and the state machine sends the
-        event instead.
+        This will still write out the run_results.json.
         """
         self.stopping = True
         if self.process is not None and self.process.poll() is None:
             self.process.send_signal(signal.SIGINT)
 
     def __call__(self, args: Sequence[str]) -> int:
-        """Runs dbt in the working directory, and returns its exit code.
-
-        dbt writes to the runner's stdout.
-        """
+        """Run the dbt command in the working directory and return the exit code."""
         log.info("Running: dbt %s", shlex.join(args))
-        # In its own session, so that a Ctrl-C in a terminal reaches only the
-        # runner, which passes it on, the same as SIGTERM.
-        self.process = subprocess.Popen([*self.executable, *args], start_new_session=True)
-        # Stopped before dbt started, or while it was starting.
+        # This should run in its own session so that the SIGINT can be used later to
+        # kill it if necessary.
+        process = subprocess.Popen([*self.executable, *args], start_new_session=True)
+        self.process = process
         if self.stopping:
             self.stop()
 
-        code = self.process.wait()
+        code = process.wait()
         log.info("dbt exited with %d", code)
         return code

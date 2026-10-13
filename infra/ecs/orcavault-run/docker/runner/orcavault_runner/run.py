@@ -1,70 +1,70 @@
-"""Running a request and recording how it went.
-
-A run is one dbt command, and its event says how it went. The entrypoint
-writes the event to event.json, which the state machine adds to and sends as
-the detail of the run's EventBridge event, see stepfunctions.tf. dbt's
-run_results.json is only read for the event, and the logs have the rest.
-"""
+"""Logic for running a request and recording the result."""
 
 import json
 import logging
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Protocol
 
-from .dbt import Dbt
 from .request import RequestError, parse_request
 from .results import Event, Outcome, classify, read_results
 
 log = logging.getLogger(__name__)
 
 
-def one_line(text: str, limit: int = 300) -> str:
-    """The text as one short line, without double quotes or backslashes.
+class DbtCommand(Protocol):
+    """The protocol for a dbt run, which is used to type the run_dbt here and mock tests."""
 
-    An EventBridge input transformer, which doesn't escape what it puts into a
-    JSON string, can then use it. The limit is long enough for the runner's own
-    errors and dbt's reasons for a skip. dbt's errors are in the logs.
+    stopping: bool
+
+    def __call__(self, args: Sequence[str]) -> int: ...
+
+
+def one_line(text: str, limit: int = 300) -> str:
+    """The text as one line message without double quotes or backslashes.
+
+    These aren't supported by the EventBridge transformer.
     """
     text = " ".join(text.replace('"', "'").replace("\\", "").split())
     text = "".join(c for c in text if c.isprintable())
+
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
-def run_dbt(args: tuple[str, ...], dbt: Dbt) -> Event:
-    """Runs dbt, and returns how it went."""
+def run_dbt(args: tuple[str, ...], dbt: DbtCommand) -> Event:
+    """Run the dbt command and return the result dbt."""
     results_path = Path("target", "run_results.json")
-    # A file left by an earlier dbt command, such as one run by hand, would be
-    # read as this run's results if dbt fails early.
+    # This must be removed as there could have been a previous execution leaving behind a result.
     results_path.unlink(missing_ok=True)
 
     code = dbt(args)
 
     if not results_path.exists():
-        return Event(error=f"dbt exited with {code} and wrote no run_results.json, see the logs")
+        return Event(error=f"dbt exited with {code} with no run_results.json, view the logs")
 
     run_results = json.loads(results_path.read_text())
     event = read_results(run_results)
     event.outcome = classify(code, event)
+
     if event.outcome is Outcome.ERROR:
-        # Such as that an ephemeral model failed, which dbt gives as the reason
-        # it skipped a node that depends on it.
+        # If this is a skipped model, the message gives the reason.
         reasons = (r["message"] for r in run_results.get("results", []) if r["status"] == "skipped" and r["message"])
-        event.error = next(reasons, f"dbt exited with {code}, see the logs")
+        event.error = next(reasons, f"dbt exited with {code}, view the logs")
     return event
 
 
-def run(raw_request: str, dbt: Dbt) -> Event:
-    """Runs the request in the dbt project, and returns its event.
+def run(raw_request: str, dbt: DbtCommand) -> Event:
+    """Run the dbt request and return the event.
 
-    The dbt project is the working directory.
+    The working directory is expected to be the dbt project.
     """
     try:
-        request = parse_request(raw_request)
+        args = parse_request(raw_request)
     except RequestError as e:
         event = Event(error=str(e))
     else:
-        event = run_dbt(request.args, dbt)
+        event = run_dbt(args, dbt)
 
-    # An error, however far dbt got.
     if dbt.stopping:
         event.error = "The run was stopped"
         event.outcome = Outcome.ERROR
@@ -72,4 +72,5 @@ def run(raw_request: str, dbt: Dbt) -> Event:
     if event.error is not None:
         log.error("%s", event.error)
         event.error = one_line(event.error)
+
     return event

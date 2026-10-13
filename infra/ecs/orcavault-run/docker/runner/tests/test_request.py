@@ -10,12 +10,11 @@ from orcavault_runner.request import RequestError, parse_request
     [
         ("{}", ("build",)),
         ('{"args": ["seed", "--select", "+lims", "--full-refresh"]}', ("seed", "--select", "+lims", "--full-refresh")),
-        # Split like a shell.
         (json.dumps({"args": """snapshot  --vars '{"a": 1}'"""}), ("snapshot", "--vars", '{"a": 1}')),
     ],
 )
 def test_requests(raw, args):
-    assert parse_request(raw).args == args
+    assert parse_request(raw) == args
 
 
 @pytest.mark.parametrize(
@@ -36,6 +35,5 @@ def test_invalid_requests(raw, names):
     with pytest.raises(RequestError) as e:
         parse_request(raw)
 
-    # However it's worded, the message names what's wrong.
     for name in names:
         assert name in str(e.value)

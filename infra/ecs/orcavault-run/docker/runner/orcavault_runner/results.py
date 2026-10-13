@@ -1,6 +1,6 @@
-"""The run's event, and reading a dbt invocation's run_results.json into it.
+"""The results of a run which are based on the dbt run_results.json.
 
-https://docs.getdbt.com/reference/artifacts/run-results-json
+See https://docs.getdbt.com/reference/artifacts/run-results-json
 """
 
 from enum import StrEnum
@@ -11,24 +11,17 @@ from pydantic.alias_generators import to_camel
 
 
 class Outcome(StrEnum):
-    """How a run went.
-
-    These are all the outcomes a run can have, which stepfunctions.tf names
-    too.
-    """
+    """The outcome of a run."""
 
     SUCCEEDED = "succeeded"
-    # Only warn severity tests failed. Nothing was held back.
+    # Only warn severity tests failed.
     WARNED = "warned"
-    # Another run was still going, so this one didn't start. Only the state
-    # machine gives a run this outcome.
+    # The run was skipped because another run was still going.
     SKIPPED = "skipped"
     # A model, seed or snapshot didn't build, or an error severity test or a
-    # hook failed. Only what depends on a failed node was held back, or
-    # everything after it with --fail-fast.
+    # hook failed.
     FAILED = "failed"
-    # dbt didn't run to completion, a node failed that dbt records no result
-    # for, such as an ephemeral model, or the request was invalid.
+    # The dbt didn't run to completion.
     ERROR = "error"
 
     @property
@@ -37,16 +30,13 @@ class Outcome(StrEnum):
         return 0 if self in (Outcome.SUCCEEDED, Outcome.WARNED) else 1
 
 
+# The amount of nodes the event can format.
+NODES_LISTED = 10
+
+
 class Event(BaseModel):
-    """How the run went, for the detail of its EventBridge event.
+    """The event result which has details for EventBridge."""
 
-    The state machine adds the fields every run's event has, such as runId.
-    It's flat and already formatted, so that EventBridge input transformers can
-    use it as it is.
-    """
-
-    # In camelCase in event.json. A field is checked when it's set, so that a
-    # wrong type is an error rather than a value the notifications can't use.
     model_config = ConfigDict(
         alias_generator=to_camel,
         validate_by_name=True,
@@ -55,7 +45,7 @@ class Event(BaseModel):
     )
 
     outcome: Outcome = Outcome.ERROR
-    # Why the outcome is error, otherwise None.
+    # Why the outcome is an error if set.
     error: str | None = None
     models_succeeded: int = 0
     models_failed: int = 0
@@ -63,48 +53,41 @@ class Event(BaseModel):
     tests_passed: int = 0
     tests_warned: int = 0
     tests_failed: int = 0
-    # Unique IDs, in the order dbt finished them.
+    # The unique IDs for failed/warned nodes.
     failed_nodes: list[str] = []
     warned_nodes: list[str] = []
 
     @field_serializer("failed_nodes", "warned_nodes")
     def summarise(self, unique_ids: list[str]) -> str:
-        """The nodes as a short list, for a notification.
-
-        A notification can't loop over an array. Each node is in the list once,
-        by the name people know it by.
-
-        Unique IDs are <type>.<package>.<name>, where a data test also ends with
-        a hash, a versioned model with its version, and a unit test has its
-        model before its name.
-        """
+        """Summarise the nodes as a short list for a notification."""
         names = list(dict.fromkeys(u.split(".")[-1 if u.startswith("unit_test.") else 2] for u in unique_ids))
-        if len(names) > 10:
-            return ", ".join(names[:10]) + f" and {len(names) - 10} more"
+
+        if len(names) > NODES_LISTED:
+            return ", ".join(names[:NODES_LISTED]) + f" and {len(names) - NODES_LISTED} more"
+
         return ", ".join(names)
 
 
 BUILT_TYPES = {"model", "seed", "snapshot"}
 TEST_TYPES = {"test", "unit_test"}
 
-# dbt's NodeStatus values, by what they mean here.
+# These are the NodeStatus values from the dbt command.
 SUCCEEDED_STATUSES = {"success", "pass", "no-op", "reused"}
 FAILED_STATUSES = {"error", "fail", "runtime error", "partial success"}
 
 
 def read_results(run_results: dict[str, Any]) -> Event:
+    """Read the results into an event."""
     event = Event()
     for result in run_results.get("results", []):
         unique_id, status = result["unique_id"], result["status"]
         succeeded, failed = status in SUCCEEDED_STATUSES, status in FAILED_STATUSES
-        # Any node, including an on-run-start or on-run-end hook, such as the
-        # CDC watermark's.
+
         if failed:
             event.failed_nodes.append(unique_id)
         elif status == "warn":
             event.warned_nodes.append(unique_id)
 
-        # Each bool adds 1 or 0.
         kind = unique_id.split(".", 1)[0]
         if kind in BUILT_TYPES:
             event.models_succeeded += succeeded
@@ -114,20 +97,20 @@ def read_results(run_results: dict[str, Any]) -> Event:
             event.tests_passed += succeeded
             event.tests_warned += status == "warn"
             event.tests_failed += failed
+
     return event
 
 
 def classify(exit_code: int, event: Event) -> Outcome:
-    """The run's outcome, from dbt's exit code and its results.
-
-    dbt exits 1 when a node fails and 2 when it couldn't run at all.
-    """
+    """Classify the run outcome from the dbt exit code and results."""
     if exit_code not in (0, 1):
         return Outcome.ERROR
     if event.failed_nodes:
         return Outcome.FAILED
-    # dbt failed without a node failing, such as when an ephemeral model fails,
-    # which only the skipped nodes that depend on it show.
+
+    # The dbt command exited with 1, which happens if dbt fails without a node
+    # failing, such as an ephemeral model failure.
     if exit_code:
         return Outcome.ERROR
+
     return Outcome.WARNED if event.warned_nodes else Outcome.SUCCEEDED

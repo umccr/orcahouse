@@ -1,4 +1,4 @@
-"""Stand-ins for dbt and its run_results.json."""
+"""Mock dbt and results fixtures."""
 
 import json
 from collections.abc import Sequence
@@ -8,20 +8,19 @@ from typing import Any
 
 
 def result(unique_id: str, status: str, message: str | None = None) -> dict[str, Any]:
-    """One entry of run_results.json, with only the fields the runner reads."""
+    """The mock result in run_results.json."""
     return {"unique_id": unique_id, "status": status, "message": message}
 
 
 def run_results(*results: dict[str, Any]) -> dict[str, Any]:
+    """The mock run_results.json."""
     return {"results": list(results)}
 
 
 @dataclass
-class FakeDbt:
+class MockDbt:
     code: int = 0
-    # None writes no run_results.json.
     results: list[dict[str, Any]] | None = field(default_factory=list)
-    # Stopped while dbt runs, as when ECS stops the task.
     stop: bool = False
     stopping: bool = False
     calls: list[Sequence[str]] = field(default_factory=list)
