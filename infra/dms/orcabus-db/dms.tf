@@ -33,6 +33,13 @@ resource "aws_dms_endpoint" "source" {
   secrets_manager_arn             = data.aws_secretsmanager_secret.source.arn
   secrets_manager_access_role_arn = aws_iam_role.dms_compute.arn
   ssl_mode                        = "require"
+
+  # Enable AWS DMS Heartbeat to prevent WAL accumulation
+  postgres_settings {
+    heartbeat_enable    = true
+    heartbeat_frequency = 5        # Pulse interval in minutes (1 to 60)
+    heartbeat_schema    = "public" # Target schema for AWS DMS heartbeat artifacts
+  }
 }
 
 resource "aws_dms_s3_endpoint" "target" {
