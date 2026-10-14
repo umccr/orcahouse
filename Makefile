@@ -17,9 +17,7 @@ baseline:
 test:
 	@(cd orcavault && dbt deps && dbt test)
 
-# The OrcaVault run's runner, see infra/ecs/orcavault-run/README.md. Needs uv,
-# but neither dbt nor AWS. Fails if its uv.lock is out of date, or ruff finds
-# anything.
+# The OrcaVault runner using uv, see infra/ecs/orcavault-run/README.md.
 test-runner:
 	@(cd infra/ecs/orcavault-run/docker/runner && uv run --locked ruff check && uv run --locked ruff format --check && uv run --locked pytest)
 
