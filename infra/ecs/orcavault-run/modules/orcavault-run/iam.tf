@@ -21,7 +21,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Only this account's tasks can assume the dbt task role,
+# Only this account's tasks can assume the dbt task role, and developers if configured,
 # see https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html.
 data "aws_iam_policy_document" "dbt_task_assume" {
   statement {
@@ -40,6 +40,28 @@ data "aws_iam_policy_document" "dbt_task_assume" {
       test     = "ArnLike"
       variable = "aws:SourceArn"
       values   = ["arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:*"]
+    }
+  }
+
+  # For local development, this allows connecting as the same database user, see the README.
+  # See https://docs.aws.amazon.com/singlesignon/latest/userguide/referencingpermissionsets.html.
+  dynamic "statement" {
+    for_each = length(var.developer_permission_sets) > 0 ? [1] : []
+    content {
+      effect  = "Allow"
+      actions = ["sts:AssumeRole"]
+      principals {
+        type        = "AWS"
+        identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
+      }
+      condition {
+        test     = "ArnLike"
+        variable = "aws:PrincipalArn"
+        values = [
+          for name in var.developer_permission_sets :
+          "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:role/aws-reserved/sso.amazonaws.com/*AWSReservedSSO_${name}_*"
+        ]
+      }
     }
   }
 }

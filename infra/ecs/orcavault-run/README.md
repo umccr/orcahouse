@@ -111,8 +111,8 @@ terraform -chdir=environments/$ENV apply
 
 dbt connects with Redshift IAM auth as the task role, so its database user is
 `IAMR:orcavault-run-<env>-dbt-task-role`. It
-creates and owns everything OrcaVault writes, i.e. the `psa`, `dcl`, `mart`, `seed`,
-`dbt_test__audit` and `ops` schemas.
+builds the `psa`, `dcl`, `mart`, `seed`, `dbt_test__audit` and `ops` schemas.
+In dev, local builds write them too, see [Building dev locally](#building-dev-locally).
 
 As a Redshift admin, in the environment's workgroup, before the first run, with
 `<env>` replaced by `dev` or `prod`:
@@ -135,40 +135,42 @@ alter default privileges for user "<orcaglue-user>" in schema tsa
     grant select on tables to "IAMR:orcavault-run-<env>-dbt-task-role";
 ```
 
-**If OrcaVault has already been built as another user**, that user owns
-its schemas and tables, and the grants aren't sufficient. dbt replaces a table model by
-renaming the old table, and only the owner can rename it. This query prints the
-statements that transfer the ownership:
+**Every user that builds OrcaVault** gets the same permissions on its tables,
+i.e. the task's user, and in dev the PowerUser user too. dbt replaces a table
+model by renaming the old table and dropping it, which needs `alter` and `drop`
+on a table that another user may have created. The following sets up scoped
+permissions apply to every table in a schema, including tables created later,
+so it doesn't matter which user owns which table.
+
+The schemas need to exist first. Ones that don't exist are created for the user:
 
 ```sql
-select 'alter schema ' || nspname || ' owner to "IAMR:orcavault-run-<env>-dbt-task-role";'
-from pg_namespace
-where nspname in ('psa', 'dcl', 'mart', 'seed', 'dbt_test__audit', 'ops')
-union all
-select 'alter table ' || schemaname || '.' || tablename || ' owner to "IAMR:orcavault-run-<env>-dbt-task-role";'
-from pg_tables
-where schemaname in ('psa', 'dcl', 'mart', 'seed', 'dbt_test__audit', 'ops')
-  and tableowner <> 'IAMR:orcavault-run-<env>-dbt-task-role'
-union all
-select 'alter table ' || schemaname || '.' || viewname || ' owner to "IAMR:orcavault-run-<env>-dbt-task-role";'
-from pg_views
-where schemaname in ('psa', 'dcl', 'mart', 'seed', 'dbt_test__audit', 'ops')
-  and viewowner <> 'IAMR:orcavault-run-<env>-dbt-task-role';
+create schema if not exists psa authorization "IAMR:orcavault-run-<env>-dbt-task-role";
+create schema if not exists dcl authorization "IAMR:orcavault-run-<env>-dbt-task-role";
+create schema if not exists mart authorization "IAMR:orcavault-run-<env>-dbt-task-role";
+create schema if not exists seed authorization "IAMR:orcavault-run-<env>-dbt-task-role";
+create schema if not exists dbt_test__audit authorization "IAMR:orcavault-run-<env>-dbt-task-role";
+create schema if not exists ops authorization "IAMR:orcavault-run-<env>-dbt-task-role";
 ```
 
-**Readers** get their own identities with read only. Default privileges make
-tables the task creates later readable. Schema usage can only be granted once a
-schema exists, so for new schemas that's after the first run:
+Then for each user that builds, with `<builder>` replaced by the user:
 
 ```sql
-alter default privileges for user "IAMR:orcavault-run-<env>-dbt-task-role"
-    grant select on tables to "IAMR:<reader-role>";
+grant usage, create on schema psa, dcl, mart, seed, dbt_test__audit, ops to "<builder>";
 
-grant usage on schema psa, dcl, mart, seed, dbt_test__audit, ops to "IAMR:<reader-role>";
-grant select on all tables in schema psa, dcl, mart, seed, dbt_test__audit, ops to "IAMR:<reader-role>";
+grant select, insert, update, delete, alter, drop, truncate for tables in schema psa to "<builder>";
+grant select, insert, update, delete, alter, drop, truncate for tables in schema dcl to "<builder>";
+grant select, insert, update, delete, alter, drop, truncate for tables in schema mart to "<builder>";
+grant select, insert, update, delete, alter, drop, truncate for tables in schema seed to "<builder>";
+grant select, insert, update, delete, alter, drop, truncate for tables in schema dbt_test__audit to "<builder>";
+grant select, insert, update, delete, alter, drop, truncate for tables in schema ops to "<builder>";
 ```
 
-### 5. Check the task, then run it
+The PowerUser user is `IAMR:AWSReservedSSO_AWSPowerUserAccess_<suffix>`, which
+`select usename from pg_user where usename like 'IAMR:AWSReservedSSO_AWSPowerUserAccess%';`
+shows.
+
+### 5. Check the task and run it
 
 The task needs the network access listed under [other considerations](#other-considerations).
 
@@ -241,7 +243,7 @@ An example of an event going to EventBridge:
 ```json
 {
   "source": "orcahouse.orcavault",
-  "detail-type": "OrcaVault Run Finished",
+  "detail-type": "OrcaVaultRunFinished",
   "detail": {
     "environment": "prod",
     "outcome": "failed",
