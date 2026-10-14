@@ -23,7 +23,6 @@ RUN --mount=from=uv,source=/uv,target=/bin/uv uv pip install --system -r require
 ENV ORCAVAULT_REF=$ORCAVAULT_REF \
     DBT_SEND_ANONYMOUS_USAGE_STATS=false \
     DBT_USE_COLORS=false \
-    DBT_EXCLUDE_RESOURCE_TYPES=unit_test \
     DBT_WARN_ERROR_OPTIONS='{"error": ["NoNodesForSelectionCriteria"]}'
 
 COPY profiles.yml ./

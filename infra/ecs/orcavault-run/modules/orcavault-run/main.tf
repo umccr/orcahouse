@@ -16,7 +16,7 @@ locals {
   container_name       = "dbt"
   results_prefix       = "runs/"
   event_source         = "orcahouse.orcavault"
-  event_detail_type    = "OrcaVault Run Finished"
+  event_detail_type    = "OrcaVaultRunFinished"
   region               = data.aws_region.current.region
   console_url          = "https://${local.region}.console.aws.amazon.com"
   execution_url_prefix = "${local.console_url}/states/home?region=${local.region}#/v2/executions/details/"
