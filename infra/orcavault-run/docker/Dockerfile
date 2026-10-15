@@ -20,10 +20,11 @@ ADD --keep-git-dir=true https://github.com/umccr/orcavault.git#${ORCAVAULT_REF} 
 WORKDIR /orcavault
 
 RUN --mount=from=uv,source=/uv,target=/bin/uv uv pip install --system -r requirements.txt
+# A selection that matches nothing should be is an error rather than succeeding.
 ENV ORCAVAULT_REF=$ORCAVAULT_REF \
     DBT_SEND_ANONYMOUS_USAGE_STATS=false \
     DBT_USE_COLORS=false \
-    DBT_WARN_ERROR_OPTIONS='{"error": ["NoNodesForSelectionCriteria"]}'
+    DBT_WARN_ERROR_OPTIONS='{"error": ["NoNodesForSelectionCriteria", "NothingToDo"]}'
 
 COPY profiles.yml ./
 RUN dbt deps \

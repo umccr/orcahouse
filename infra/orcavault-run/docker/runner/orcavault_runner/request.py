@@ -14,6 +14,9 @@ import shlex
 # The dbt commands that are supported by a request.
 COMMANDS = ("build", "run", "test", "seed", "snapshot")
 
+# These move run_results.json or stop dbt writing it, which would report success/failure incorrectly.
+UNSUPPORTED_ARGS = {"--target-path", "--no-write-json"}
+
 
 class RequestError(ValueError):
     """A request error."""
@@ -48,5 +51,12 @@ def parse_request(raw: str) -> tuple[str, ...]:
         commands = ", ".join(f"`{command}`" for command in COMMANDS)
         received = f"`{args[0]}`" if args else "nothing"
         raise RequestError(f"`args` must start with one of {commands}, not {received}")
+
+    # A flag can also be given as --flag=value.
+    flags = {arg.partition("=")[0] for arg in args[1:]}
+    unsupported = sorted(flags.intersection(UNSUPPORTED_ARGS))
+    if unsupported:
+        names = ", ".join(f"`{name}`" for name in unsupported)
+        raise RequestError(f"`args` can't include {names}, the runner needs dbt's run_results.json")
 
     return tuple(args)

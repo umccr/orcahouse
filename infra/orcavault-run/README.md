@@ -205,10 +205,12 @@ directory, `environments/dev` or `environments/prod`. Its outputs are under
 - **Start a run** with the `start_run_command` output, or from the Step
   Functions console with input `{}`. Leave the execution name to Step Functions.
 - **Pause the schedule** with `-var schedule_enabled=false`.
-- **Stop a run** by stopping its execution. Step Functions stops the task, and
-  the runner tells dbt to cancel its queries. If dbt hasn't exited in times ECS
-  kills the task, and the state machine sends the run event. A run that reaches
-  `run_timeout_hours` is stopped the same way.
+- **Stop a run** by stopping its task, from the ECS console or the execution's
+  `RunDbt` step. The runner tells dbt to cancel its queries. If dbt hasn't
+  exited in time ECS kills the task, and the state machine sends the run event.
+  A run that reaches `run_timeout_hours` is stopped the same way. Stopping the
+  execution instead also stops the task, but ends the execution before it sends
+  the run event.
 - **Logs can be read** with the `logs_command` output, or from the `logsUrl` in
   the run's event.
 - **Release a new version** by setting the new ref as `orcavault_release_ref` in
@@ -256,8 +258,9 @@ Run again with a new execution rather than a
 
 ### The run event
 
-Every execution ends by sending this event to the default event bus.
-Notifications, and anything else that reacts to a run, should use it.
+Every execution ends by sending this event to the default event bus, except one
+that was stopped, see [Operating](#operating). Notifications, and anything else
+that reacts to a run, should use it.
 
 The runner writes how the run went to `runs/<execution name>/event.json` in the
 results bucket. The state machine reads it, adds the fields every run event has,

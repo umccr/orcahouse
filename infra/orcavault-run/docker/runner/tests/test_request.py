@@ -26,6 +26,8 @@ def test_requests(raw, args):
         ('{"args": []}', ["args"]),
         (json.dumps({"args": "build --select 'lims"}), ["args"]),
         ('{"args": ["build", 1]}', ["args"]),
+        ('{"args": "build --target-path elsewhere"}', ["--target-path"]),
+        ('{"args": ["run", "--no-write-json"]}', ["--no-write-json"]),
         ('{"args": null}', ["args"]),
         ("[]", []),
         ("not json", []),
