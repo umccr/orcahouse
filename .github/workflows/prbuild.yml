@@ -74,7 +74,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v10.2.0
         with:
-          # The same as infra/ecs/orcavault-run/docker/Dockerfile's.
           version: "0.12.19"
 
       - name: Run OrcaVault runner testing

@@ -56,9 +56,6 @@ module "orcavault_run" {
   redshift_workgroup_name = "orcahouse-${local.environment}"
   orcavault_release_ref   = var.orcavault_release_ref
   schedule_enabled        = var.schedule_enabled
-
-  # Local dbt builds share the dev schemas with the daily run, see the README.
-  developer_permission_sets = ["AWSPowerUserAccess"]
 }
 
 output "orcavault_run" {

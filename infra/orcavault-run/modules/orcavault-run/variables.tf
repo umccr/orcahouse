@@ -39,12 +39,6 @@ variable "cdc_s3_prefix" {
   default     = "orcabus/v1/cdc/"
 }
 
-variable "developer_permission_sets" {
-  description = "The IAM permission sets that can assume the dbt task role."
-  type        = list(string)
-  default     = []
-}
-
 variable "orcavault_release_ref" {
   description = "The release tag or commit of umccr/orcavault to deploy"
   type        = string

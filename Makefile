@@ -17,15 +17,15 @@ baseline:
 test:
 	@(cd orcavault && dbt deps && dbt test)
 
-# The OrcaVault runner using uv, see infra/ecs/orcavault-run/README.md.
+# The OrcaVault runner using uv, see infra/orcavault-run/README.md.
 test-runner:
-	@(cd infra/ecs/orcavault-run/docker/runner && uv run --locked ruff check && uv run --locked ruff format --check && uv run --locked pytest)
+	@(cd infra/orcavault-run/docker/runner && uv run --locked ruff check && uv run --locked ruff format --check && uv run --locked pytest)
 
 # NOTE: not suitable target for local running but specifically setup for anonymous CI runner  ~victor
 test-iac:
 	@(cd infra/ec2/umccr-mgmt && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
 	@(cd infra/ec2/warehouse-mgmt && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
-	@(cd infra/ecs/orcavault-run/modules/orcavault-run && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
-	@(cd infra/ecs/orcavault-run/account-wide && terraform init -backend=false && terraform fmt -check && terraform validate)
-	@(cd infra/ecs/orcavault-run/environments/dev && terraform init -backend=false && terraform fmt -check && terraform validate)
-	@(cd infra/ecs/orcavault-run/environments/prod && terraform init -backend=false && terraform fmt -check && terraform validate)
+	@(cd infra/orcavault-run/modules/orcavault-run && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
+	@(cd infra/orcavault-run/account-wide && terraform init -backend=false && terraform fmt -check && terraform validate)
+	@(cd infra/orcavault-run/environments/dev && terraform init -backend=false && terraform fmt -check && terraform validate)
+	@(cd infra/orcavault-run/environments/prod && terraform init -backend=false && terraform fmt -check && terraform validate)
