@@ -1,0 +1,33 @@
+[project]
+name = "orcavault-runner"
+version = "0.1.0"
+requires-python = "==3.13.*"
+dependencies = [
+    "boto3~=1.34",
+    "pydantic~=2.11",
+    "pydantic-settings~=2.2",
+]
+
+[dependency-groups]
+dev = [
+    "boto3-stubs[s3]~=1.34",
+    "pytest>=8",
+    "ruff>=0.17.0",
+]
+
+[build-system]
+requires = ["uv_build~=0.12.19"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = ["B", "D", "I", "UP"]
+ignore = ["D1"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
