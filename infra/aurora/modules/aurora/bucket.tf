@@ -3,13 +3,13 @@
 
 data "aws_s3_bucket" "orcavault_datalake" {
   # Created and managed by infra/s3/orcavault
-  bucket = "orcavault-${local.environment}-warehouse-115253169271-ap-southeast-2-an"
+  bucket = "orcavault-${var.environment}-warehouse-115253169271-ap-southeast-2-an"
 }
 
 data "aws_iam_policy_document" "bucket_policy" {
   statement {
-    sid     = "s3import"
-    effect  = "Allow"
+    sid    = "s3import"
+    effect = "Allow"
     actions = sort([
       "s3:GetObject",
       "s3:ListBucket",
@@ -23,7 +23,7 @@ data "aws_iam_policy_document" "bucket_policy" {
 
 data "aws_iam_policy_document" "rds_assume_policy" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
@@ -41,12 +41,12 @@ data "aws_iam_policy_document" "rds_assume_policy" {
 }
 
 resource "aws_iam_role" "rds_s3_import_role" {
-  name               = "${local.stack_name}-${local.environment}-rds-s3-import-role"
+  name               = "${var.stack_name}-${var.environment}-rds-s3-import-role"
   assume_role_policy = data.aws_iam_policy_document.rds_assume_policy.json
 }
 
 resource "aws_iam_role_policy" "rds_s3_policy" {
-  name   = "${local.stack_name}-${local.environment}-rds-s3-policy"
+  name   = "${var.stack_name}-${var.environment}-rds-s3-policy"
   role   = aws_iam_role.rds_s3_import_role.id
   policy = data.aws_iam_policy_document.bucket_policy.json
 }
