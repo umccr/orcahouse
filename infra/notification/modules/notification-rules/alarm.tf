@@ -1,11 +1,14 @@
-# Forward orcahouse-notify-<env>-* CloudWatch alarms to Slack. Created in every
-# environment. Alarms have no actions of their own. The alarm description becomes the
+# Forward orcahouse-notify-<env>-* CloudWatch alarms, and the OrcaVault run's
+# orcavault-run-<env>-* alarms (infra/orcavault-run, monitoring.tf), to Slack. Created in
+# every environment. Alarms have no actions of their own. The alarm description becomes the
 # message body and is inserted unescaped: no double quotes, and use the two characters
 # \n for a line break (no other backslashes).
 # alarm-resolved requires previousState ALARM, so a new alarm reaching OK does not post.
 
 locals {
-  alarm_name_prefix = "orcahouse-notify-${var.environment}-"
+  alarm_name_prefixes = ["orcahouse-notify-${var.environment}-", "orcavault-run-${var.environment}-"]
+  alarm_name_match    = [for prefix in local.alarm_name_prefixes : { prefix = prefix }]
+  alarm_names         = join(" and ", [for prefix in local.alarm_name_prefixes : "${prefix}*"])
 
   alarm_input_paths = {
     account       = "$.account"
@@ -22,13 +25,13 @@ locals {
 
   alarm_rules = {
     "alarm-firing" = {
-      description = "Send ${local.alarm_name_prefix}* CloudWatch alarms entering ALARM to the Slack SNS topic"
+      description = "Send ${local.alarm_names} CloudWatch alarms entering ALARM to the Slack SNS topic"
 
       event_pattern = jsonencode({
         source        = ["aws.cloudwatch"]
         "detail-type" = ["CloudWatch Alarm State Change"]
         detail = {
-          alarmName = [{ prefix = local.alarm_name_prefix }]
+          alarmName = local.alarm_name_match
           state     = { value = ["ALARM"] }
         }
       })
@@ -49,13 +52,13 @@ locals {
     }
 
     "alarm-resolved" = {
-      description = "Send ${local.alarm_name_prefix}* CloudWatch alarms returning from ALARM to OK to the Slack SNS topic"
+      description = "Send ${local.alarm_names} CloudWatch alarms returning from ALARM to OK to the Slack SNS topic"
 
       event_pattern = jsonencode({
         source        = ["aws.cloudwatch"]
         "detail-type" = ["CloudWatch Alarm State Change"]
         detail = {
-          alarmName     = [{ prefix = local.alarm_name_prefix }]
+          alarmName     = local.alarm_name_match
           state         = { value = ["OK"] }
           previousState = { value = ["ALARM"] }
         }

@@ -42,9 +42,14 @@ to separate channels.
 | `glue-job-failure` | dev, prod | An `orcaglue-<env>-*` Glue job ends `FAILED` or `TIMEOUT` |
 | `crawler-failed`, `crawler-start-failed` | dev, prod | A listed crawler fails, or its scheduled start fails |
 | `dms-<identifier>` | prod | A DMS instance or task reports `Failure` or `LowStorage` |
-| `alarm-firing`, `alarm-resolved` | dev, prod | An `orcahouse-notify-<env>-*` alarm enters `ALARM` or returns to `OK` |
+| `orcavault-run-failed` | dev, prod | An OrcaVault dbt run in this environment ends `failed` |
+| `orcavault-run-warned` | dev, prod | An OrcaVault dbt run in this environment ends `warned`: models were applied, but warn-severity tests failed |
+| `orcavault-run-error` | dev, prod | An OrcaVault dbt run in this environment ends `error` or `skipped` |
+| `alarm-firing`, `alarm-resolved` | dev, prod | An `orcahouse-notify-<env>-*` or `orcavault-run-<env>-*` alarm enters `ALARM` or returns to `OK` |
 
-Watched crawlers and DMS resources are listed in `environments/<env>/main.tf`.
+Watched crawlers and DMS resources are listed in `environments/<env>/main.tf`. The
+OrcaVault run rules match the `OrcaVaultRunFinished` event that
+[infra/orcavault-run](../orcavault-run/README.md#the-run-event) sends.
 
 ## Notes
 
@@ -52,7 +57,11 @@ Watched crawlers and DMS resources are listed in `environments/<env>/main.tf`.
   topic owner allows one role per environment
   ([CROSS_ACCOUNT_TOPIC_POLICY.md](CROSS_ACCOUNT_TOPIC_POLICY.md)).
 - **No free text:** EventBridge inserts values unescaped, so messages never include error
-  text. Alarm descriptions must have no double quotes; `\n` marks a line break.
+  text. Alarm descriptions must have no double quotes; `\n` marks a line break. The
+  OrcaVault run event is the exception: its runner writes `error`, `failedNodes` and
+  `warnedNodes` on one line without double quotes or backslashes.
+- **Environment:** dev and prod OrcaVault runs send to the same default bus, so the run
+  rules match `detail.environment`.
 - **DMS:** ARNs end in a generated ID, so there is one rule per resource, matched by ARN.
   After a task or instance is replaced, re-apply prod.
 - **Limit:** if every publish to the Slack topic fails, the DLQ alarm cannot reach Slack

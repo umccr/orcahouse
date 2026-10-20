@@ -1,12 +1,13 @@
 # EventBridge rules and Slack targets for one environment. Each source file defines a map
-# of rules (glue_job.tf, alarm.tf, dms.tf, crawler.tf); this file creates them. Templates
-# never use free-text event fields (error messages): EventBridge inserts values unescaped,
-# so a quote or newline would break the JSON and Amazon Q would drop the message.
+# of rules (glue_job.tf, alarm.tf, dms.tf, crawler.tf, orcavault_run.tf); this file creates
+# them. Templates never use free-text event fields (error messages): EventBridge inserts
+# values unescaped, so a quote or newline would break the JSON and Amazon Q would drop the
+# message. The OrcaVault run event is the exception, see orcavault_run.tf.
 
 locals {
   account_name = "umccr-warehouse-prod"
 
-  rules = merge(local.glue_job_rules, local.alarm_rules, local.dms_rules, local.crawler_rules)
+  rules = merge(local.glue_job_rules, local.alarm_rules, local.dms_rules, local.crawler_rules, local.orcavault_run_rules)
 }
 
 resource "aws_cloudwatch_event_rule" "this" {
