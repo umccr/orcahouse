@@ -43,6 +43,7 @@ to separate channels.
 | `crawler-failed`, `crawler-start-failed` | dev, prod | A listed crawler fails, or its scheduled start fails |
 | `dms-<identifier>` | prod | A DMS instance or task reports `Failure` or `LowStorage` |
 | `orcavault-run-failed` | dev, prod | An OrcaVault dbt run in this environment ends `failed` |
+| `orcavault-run-warned` | dev, prod | An OrcaVault dbt run in this environment ends `warned`: models were applied, but warn-severity tests failed |
 | `orcavault-run-error` | dev, prod | An OrcaVault dbt run in this environment ends `error` or `skipped` |
 | `alarm-firing`, `alarm-resolved` | dev, prod | An `orcahouse-notify-<env>-*` or `orcavault-run-<env>-*` alarm enters `ALARM` or returns to `OK` |
 
@@ -57,8 +58,8 @@ OrcaVault run rules match the `OrcaVaultRunFinished` event that
   ([CROSS_ACCOUNT_TOPIC_POLICY.md](CROSS_ACCOUNT_TOPIC_POLICY.md)).
 - **No free text:** EventBridge inserts values unescaped, so messages never include error
   text. Alarm descriptions must have no double quotes; `\n` marks a line break. The
-  OrcaVault run event is the exception: its runner writes `error` and `failedNodes` on one
-  line without double quotes or backslashes.
+  OrcaVault run event is the exception: its runner writes `error`, `failedNodes` and
+  `warnedNodes` on one line without double quotes or backslashes.
 - **Environment:** dev and prod OrcaVault runs send to the same default bus, so the run
   rules match `detail.environment`.
 - **DMS:** ARNs end in a generated ID, so there is one rule per resource, matched by ARN.

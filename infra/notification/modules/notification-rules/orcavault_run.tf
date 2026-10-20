@@ -1,14 +1,15 @@
-# OrcaVault dbt runs that did not succeed, from the OrcaVaultRunFinished event the
+# OrcaVault dbt runs that did not succeed cleanly, from the OrcaVaultRunFinished event the
 # orcavault-run state machine (infra/orcavault-run) sends at the end of every execution.
 # Created in every environment. Dev and prod send to the same default bus, so
-# detail.environment selects this environment's runs. warned is a successful run and is
-# left out on purpose.
-# Unlike the other rules, these templates use free text (error, failedNodes). The runner
-# writes it on one line without double quotes or backslashes (one_line in
-# infra/orcavault-run/docker/runner/orcavault_runner/run.py), and the state machine's own
-# errors are fixed strings, so it is safe to insert unescaped.
-# There are two rules so that every placeholder is always set: failed always has logsUrl
-# and a null error; error and skipped always have an error, but logsUrl can be null.
+# detail.environment selects this environment's runs. succeeded is left out on purpose.
+# Unlike the other rules, these templates use free text (error, failedNodes, warnedNodes).
+# The runner writes it on one line without double quotes or backslashes (one_line in
+# infra/orcavault-run/docker/runner/orcavault_runner/run.py), node names are dbt
+# identifiers, and the state machine's own errors are fixed strings, so it is safe to
+# insert unescaped.
+# The rules are split so that every placeholder is always set: failed and warned always
+# have logsUrl and a null error; error and skipped always have an error, but logsUrl can be
+# null. warned has its own rule for a warning title, and so that it can be muted on its own.
 
 locals {
   orcavault_run_input_paths = {
@@ -41,6 +42,7 @@ locals {
         modelsFailed  = "$.detail.modelsFailed"
         modelsSkipped = "$.detail.modelsSkipped"
         testsFailed   = "$.detail.testsFailed"
+        testsWarned   = "$.detail.testsWarned"
         failedNodes   = "$.detail.failedNodes"
         logsUrl       = "$.detail.logsUrl"
       })
@@ -51,7 +53,39 @@ locals {
         content = {
           textType    = "client-markdown"
           title       = ":rotating_light: [${var.environment}] OrcaVault dbt run failed"
-          description = "*Process:* OrcaVault dbt run\n*Run ID:* `<runId>`\n*Models:* <modelsFailed> failed, <modelsSkipped> skipped\n*Tests:* <testsFailed> failed\n*Failed nodes:* <failedNodes>\n${local.orcavault_run_footer}"
+          description = "*Process:* OrcaVault dbt run\n*Run ID:* `<runId>`\n*Models:* <modelsFailed> failed, <modelsSkipped> skipped\n*Tests:* <testsFailed> failed, <testsWarned> warned\n*Failed nodes:* <failedNodes>\n${local.orcavault_run_footer}"
+          nextSteps   = ["Logs: <logsUrl>", "Execution: <executionUrl>"]
+          keywords    = ["OrcaHouse", var.environment, "dbt"]
+        }
+      })
+    }
+
+    # Only warn-severity tests failed. The models were applied and the execution succeeded.
+    "orcavault-run-warned" = {
+      description = "Send OrcaVault ${var.environment} dbt runs with warnings to the Slack SNS topic"
+
+      event_pattern = jsonencode({
+        source        = ["orcahouse.orcavault"]
+        "detail-type" = ["OrcaVaultRunFinished"]
+        detail = {
+          environment = [var.environment]
+          outcome     = ["warned"]
+        }
+      })
+
+      input_paths = merge(local.orcavault_run_input_paths, {
+        testsWarned = "$.detail.testsWarned"
+        warnedNodes = "$.detail.warnedNodes"
+        logsUrl     = "$.detail.logsUrl"
+      })
+
+      input_template = jsonencode({
+        version = "1.0"
+        source  = "custom"
+        content = {
+          textType    = "client-markdown"
+          title       = ":warning: [${var.environment}] OrcaVault dbt run warned"
+          description = "*Process:* OrcaVault dbt run\n*Run ID:* `<runId>`\n*Tests:* <testsWarned> warned (warn severity, models were applied)\n*Warned nodes:* <warnedNodes>\n${local.orcavault_run_footer}"
           nextSteps   = ["Logs: <logsUrl>", "Execution: <executionUrl>"]
           keywords    = ["OrcaHouse", var.environment, "dbt"]
         }
