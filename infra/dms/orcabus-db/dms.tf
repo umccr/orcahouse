@@ -56,7 +56,8 @@ resource "aws_dms_s3_endpoint" "target" {
   include_op_for_full_load                    = true
   use_task_start_time_for_full_load_timestamp = true
 
-  cdc_inserts_and_updates = true
+  # Should both be false, to include inserts, updates and deletes.
+  cdc_inserts_and_updates = false
   cdc_inserts_only        = false
   cdc_max_batch_interval  = 3600   # in seconds, 1 hour
   cdc_min_file_size       = 131072 # set between 128MB (131072) to 512MB (524288)
