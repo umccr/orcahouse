@@ -42,6 +42,8 @@ data "aws_iam_policy_document" "analytics_assume_policy" {
   }
 }
 
+# We further need to allow this aurora-analytics-role at LakeFormation side for READ access to datalake tables in S3.
+# See infra/lakeformation/environments/warehouse/permissions_warehouse.tf
 resource "aws_iam_role" "analytics_role" {
   name               = "${var.stack_name}-${var.environment}-aurora-analytics-role"
   assume_role_policy = data.aws_iam_policy_document.analytics_assume_policy.json

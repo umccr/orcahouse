@@ -25,3 +25,14 @@ data "aws_iam_role" "redshift_prod" {
   # Created by infra/redshift/modules/redshift-serverless/iam.tf
   name = "prod-redshift-namespace-role"
 }
+
+data "aws_iam_role" "orcanexus_dev" {
+  # Created by infra/aurora/environments/dev//modules/analytics.tf
+  name = "orcanexus-dev-aurora-analytics-role"
+}
+
+# FIXME - uncomment when we have prod orcanexus ready
+# data "aws_iam_role" "orcanexus_prod" {
+#   # Created by infra/aurora/environments/prod//modules/analytics.tf
+#   name = "orcanexus-prod-aurora-analytics-role"
+# }

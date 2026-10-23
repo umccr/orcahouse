@@ -36,7 +36,7 @@ module "aurora" {
   stack_name              = "orcanexus"
   environment             = "prod"
   min_capacity            = 0.0
-  max_capacity            = 16.0
+  max_capacity            = 2.0
   engine_version          = "18.6"
   backup_retention_period = 7
   deletion_protection     = true

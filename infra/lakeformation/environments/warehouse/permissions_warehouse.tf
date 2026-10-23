@@ -130,3 +130,46 @@ resource "aws_lakeformation_permissions" "redshift_prod_tables" {
   }
   permissions = ["SELECT", "DESCRIBE"]
 }
+
+resource "aws_lakeformation_permissions" "orcanexus_dev_database" {
+  for_each  = toset(local.databases)
+  principal = data.aws_iam_role.orcanexus_dev.arn
+
+  database {
+    name = each.value
+  }
+  permissions = ["DESCRIBE"]
+}
+
+resource "aws_lakeformation_permissions" "orcanexus_dev_tables" {
+  for_each  = toset(local.databases)
+  principal = data.aws_iam_role.orcanexus_dev.arn
+
+  table {
+    database_name = each.value
+    wildcard      = true # Natively covers all tables
+  }
+  permissions = ["SELECT", "DESCRIBE"]
+}
+
+# FIXME - uncomment when we have prod orcanexus ready
+# resource "aws_lakeformation_permissions" "orcanexus_prod_database" {
+#   for_each  = toset(local.databases)
+#   principal = data.aws_iam_role.orcanexus_prod.arn
+#
+#   database {
+#     name = each.value
+#   }
+#   permissions = ["DESCRIBE"]
+# }
+#
+# resource "aws_lakeformation_permissions" "orcanexus_prod_tables" {
+#   for_each  = toset(local.databases)
+#   principal = data.aws_iam_role.orcanexus_prod.arn
+#
+#   table {
+#     database_name = each.value
+#     wildcard      = true # Natively covers all tables
+#   }
+#   permissions = ["SELECT", "DESCRIBE"]
+# }
