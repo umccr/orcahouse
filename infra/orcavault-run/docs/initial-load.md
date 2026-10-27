@@ -34,12 +34,14 @@ build and push its image, see
 
 ```bash
 terraform -chdir=environments/$ENV init
-terraform -chdir=environments/$ENV apply -var schedule_enabled=false
+terraform -chdir=environments/$ENV apply
 ```
 
-The schedule starts a run every day after applying, so it's paused until the
-initial load is done. A daily run before the legacy load would record the CDC
-positions, after which step 7 isn't safe.
+The schedule starts a run every day at 03:00 Melbourne time once it's applied.
+Steps 4 to 7 should be done before then, as a daily run before the legacy load
+would record the CDC positions, after which step 7 isn't safe. Alternatively,
+you can also use `-var schedule_enabled=false` to not enable the schedule 
+while doing the initial load.
 
 ## 4. Grant the task's database user
 
@@ -142,12 +144,20 @@ These should be loaded as part of the initial setup by running:
 
 ```bash
 ARN=$(terraform -chdir=environments/$ENV output -json orcavault_run | jq -r .state_machine_arn)
-aws stepfunctions start-execution --state-machine-arn "$ARN" --input '{"args": ["run", "--full-refresh", "--vars", "{\"load_legacy\": true}"]}'
+aws stepfunctions start-execution --state-machine-arn "$ARN" --input '{"args": ["build", "--full-refresh", "--exclude", "resource_type:test", "--vars", "{\"load_legacy\": true}"]}'
 ```
 
-This is a `dbt run` of every model, where each model with a legacy source reads
-it as well as its current sources. The exception is `hub_s3object`, which only
-reads the data portal's objects, which is why we need the initial `run`.
+This is a `dbt build` of every seed and model without tests, where each model
+with a legacy source reads it as well as its current sources. The exception is
+`hub_s3object`, which only reads the data portal's objects, which is why the
+tests are excluded. The seeds are built first, as some models read them.
+
+Wait for it to succeed before step 8, as a run doesn't start while another is
+still going. The status should be `SUCCEEDED` once it has:
+
+```bash
+aws stepfunctions list-executions --state-machine-arn "$ARN" --max-results 1 --query 'executions[0].status' --output text
+```
 
 ## 8. Run the first full load
 
@@ -158,7 +168,8 @@ eval "$(terraform -chdir=environments/$ENV output -json orcavault_run | jq -r .s
 ```
 
 No CDC positions are recorded yet, so this reads every commit, which also adds
-the filemanager's objects to `hub_s3object`.
+the filemanager's objects to `hub_s3object`. Check that it succeeds in the same
+way as step 7.
 
 Don't run the legacy load again. With the CDC positions recorded, a legacy run
 with `--full-refresh` would rebuild `hub_s3object` without the filemanager's
