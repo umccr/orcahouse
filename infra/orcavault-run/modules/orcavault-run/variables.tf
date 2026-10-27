@@ -16,27 +16,19 @@ variable "ecr_repository_name" {
   default     = "orcavault-run-dbt"
 }
 
-variable "cdc_glue_databases" {
-  description = "The Glue databases created by infra/glue-crawler/orcabus-db."
+variable "glue_databases" {
+  description = "The Glue databases the task reads, i.e. the CDC databases created by infra/glue-crawler/orcabus-db, and the legacy data_portal database."
   type        = list(string)
-  default = [
-    "orcabus_filemanager",
-    "orcabus_metadata_manager",
-    "orcabus_sequence_run_manager",
-    "orcabus_workflow_manager",
-  ]
 }
 
-variable "cdc_bucket_name" {
-  description = "The Bucket DMS writes CDC files to, created by infra/dms/orcabus-db."
+variable "bucket_name" {
+  description = "The bucket with the files of the glue_databases tables, i.e. the landing zone that DMS writes CDC files to, created by infra/dms/orcabus-db."
   type        = string
-  default     = "orcahouse-prod-landing-zone-115253169271-ap-southeast-2-an"
 }
 
-variable "cdc_s3_prefix" {
-  description = "The key prefix of the CDC files in cdc_bucket_name."
-  type        = string
-  default     = "orcabus/v1/cdc/"
+variable "s3_prefix" {
+  description = "The key prefixes of the glue_database table files in bucket_name."
+  type        = list(string)
 }
 
 variable "orcavault_release_ref" {
@@ -53,13 +45,13 @@ variable "dbt_threads" {
 variable "task_cpu" {
   description = "The Fargate task CPUs"
   type        = string
-  default     = "512"
+  default     = "4096"
 }
 
 variable "task_memory" {
   description = "The Fargate task memory in MiB."
   type        = string
-  default     = "2048"
+  default     = "8192"
 }
 
 variable "schedule_expression" {

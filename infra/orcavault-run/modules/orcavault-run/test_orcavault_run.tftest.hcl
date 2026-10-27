@@ -54,6 +54,9 @@ variables {
   environment             = "prod"
   redshift_workgroup_name = "orcahouse-prod"
   orcavault_release_ref   = "v1.0.0"
+  glue_databases          = ["orcabus_filemanager", "data_portal"]
+  bucket_name             = "landing-zone"
+  s3_prefix               = ["orcabus/v1/cdc/", "data-portal/export/"]
 }
 
 run "schedule_builds_everything" {
@@ -113,6 +116,33 @@ run "task_writes_its_event" {
       { name = "ORCAVAULT_RESULTS_BUCKET", value = aws_s3_bucket.results.bucket },
     )
     error_message = "the task should be given the results bucket"
+  }
+}
+
+run "task_reads_source" {
+  assert {
+    condition     = toset(keys(aws_lakeformation_permissions.cdc_tables)) == toset(var.glue_databases)
+    error_message = "the task should be granted the tables of all database"
+  }
+
+  assert {
+    condition = alltrue([
+      for prefix in var.s3_prefix : anytrue([
+        for statement in data.aws_iam_policy_document.dbt_task.statement :
+        try(contains(statement.resources, "${data.aws_s3_bucket.cdc.arn}/${prefix}*"), false)
+      ])
+    ])
+    error_message = "the task should be able to read the files"
+  }
+
+  assert {
+    condition = alltrue([
+      for prefix in var.s3_prefix : anytrue([
+        for statement in data.aws_iam_policy_document.dbt_task.statement :
+        try(contains(one(statement.condition).values, "${prefix}*"), false)
+      ])
+    ])
+    error_message = "the task should be able to list the files under all prefixes"
   }
 }
 

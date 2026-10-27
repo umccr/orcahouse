@@ -83,7 +83,7 @@ data "aws_iam_policy_document" "dbt_task" {
     condition {
       test     = "StringLike"
       variable = "s3:prefix"
-      values   = ["${var.cdc_s3_prefix}*"]
+      values   = [for prefix in var.s3_prefix : "${prefix}*"]
     }
   }
 
@@ -91,7 +91,7 @@ data "aws_iam_policy_document" "dbt_task" {
     sid       = "ReadCdcFiles"
     effect    = "Allow"
     actions   = ["s3:GetObject"]
-    resources = ["${data.aws_s3_bucket.cdc.arn}/${var.cdc_s3_prefix}*"]
+    resources = [for prefix in var.s3_prefix : "${data.aws_s3_bucket.cdc.arn}/${prefix}*"]
   }
 
   statement {

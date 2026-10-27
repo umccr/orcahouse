@@ -12,7 +12,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "6.45.0"
+      version = ">= 6.70.0"
     }
   }
 }
@@ -78,7 +78,7 @@ module "redshift_serverless" {
 
   # See note in infra/redshift/environments/dev/main.tf for tuning
   base_capacity            = 4   # RPUs
-  max_capacity             = 4   # RPUs
+  max_capacity             = 8   # RPUs
   max_query_execution_time = 900 # in seconds, 15 minutes
   compute_limit_amount     = 120 # Maximum RPU-hours, Monthly
   data_limit_amount        = 1   # TB cross region transfer, Monthly
