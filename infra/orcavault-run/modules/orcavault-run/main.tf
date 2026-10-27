@@ -65,7 +65,7 @@ data "aws_redshiftserverless_workgroup" "this" {
 }
 
 data "aws_s3_bucket" "cdc" {
-  bucket = var.cdc_bucket_name
+  bucket = var.bucket_name
 }
 
 data "aws_ecr_repository" "dbt" {

@@ -56,6 +56,19 @@ module "orcavault_run" {
   redshift_workgroup_name = "orcahouse-${local.environment}"
   orcavault_release_ref   = var.orcavault_release_ref
   schedule_enabled        = var.schedule_enabled
+
+  glue_databases = [
+    "orcabus_filemanager",
+    "orcabus_metadata_manager",
+    "orcabus_sequence_run_manager",
+    "orcabus_workflow_manager",
+    "data_portal",
+  ]
+  bucket_name = "orcahouse-prod-landing-zone-115253169271-ap-southeast-2-an"
+  s3_prefix = [
+    "orcabus/v1/cdc/",
+    "data-portal/orcavault-legacy-20260623/orcavault/",
+  ]
 }
 
 output "orcavault_run" {

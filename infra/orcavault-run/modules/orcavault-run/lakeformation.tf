@@ -1,7 +1,7 @@
 # The Lake Formation grants for the dbt task role.
 
 resource "aws_lakeformation_permissions" "cdc_database" {
-  for_each  = toset(var.cdc_glue_databases)
+  for_each  = toset(var.glue_databases)
   principal = aws_iam_role.dbt_task.arn
 
   database {
@@ -11,7 +11,7 @@ resource "aws_lakeformation_permissions" "cdc_database" {
 }
 
 resource "aws_lakeformation_permissions" "cdc_tables" {
-  for_each  = toset(var.cdc_glue_databases)
+  for_each  = toset(var.glue_databases)
   principal = aws_iam_role.dbt_task.arn
 
   table {
