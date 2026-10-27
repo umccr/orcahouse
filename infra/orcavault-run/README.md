@@ -18,6 +18,7 @@ name, to avoid conflicts.
 | `environments/dev`, `environments/prod` | The run infrastructure, with a schedule, state machine, task, roles, results and alarm | per environment |
 | `modules/orcavault-run`                 | The common module that each environment uses                                           |                 |
 | `docker`                                | The python wrapper that performs `dbt build`                                           |                 |
+| `docs`                                  | The [initial load](docs/initial-load.md) of a new environment, and the diagram         |                 |
 
 There is a single image for both dev and prod to ensure that both use the same
 build. The orcavault git ref controls which image is used for a deployment.
@@ -72,129 +73,13 @@ again by hand, see
 [Running again after a failure](#running-again-after-a-failure). Failures to
 start the task, such as no Fargate capacity, are retried automatically.
 
-## First-time setup
+## Initial load
 
-Create the image repository once, then set up each environment, dev first. The
-commands are run from this directory:
-
-```bash
-export AWS_PROFILE=unimelb-warehouse-prod-admin
-```
-
-### 1. Create the image repository
-
-```bash
-terraform -chdir=account-wide init
-terraform -chdir=account-wide apply
-```
-
-### 2. Build and push the image
-
-`orcavault_release_ref` is the orcavault tag or commit the image is built from,
-and its ECR tag. Each environment sets it in its `release.auto.tfvars`. Tags are
-immutable. Prefer to pin a release tag or commit.
-
-First, update the `release.auto.tfvars`, with, for example, the latest ref:
-
-```bash
-git ls-remote https://github.com/umccr/orcavault.git refs/heads/main | cut -f1
-```
-
-Then build and push it, which takes whatever ref is inside `release.auto.tfvars`
-currently:
-
-```bash
-REF=$(sed -n 's/^orcavault_release_ref *= *"\([^"]*\)".*/\1/p' environments/dev/release.auto.tfvars)
-REPO=$(terraform -chdir=account-wide output -raw ecr_repository_url)
-aws ecr get-login-password | docker login --username AWS --password-stdin "${REPO%%/*}"
-docker buildx build --platform linux/arm64 --provenance=false --build-arg "ORCAVAULT_REF=$REF" -t "$REPO:$REF" --push docker/
-```
-
-The image holds orcavault at that ref with the dbt version it pins, and the
-runner from `docker/runner` with the versions in its `uv.lock`. The build runs.
-Both environments run the same image, so push each ref once.
-
-### 3. Apply the environment
-
-```bash
-ENV=dev
-terraform -chdir=environments/$ENV init
-terraform -chdir=environments/$ENV apply
-```
-
-### 4. Grant the task's database user
-
-dbt connects with Redshift IAM auth as the task role, so its database user is
-`IAMR:orcavault-run-<env>-dbt-task-role`. It builds the `psa`, `dcl`, `mart`,
-`seed`, `dbt_test__audit` and `ops` schemas. In dev, local builds as the
-PowerUser user write them too.
-
-As a Redshift admin, in the environment's workgroup, before the first run, with
-`<env>` replaced by `dev` or `prod`:
-
-```sql
--- Created on first connection anyway, but the grants need it to exist.
-create user "IAMR:orcavault-run-<env>-dbt-task-role" password disable;
-
--- dbt creates its schemas when they're missing.
-grant create on database orcavault to "IAMR:orcavault-run-<env>-dbt-task-role";
-
--- The CDC sources.
-grant usage on database awsdatacatalog to "IAMR:orcavault-run-<env>-dbt-task-role";
-
--- tsa is written by OrcaGlue and read by OrcaVault, including tables created later.
-grant usage on schema tsa to "IAMR:orcavault-run-<env>-dbt-task-role";
-grant select for tables in schema tsa to "IAMR:orcavault-run-<env>-dbt-task-role";
-```
-
-**Every user that builds OrcaVault** gets the `orcavault_builder` role, i.e. the
-task's user, and in dev the PowerUser user too. dbt replaces a table model by
-renaming the old table and dropping it, which needs `alter` and `drop` on a
-table that another user may have created. The role's scoped permissions apply to
-every table in a schema, including tables created later, so it doesn't matter
-which user owns which table.
-
-```sql
--- The grants need the schemas to exist.
-create schema if not exists psa;
-create schema if not exists dcl;
-create schema if not exists mart;
-create schema if not exists seed;
-create schema if not exists dbt_test__audit;
-create schema if not exists ops;
-
-create role orcavault_builder;
-grant usage, create on schema psa, dcl, mart, seed, dbt_test__audit, ops to role orcavault_builder;
-grant all for tables in schema psa to role orcavault_builder;
-grant all for tables in schema dcl to role orcavault_builder;
-grant all for tables in schema mart to role orcavault_builder;
-grant all for tables in schema seed to role orcavault_builder;
-grant all for tables in schema dbt_test__audit to role orcavault_builder;
-grant all for tables in schema ops to role orcavault_builder;
-
-grant role orcavault_builder to "IAMR:orcavault-run-<env>-dbt-task-role";
-```
-
-In dev, also grant it to the PowerUser user, which
-`select usename from pg_user where usename like 'IAMR:AWSReservedSSO_AWSPowerUserAccess%';`
-shows:
-
-```sql
-grant role orcavault_builder to "IAMR:AWSReservedSSO_AWSPowerUserAccess_<suffix>";
-```
-
-### 5. Check the task and run it
-
-The task needs the network access listed under
-[other considerations](#other-considerations).
-
-```bash
-# Checks the task can get credentials and connect to Redshift, expect exit code 0 on the task once finished.
-eval "$(terraform -chdir=environments/$ENV output -json orcavault_run | jq -r .debug_command)"
-
-# A first full run using Step Functions, rather than waiting for the schedule.
-eval "$(terraform -chdir=environments/$ENV output -json orcavault_run | jq -r .start_run_command)"
-```
+A new environment is set up and loaded once, before the daily schedule takes
+over. This creates the image repository, applies the environment, grants the
+task's database user, and loads the legacy sources. This should always be
+followed for a deployment in a new environment, see
+[docs/initial-load.md](docs/initial-load.md).
 
 ## Operating
 
@@ -214,9 +99,36 @@ directory, `environments/dev` or `environments/prod`. Its outputs are under
 - **Logs can be read** with the `logs_command` output, or from the `logsUrl` in
   the run's event.
 - **Release a new version** by setting the new ref as `orcavault_release_ref` in
-  `environments/dev/release.auto.tfvars`, building and pushing its image, and
-  applying dev. Once successful, set to prod using the same ref and apply it.
-  Commit each change, so that the files say what each environment runs.
+  `environments/dev/release.auto.tfvars`,
+  [building and pushing its image](#building-an-image), and applying dev. Once
+  successful, set prod to the same ref and apply it. Commit each change, so that
+  the files consistently document the environment.
+
+### Building an image
+
+`orcavault_release_ref` is the orcavault tag or commit the image is built from,
+and its ECR tag. Each environment sets it in its `release.auto.tfvars`. Tags are
+immutable. Prefer to pin a release tag or commit.
+
+First, update the `release.auto.tfvars`, with, for example, the latest ref:
+
+```bash
+git ls-remote https://github.com/umccr/orcavault.git refs/heads/main | cut -f1
+```
+
+Then build and push it from this directory, which takes whatever ref is inside
+`release.auto.tfvars` currently:
+
+```bash
+REF=$(sed -n 's/^orcavault_release_ref *= *"\([^"]*\)".*/\1/p' environments/dev/release.auto.tfvars)
+REPO=$(terraform -chdir=account-wide output -raw ecr_repository_url)
+aws ecr get-login-password | docker login --username AWS --password-stdin "${REPO%%/*}"
+docker buildx build --platform linux/arm64 --provenance=false --build-arg "ORCAVAULT_REF=$REF" -t "$REPO:$REF" --push docker/
+```
+
+The image holds orcavault at that ref with the dbt version it pins, and the
+runner from `docker/runner` with the versions in its `uv.lock`. The build runs.
+Both environments run the same image, so push each ref once.
 
 ### Requests
 
