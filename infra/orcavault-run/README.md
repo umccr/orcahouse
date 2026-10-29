@@ -218,6 +218,14 @@ An example of an event going to EventBridge:
 - `logsUrl` is the task's log stream. It's null when the task never started, and
   when the run timed out.
 
+### The run's manifest
+
+After every run, the runner also writes dbt's `target/manifest.json` to
+`state/manifest.json` in the results bucket based on the `manifest_uri`. It
+describes the models the environment builds and where they are, and is replaced
+by each run. This mechanism is what the OrcaVault personal schemas are based on,
+see [README_DEV.md](https://github.com/umccr/orcavault/blob/main/README_DEV.md).
+
 ### Running the image by hand
 
 If you run the image manually, nothing will be recorded in the Step Functions
@@ -232,7 +240,7 @@ docker run --rm -e AWS_PROFILE -v ~/.aws:/home/dbt/.aws:ro \
 ```
 
 Without `ORCAVAULT_RESULTS_BUCKET`, the event stays in the container, under
-`ORCAVAULT_RESULTS_DIR`.
+`ORCAVAULT_RESULTS_DIR`, and the manifest isn't written.
 
 ### Local development
 
@@ -271,5 +279,5 @@ terraform test
 - **Network.** The task runs in the private subnets of `UomPrimaryVpc`, without
   a public IP. It needs to reach ECR and CloudWatch Logs to start, the
   `redshift-serverless` API to get credentials, the workgroup on port 5439, and
-  S3 to write its event. These need VPC endpoints or a NAT gateway.
+  S3 to write its event and manifest. These need VPC endpoints or a NAT gateway.
   `debug_command` can be used to quickly check.

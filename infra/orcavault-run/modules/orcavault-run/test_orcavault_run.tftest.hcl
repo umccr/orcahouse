@@ -117,6 +117,14 @@ run "task_writes_its_event" {
     )
     error_message = "the task should be given the results bucket"
   }
+
+  assert {
+    condition = anytrue([
+      for statement in data.aws_iam_policy_document.dbt_task.statement :
+      try(contains(statement.resources, "${aws_s3_bucket.results.arn}/state/manifest.json"), false)
+    ])
+    error_message = "the task should be able to write the manifest"
+  }
 }
 
 run "task_reads_source" {

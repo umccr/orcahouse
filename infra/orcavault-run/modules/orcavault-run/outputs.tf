@@ -13,6 +13,11 @@ output "results_bucket" {
   value       = aws_s3_bucket.results.bucket
 }
 
+output "manifest_uri" {
+  description = "The dbt manifest of the latest run."
+  value       = "s3://${aws_s3_bucket.results.bucket}/${local.manifest_key}"
+}
+
 output "debug_command" {
   description = "The command to run dbt debug in the task."
   value       = <<-EOT
