@@ -8,8 +8,9 @@ Environment:
 
     ORCAVAULT_RUN_REQUEST     The execution input. Empty is {}.
     ORCAVAULT_RUN_ID          The execution name. Defaults to manual-<time>.
-    ORCAVAULT_RESULTS_BUCKET  Bucket for the run's event under runs/. Without
-                              it, the event goes under runs/ in ORCAVAULT_RESULTS_DIR.
+    ORCAVAULT_RESULTS_BUCKET  Bucket for the run's event under runs/, and its
+                              manifest at state/manifest.json. Without it, the
+                              event goes under runs/ in ORCAVAULT_RESULTS_DIR.
 
 Variables specific to dbt are also read, such as DBT_TARGET.
 """
@@ -22,6 +23,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -62,6 +64,18 @@ def write_event(event: Event, settings: Settings) -> str:
     return str(path)
 
 
+def write_manifest(settings: Settings) -> str | None:
+    """Write the dbt manifest of the run and return the location."""
+    path = Path("target", "manifest.json")
+    bucket = settings.results_bucket
+    if not bucket or not path.exists():
+        return None
+
+    key = "state/manifest.json"
+    boto3.client("s3").put_object(Bucket=bucket, Key=key, Body=path.read_bytes(), ContentType="application/json")
+    return f"s3://{bucket}/{key}"
+
+
 def main() -> int:
     logging.basicConfig(
         stream=sys.stdout,
@@ -86,6 +100,13 @@ def main() -> int:
     event = run(settings.run_request, dbt)
     location = write_event(event, settings)
     log.info("Run %s: %s, event at %s", settings.run_id, event.outcome, location)
+
+    try:
+        if manifest := write_manifest(settings):
+            log.info("Manifest at %s", manifest)
+    except (BotoCoreError, ClientError):
+        # The run has finished, so this shouldn't change the outcome.
+        log.exception("Failed to write the manifest")
 
     return event.outcome.exit_code
 

@@ -6,7 +6,7 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
-from orcavault_runner.__main__ import Settings, write_event
+from orcavault_runner.__main__ import Settings, write_event, write_manifest
 from orcavault_runner.results import Event
 
 
@@ -69,3 +69,35 @@ def test_write_event_to_directory():
     path = Path("target", "runs", "run-1", "event.json")
     assert write_event(EVENT, Settings(run_id="run-1")) == str(path)
     assert path.read_text() == EVENT_JSON
+
+
+def test_write_manifest_s3(monkeypatch):
+    client = boto3.client("s3", region_name="ap-southeast-2")
+    monkeypatch.setattr(boto3, "client", lambda service: client)
+    path = Path("target", "manifest.json")
+    path.parent.mkdir()
+    path.write_text("{}")
+
+    with Stubber(client) as stubber:
+        stubber.add_response(
+            "put_object",
+            {},
+            {"Bucket": "bucket", "Key": "state/manifest.json", "Body": b"{}", "ContentType": "application/json"},
+        )
+
+        location = write_manifest(Settings(results_bucket="bucket"))
+        stubber.assert_no_pending_responses()
+
+    assert location == "s3://bucket/state/manifest.json"
+
+
+def test_write_manifest_without_bucket():
+    path = Path("target", "manifest.json")
+    path.parent.mkdir()
+    path.write_text("{}")
+
+    assert write_manifest(Settings()) is None
+
+
+def test_write_manifest_without_manifest():
+    assert write_manifest(Settings(results_bucket="bucket")) is None

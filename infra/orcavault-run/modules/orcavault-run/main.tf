@@ -15,6 +15,7 @@ locals {
   name_prefix          = "orcavault-run-${var.environment}"
   container_name       = "dbt"
   results_prefix       = "runs/"
+  manifest_key         = "state/manifest.json"
   event_source         = "orcahouse.orcavault"
   event_detail_type    = "OrcaVaultRunFinished"
   region               = data.aws_region.current.region

@@ -107,6 +107,13 @@ data "aws_iam_policy_document" "dbt_task" {
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.results.arn}/${local.results_prefix}*/event.json"]
   }
+
+  statement {
+    sid       = "WriteManifest"
+    effect    = "Allow"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.results.arn}/${local.manifest_key}"]
+  }
 }
 
 resource "aws_iam_role_policy" "dbt_task" {
