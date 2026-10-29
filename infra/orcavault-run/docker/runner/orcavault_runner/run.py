@@ -58,6 +58,9 @@ def run(raw_request: str, dbt: DbtCommand) -> Event:
 
     The working directory is expected to be the dbt project.
     """
+    # This must be removed as the image has one from `dbt parse`.
+    Path("target", "manifest.json").unlink(missing_ok=True)
+
     try:
         args = parse_request(raw_request)
     except RequestError as e:
