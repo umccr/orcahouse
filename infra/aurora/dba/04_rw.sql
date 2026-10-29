@@ -1,41 +1,24 @@
 -- create read-write db user for the mart reverse ETL
 
 -- NOTE:
+-- We are using "IAM database authentication", as for dbuser_ro (02_ro.sql).
+-- No database password needs to be set.
 -- The OrcaGlue `spreadsheet-mart-tables` Glue job replaces the `mart` tables from the OrcaVault mart CSV unload.
--- It calls the RDS Data API, which login with a database password from AWS Secrets Manager.
--- The Data API doesn't support IAM database authentication. So, unlike dbuser_ro, this user has a password, and must NOT be granted rds_iam, because an rds_iam member can only login with an IAM auth token.
--- https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/data-api.html
---
--- Why the Data API with a secret (MVP choice): the cluster is private and OrcaGlue jobs run outside the VPC.
--- IAM auth needs a direct connection: for Glue, a VPC connection plus egress for the job's PyPI packages.
--- The Data API needs no network change, and the job only sends SQL; Aurora reads the CSV from S3 itself.
--- Revisit IAM auth if OrcaGlue gets VPC access.
+-- It runs in the UomPrimaryVpc private subnets through a Glue network connection. Its Glue role (rds-db:connect)
+-- generates a short-lived auth token per connection, to login as this user over TLS.
+-- https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.IAMDBAuth.html
 --
 -- Run as the master user (sadmin) in the orcanexus database, once per environment.
--- Replace `dev` with the environment.
---
--- 1. Create the secret, with a generated password:
---
---    aws secretsmanager create-secret \
---      --name orcanexus/dev/dbuser_rw \
---      --description "orcanexus-dev dbuser_rw login for the OrcaGlue spreadsheet-mart-tables Data API calls" \
---      --secret-string "$(python3 -c 'import json, secrets; print(json.dumps({"engine": "postgres", "username": "dbuser_rw", "password": secrets.token_urlsafe(32), "dbname": "orcanexus"}))')"
---
--- 2. In psql, set the rw_password variable from the secret, then run this script:
---
---    \set rw_password `aws secretsmanager get-secret-value --secret-id orcanexus/dev/dbuser_rw --query SecretString --output text | python3 -c 'import json, sys; print(json.load(sys.stdin)["password"])'`
---    \i 04_rw.sql
---
---    Without psql, e.g. in the RDS Query Editor, put the password in the `create role` statement instead.
 
 create role dbuser_rw with
     login
     nosuperuser
     nocreatedb
     nocreaterole
-    inherit
-    password :'rw_password';
+    inherit;
 
+-- Grant the special Aurora IAM role as we will use IAM database authentication
+grant rds_iam to dbuser_rw;
 grant connect on database orcanexus to dbuser_rw;
 
 -- Step 1: Allow the user to import from S3 with the aws_s3 extension.
@@ -62,7 +45,7 @@ select
     has_database_privilege('dbuser_rw', 'orcanexus', 'connect') as can_connect
 from pg_roles
 where rolname = 'dbuser_rw';
--- expect true, false, true
+-- expect `true`, `true`, `true`
 
 select has_function_privilege(
     'dbuser_rw',
