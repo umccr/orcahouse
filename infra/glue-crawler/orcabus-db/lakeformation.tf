@@ -3,7 +3,7 @@ resource "aws_lakeformation_permissions" "crawler_database" {
   principal = aws_iam_role.glue_crawler.arn
 
   database {
-    name = "orcabus_${each.key}"
+    name = aws_glue_catalog_database.this[each.key].name
   }
   permissions = ["DESCRIBE", "CREATE_TABLE"]
 }
@@ -13,7 +13,7 @@ resource "aws_lakeformation_permissions" "crawler_tables" {
   principal = aws_iam_role.glue_crawler.arn
 
   table {
-    database_name = "orcabus_${each.key}"
+    database_name = aws_glue_catalog_database.this[each.key].name
     wildcard      = true
   }
   permissions = ["SELECT", "ALTER", "DROP"]

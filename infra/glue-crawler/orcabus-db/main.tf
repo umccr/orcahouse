@@ -34,7 +34,7 @@ provider "aws" {
 
 locals {
   name_prefix = "orcabus-db"
-  databases   = ["workflow_manager", "sequence_run_manager", "metadata_manager", "filemanager"]
+  databases   = ["workflow_manager", "sequence_run_manager", "metadata_manager", "filemanager", "case_manager"]
 }
 
 data "aws_s3_bucket" "lz" {
