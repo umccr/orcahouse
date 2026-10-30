@@ -92,6 +92,7 @@ module "notification_rules" {
 
   dms_replication_instance_ids = ["orcabus-db-replication-instance"]
   dms_replication_task_ids = [
+    "orcabus-db-task-case-manager",
     "orcabus-db-task-filemanager",
     "orcabus-db-task-metadata-manager",
     "orcabus-db-task-sequence-run-manager",
@@ -101,6 +102,7 @@ module "notification_rules" {
   # Add orcavault-db-prod-mart-crawler here once infra/glue-crawler/orcavault-db prod is
   # applied (it is defined there but not deployed yet).
   crawler_names = [
+    "orcabus-db-crawler-case-manager",
     "orcabus-db-crawler-filemanager",
     "orcabus-db-crawler-metadata-manager",
     "orcabus-db-crawler-sequence-run-manager",
