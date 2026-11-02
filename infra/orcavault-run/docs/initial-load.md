@@ -27,21 +27,20 @@ terraform -chdir=account-wide apply
 ## 2. Build and push the image
 
 Set the environment's `orcavault_release_ref` in its `release.auto.tfvars`, and
-build and push its image, see
-[Building an image](../README.md#building-an-image).
+build and push its image, see steps 1 and 2 of
+[Releasing a version](../README.md#releasing-a-version). If another environment
+already runs that ref, its image is already pushed.
 
 ## 3. Apply the environment
 
-```bash
-terraform -chdir=environments/$ENV init
-terraform -chdir=environments/$ENV apply
-```
+Apply the environment, see step 3 of
+[Releasing a version](../README.md#releasing-a-version).
 
 The schedule starts a run every day at 03:00 Melbourne time once it's applied.
 Steps 4 to 7 should be done before then, as a daily run before the legacy load
 would record the CDC positions, after which step 7 isn't safe. Alternatively,
-you can also use `-var schedule_enabled=false` to not enable the schedule 
-while doing the initial load.
+apply with `-var schedule_enabled=false` to leave the schedule off during the
+initial load, and apply again without it after step 8.
 
 ## 4. Grant the task's database user
 

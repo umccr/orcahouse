@@ -98,37 +98,56 @@ directory, `environments/dev` or `environments/prod`. Its outputs are under
   the run event.
 - **Logs can be read** with the `logs_command` output, or from the `logsUrl` in
   the run's event.
-- **Release a new version** by setting the new ref as `orcavault_release_ref` in
-  `environments/dev/release.auto.tfvars`,
-  [building and pushing its image](#building-an-image), and applying dev. Once
-  successful, set prod to the same ref and apply it. Commit each change, so that
-  the files consistently document the environment.
+- **Release a new version** to dev, and then to prod, see
+  [Releasing a version](#releasing-a-version).
 
-### Building an image
+### Releasing a version
 
-`orcavault_release_ref` is the orcavault tag or commit the image is built from,
-and its ECR tag. Each environment sets it in its `release.auto.tfvars`. Tags are
-immutable. Prefer to pin a release tag or commit.
+`orcavault_release_ref` is the orcavault tag or commit that an environment runs.
+Each environment sets it in its `release.auto.tfvars`. It's also the tag of the
+image in ECR, and tags are immutable. Prefer to pin a release tag or commit.
 
-First, update the `release.auto.tfvars`, with, for example, the latest ref:
+A version is built once and then released to dev or prod. To do a release, run
+the following steps:
 
-```bash
-git ls-remote https://github.com/umccr/orcavault.git refs/heads/main | cut -f1
-```
+1. Set the new ref in `environments/dev/release.auto.tfvars`. For example, this
+   gets the latest commit on main:
 
-Then build and push it from this directory, which takes whatever ref is inside
-`release.auto.tfvars` currently:
+   ```sh
+   git ls-remote https://github.com/umccr/orcavault.git refs/heads/main | cut -f1
+   ```
 
-```bash
-REF=$(sed -n 's/^orcavault_release_ref *= *"\([^"]*\)".*/\1/p' environments/dev/release.auto.tfvars)
-REPO=$(terraform -chdir=account-wide output -raw ecr_repository_url)
-aws ecr get-login-password | docker login --username AWS --password-stdin "${REPO%%/*}"
-docker buildx build --platform linux/arm64 --provenance=false --build-arg "ORCAVAULT_REF=$REF" -t "$REPO:$REF" --push docker/
-```
+2. Build and push the image which takes the ref from the dev
+   `release.auto.tfvars`:
 
-The image holds orcavault at that ref with the dbt version it pins, and the
-runner from `docker/runner` with the versions in its `uv.lock`. The build runs.
-Both environments run the same image, so push each ref once.
+   ```sh
+   REF=$(sed -n 's/^orcavault_release_ref *= *"\([^"]*\)".*/\1/p' environments/dev/release.auto.tfvars)
+   REPO=$(terraform -chdir=account-wide output -raw ecr_repository_url)
+   aws ecr get-login-password | docker login --username AWS --password-stdin "${REPO%%/*}"
+   docker buildx build --platform linux/arm64 --provenance=false --build-arg "ORCAVAULT_REF=$REF" -t "$REPO:$REF" --push docker/
+   ```
+
+   The image makes orcavault at that ref with the dbt version specified, and the
+   runner from `docker/runner` with the versions in its `uv.lock`. The build
+   runs `dbt deps` and `dbt parse`, so a ref that doesn't parse fails at the
+   build step.
+
+3. Apply dev or prod using the published ref from `release.auto.tfvars`:
+
+   ```sh
+   terraform -chdir=environments/dev init
+   terraform -chdir=environments/dev apply
+   ```
+
+   and/or
+
+   ```sh
+   terraform -chdir=environments/prod init
+   terraform -chdir=environments/prod apply
+   ```
+
+Commit each change to a `release.auto.tfvars`, so that the files consistently
+document what each environment runs.
 
 ### Requests
 
@@ -232,7 +251,7 @@ If you run the image manually, nothing will be recorded in the Step Functions
 automation. This is what `debug_command` does. For example, locally, with AWS
 credentials that can connect to Redshift:
 
-```bash
+```sh
 docker run --rm -e AWS_PROFILE -v ~/.aws:/home/dbt/.aws:ro \
   -e ORCAVAULT_REDSHIFT_HOST=<workgroup endpoint> \
   -e ORCAVAULT_RUN_REQUEST='{"args": "test --select mart"}' \
@@ -247,21 +266,21 @@ Without `ORCAVAULT_RESULTS_BUCKET`, the event stays in the container, under
 The runner uses [uv](https://docs.astral.sh/uv/getting-started/installation/)
 for development. To run the tests:
 
-```bash
+```sh
 cd docker/runner
 uv run pytest
 ```
 
 Its code is linted and formatted with ruff, which CI checks:
 
-```bash
+```sh
 uv run ruff check --fix
 uv run ruff format
 ```
 
 The Terraform tests are the module:
 
-```bash
+```sh
 cd modules/orcavault-run
 terraform init -backend=false
 terraform test
