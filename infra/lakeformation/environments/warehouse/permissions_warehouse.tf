@@ -23,6 +23,7 @@ locals {
     "default",
     "oncovault_dev_dcl",
     "oncovault_dev_mart",
+    "orcabus_case_manager",
     "orcabus_filemanager",
     "orcabus_metadata_manager",
     "orcabus_sequence_run_manager",

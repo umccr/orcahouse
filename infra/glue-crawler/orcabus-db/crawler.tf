@@ -10,7 +10,7 @@ resource "aws_glue_catalog_database" "this" {
 resource "aws_glue_crawler" "this" {
   for_each = toset(local.databases)
 
-  database_name = "orcabus_${each.key}"
+  database_name = aws_glue_catalog_database.this[each.key].name
   name          = "${local.name_prefix}-crawler-${replace(each.key, "_", "-")}"
   role          = aws_iam_role.glue_crawler.arn
 

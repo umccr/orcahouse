@@ -58,6 +58,7 @@ module "orcavault_run" {
   schedule_enabled        = var.schedule_enabled
 
   glue_databases = [
+    "orcabus_case_manager",
     "orcabus_filemanager",
     "orcabus_metadata_manager",
     "orcabus_sequence_run_manager",
