@@ -132,19 +132,16 @@ the following steps:
    runs `dbt deps` and `dbt parse`, so a ref that doesn't parse fails at the
    build step.
 
-3. Apply dev or prod using the published ref from `release.auto.tfvars`:
+3. Apply using the published ref from `release.auto.tfvars`:
 
    ```sh
    terraform -chdir=environments/dev init
    terraform -chdir=environments/dev apply
    ```
 
-   and/or
-
-   ```sh
-   terraform -chdir=environments/prod init
-   terraform -chdir=environments/prod apply
-   ```
+4. Apply steps 1 to 3 for the prod environment. The image is shared between prod
+   and dev, so if the `release.auto.tfvars` ref is the same for both, you only
+   need to build it once.
 
 Commit each change to a `release.auto.tfvars`, so that the files consistently
 document what each environment runs.
