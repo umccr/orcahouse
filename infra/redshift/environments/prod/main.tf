@@ -77,9 +77,9 @@ module "redshift_serverless" {
   security_group_ids = [data.aws_security_group.uom_primary_sg.id]
 
   # See note in infra/redshift/environments/dev/main.tf for tuning
-  base_capacity            = 4   # RPUs
-  max_capacity             = 8   # RPUs
+  base_capacity            = 8   # RPUs
+  max_capacity             = 16  # RPUs
   max_query_execution_time = 900 # in seconds, 15 minutes
-  compute_limit_amount     = 120 # Maximum RPU-hours, Monthly
+  compute_limit_amount     = 240 # Maximum RPU-hours, Monthly
   data_limit_amount        = 1   # TB cross region transfer, Monthly
 }
