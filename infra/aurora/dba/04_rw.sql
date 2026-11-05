@@ -28,14 +28,17 @@ grant connect on database orcanexus to dbuser_rw;
 -- Step 1: Allow the user to import from S3 with the aws_s3 extension.
 -- Only rds_superuser can execute it by default. The aws_commons functions are already public.
 grant usage on schema aws_s3 to dbuser_rw;
+-- The job calls the _s3_uri_1 overload, with aws_commons.create_s3_uri. That overload is a SQL wrapper, not
+-- security definer, which calls the 9 text overload, so the user needs execute on both.
 grant execute on function aws_s3.table_import_from_s3(text, text, text, aws_commons._s3_uri_1, aws_commons._aws_credentials_1) to dbuser_rw;
 grant execute on function aws_s3.table_import_from_s3(text, text, text, text, text, text, text, text, text) to dbuser_rw;
 
--- Step 2: Create the schema for the shadow tables. dbuser_ro has no access to it, so the API never sees a part loaded table.
+-- Step 2: Create the schemas, if missing. `mart` holds the tables that the API reads.
+-- `mart_stg` holds the shadow tables. dbuser_ro has no access to it, so the API never sees a part loaded table.
+create schema if not exists "mart";
 create schema if not exists "mart_stg";
 
 -- Step 3: Allow the user to create tables in both schemas.
--- It owns the tables it creates, which lets it drop a `mart` table and move a shadow table into `mart`.
 grant usage, create on schema "mart" to dbuser_rw;
 grant usage, create on schema "mart_stg" to dbuser_rw;
 
@@ -51,18 +54,26 @@ from pg_roles
 where rolname = 'dbuser_rw';
 -- expect `true`, `true`, `true`
 
-select has_function_privilege(
-    'dbuser_rw',
-    'aws_s3.table_import_from_s3(text, text, text, aws_commons._s3_uri_1, aws_commons._aws_credentials_1)',
-    'execute'
-) as can_import;
--- expect `true`
+select
+    has_function_privilege(
+        'dbuser_rw',
+        'aws_s3.table_import_from_s3(text, text, text, aws_commons._s3_uri_1, aws_commons._aws_credentials_1)',
+        'execute'
+    ) as can_import,
+    has_function_privilege(
+        'dbuser_rw',
+        'aws_s3.table_import_from_s3(text, text, text, text, text, text, text, text, text)',
+        'execute'
+    ) as can_import_9_text;
+-- expect `true`, `true`
 
 select
     has_schema_privilege('dbuser_rw', 'mart', 'create') as can_create_in_mart,
     has_schema_privilege('dbuser_rw', 'mart_stg', 'create') as can_create_in_mart_stg,
-    has_schema_privilege('dbuser_ro', 'mart_stg', 'usage') as ro_can_use_mart_stg;
--- expect `true`, `true`, `false`
+    has_schema_privilege('dbuser_ro', 'mart_stg', 'usage') as ro_can_use_mart_stg,
+    has_schema_privilege('dbuser_ro', 'mart', 'usage') as ro_can_use_mart;
+-- expect `true`, `true`, `false`, `true`
+-- ro_can_use_mart comes from 02_ro.sql. It is `false` if `mart` didn't exist when 02_ro.sql ran: rerun its `mart` grants.
 
 -- After the first Glue job run:
 select
