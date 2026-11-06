@@ -31,8 +31,7 @@ data "aws_iam_role" "orcanexus_dev" {
   name = "orcanexus-dev-aurora-analytics-role"
 }
 
-# FIXME - uncomment when we have prod orcanexus ready
-# data "aws_iam_role" "orcanexus_prod" {
-#   # Created by infra/aurora/environments/prod//modules/analytics.tf
-#   name = "orcanexus-prod-aurora-analytics-role"
-# }
+data "aws_iam_role" "orcanexus_prod" {
+  # Created by infra/aurora/environments/prod//modules/analytics.tf
+  name = "orcanexus-prod-aurora-analytics-role"
+}

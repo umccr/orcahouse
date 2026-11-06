@@ -38,8 +38,12 @@ resource "aws_lakeformation_data_lake_settings" "warehouse_settings" {
 # -------------------------------------------------------
 locals {
   data_lake_s3_locations = [
+    # FIXME oncovault is still in dev mode. we should share prod mart for cross account
+    # "orcavault-dev-warehouse-115253169271-ap-southeast-2-an/v1/parquet/mart",
     "oncovault-dev-warehouse-115253169271-ap-southeast-2-an/v1/tables/oncovault_dev_mart",
-    "orcavault-dev-warehouse-115253169271-ap-southeast-2-an/v1/parquet/mart"
+
+    "orcavault-prod-warehouse-115253169271-ap-southeast-2-an/v1/parquet/mart",
+    "oncovault-prod-warehouse-115253169271-ap-southeast-2-an/v1/tables/oncovault_prod_mart",
   ]
 }
 
