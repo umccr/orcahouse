@@ -11,9 +11,13 @@ locals {
     "472057503814",  # umccr-prod
   ]
 
+  # FIXME oncovault is still in dev mode. we should share prod mart for cross account
   shared_databases = [
     "oncovault_dev_mart",
-    "orcavault_dev_mart",
+    # "orcavault_dev_mart",
+
+    # "oncovault_prod_mart",
+    "orcavault_prod_mart",
   ]
 }
 
