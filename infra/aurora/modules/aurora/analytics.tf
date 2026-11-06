@@ -61,4 +61,8 @@ resource "aws_rds_cluster_role_association" "analytics" {
   db_cluster_identifier = aws_rds_cluster.this.id
   feature_name          = "AuroraAnalytics"
   role_arn              = aws_iam_role.analytics_role.arn
+
+  # RDS takes one role association at a time per cluster. Created in parallel with the s3Import
+  # association (bucket.tf), this one fails with InvalidDBClusterStateFault, so it waits for it.
+  depends_on = [aws_rds_cluster_role_association.this]
 }
