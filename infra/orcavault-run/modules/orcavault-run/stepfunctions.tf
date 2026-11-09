@@ -100,8 +100,7 @@ resource "aws_sfn_state_machine" "run" {
       }
 
       # The crawls add the CDC's new partitions before dbt reads them. A crawl that fails, or
-      # is still running after crawl_max_wait_minutes, doesn't stop the run. Each crawl outputs
-      # an empty string if it finished, or else its crawler and why, which crawlIncomplete lists.
+      # is still running after crawl_max_wait_minutes, doesn't stop the run.
       CrawlCdc = {
         Type  = "Map"
         Items = var.cdc_crawler_names
@@ -311,8 +310,7 @@ resource "aws_sfn_state_machine" "run" {
           }
         }
 
-        # Only failures to start the task are retried, such as throttling or no
-        # Fargate capacity.
+        # Only failures to start the task are retried, such as throttling or no Fargate capacity.
         Retry = [
           {
             ErrorEquals     = ["ECS.AmazonECSException", "AmazonECS.Unknown"]
@@ -374,7 +372,7 @@ resource "aws_sfn_state_machine" "run" {
 
       AddRunFields = {
         Type    = "Pass"
-        Comment = "The fields every run event has, including the runner fields."
+        Comment = "The fields of a run event."
         Output = {
           environment     = var.environment
           orcavaultRef    = var.orcavault_release_ref

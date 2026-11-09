@@ -1,9 +1,9 @@
 # OrcaVault daily run
 
 Builds the [umccr/orcavault](https://github.com/umccr/orcavault) dbt project on
-Redshift Serverless once a day, in dev and prod. Each run crawls CDC first,
-see [Crawling the CDC](#crawling-the-cdc), and an execution can be called
-with only partial steps, see [Steps](#steps).
+Redshift Serverless once a day, in dev and prod. Each run crawls CDC first, see
+[Crawling the CDC](#crawling-the-cdc), and an execution can be called with only
+partial steps, see [Steps](#steps).
 
 ![orcavault-run.drawio.svg](docs/orcavault-run.drawio.svg)
 
@@ -35,32 +35,20 @@ be too short.
 
 ## Crawling the CDC
 
-Each run starts by crawling the `infra/glue-crawler/orcabus-db` crawlers, so 
-that the CDC partitions are visible for dbt. One state machine in each environment
-does this:
+Each run starts by crawling the `infra/glue-crawler/orcabus-db` crawlers, so
+that the CDC partitions are visible for dbt. One state machine in each
+environment does this.
 
-```text
-Scheduler, 03:00 Melbourne time, with {}
-  ▼
-orcavault-run-<env>
-  ReadSteps              the steps to do, both unless the input lists them, see Steps
-  CrawlCdc               crawl: crawls the upstream CDC crawlers, and waits for them
-  CheckNoRunInProgress   dbt: skips the run while another is still going
-  RunDbt, ReadEvent      dbt: dbt build, and the runner's event, see What a run does
-  SendEvent              dbt: OrcaVaultRunFinished, see The run event
-```
+The run proceeds whether the crawls succeed or not. A source that didn't load is
+stale, which only delays its data until a later run loads it. The run event's
+`crawlIncomplete` lists each crawl that didn't finish,
+`orcavault-run-crawl-incomplete` alerts a notification.
 
-- The run proceeds whether the crawls succeed or not. A source that didn't
-  load is stale, which only delays its data until a later run loads it.
-- The run event's `crawlIncomplete` lists each crawl that didn't finish, and why,
-  see [The run event](#the-run-event). `orcavault-run-crawl-incomplete` alerts
-  on it, and in prod `crawler-failed` alerts on a failed crawl too, see
-  [infra/notification](../notification/ARCHITECTURE.md).
-- Step Functions can't wait for a crawl by itself, so each crawler is checked
-  until it's `READY`. A crawl still running after `crawl_max_wait_minutes`
-  proceeds in Glue, and the run builds without waiting.
-- Dev and prod both read the same CDC, so both runs start the same crawlers.
-  Whichever starts second waits for the crawl that is already running.
+Step Functions can't wait for a crawl by itself, so each crawler is checked
+until it's `READY`. A crawl still running after `crawl_max_wait_minutes`
+proceeds in Glue, and the run builds without waiting. Dev and prod both read the
+same CDC, so both runs start the same crawlers. Whichever starts second waits
+for the crawl that is already running.
 
 Only these upstream CDC crawlers are in the run with room to expand later either
 upstream or downstream from the Step Function.
@@ -71,8 +59,8 @@ Each run effectively runs `dbt build` which updates orcavault models. Tests are
 run as part of this, with different kinds of outcomes representing success or
 failure. OrcaVault's incremental models assume runs don't overlap, so the Step
 Functions checks that no other executions are currently running. The run is
-configured to start at 03:00 Melbourne time, which is after the OrcaGlue TSA jobs
-(13:10 UTC), and crawls the CDC before it builds, see
+configured to start at 03:00 Melbourne time, which is after the OrcaGlue TSA
+jobs (13:10 UTC), and crawls the CDC before it builds, see
 [Crawling the CDC](#crawling-the-cdc).
 
 ### Outcomes
@@ -124,8 +112,8 @@ directory, `environments/dev` or `environments/prod`. Its outputs are under
 
 - **Start a run** with the `start_run_command` output, or from the Step
   Functions console with input `{}`. Leave the execution name to Step Functions.
-  Every run crawls the CDC first, which takes a few minutes, unless it's
-  started with `{"steps": ["dbt"]}` only.
+  Every run crawls the CDC first, which takes a few minutes, unless it's started
+  with `{"steps": ["dbt"]}` only.
 - **Crawl the CDC only** with `{"steps": ["crawl"]}`, see [Steps](#steps).
 - **Pause the schedule** with `-var schedule_enabled=false`.
 - **Stop a run** by stopping its task, from the ECS console or the execution's
@@ -186,9 +174,9 @@ document what each environment runs.
 
 ### Requests
 
-The execution input is the dbt arguments for the run, and the steps it does.
-The scheduled run's `{}` crawls the CDC, and then runs `dbt build`. Arguments
-can be specified in the input:
+The execution input is the dbt arguments for the run, and the steps it does. The
+scheduled run's `{}` crawls the CDC, and then runs `dbt build`. Arguments can be
+specified in the input:
 
 ```json
 {
@@ -218,18 +206,18 @@ invocation.
 `steps` lists the steps an execution does. They're always done in the state
 machine order, i.e. `crawl` then `dbt`, irrespective of the order defined here.
 
-| `steps`        | Does                                                              |
-| ------------------| ----------------------------------------------------------------- |
-| Not specified      | `crawl`, then `dbt`                    |
-| `["crawl"]`    | crawls the CDC, and ends without a run or event. Fails if a crawl didn't finish |
-| `["dbt"]`      | runs dbt without crawling first, and sends the run event          |
+| `steps`       | Does                                                                            |
+| ------------- | ------------------------------------------------------------------------------- |
+| Not specified | `crawl`, then `dbt`                                                             |
+| `["crawl"]`   | crawls the CDC, and ends without a run or event. Fails if a crawl didn't finish |
+| `["dbt"]`     | runs dbt without crawling first, and sends the run event                        |
 
 For example, `{"steps": ["dbt"], "args": "build --select lims+"}` rebuilds
 `lims` and runs dbt without the crawler. A step that doesn't exist fails the
 execution.
 
-`steps` is only for the state machine. It gets removed before the runner gets
-a request. Any other key is rejected by the runner. An execution without the `dbt`
+`steps` is only for the state machine. It gets removed before the runner gets a
+request. Any other key is rejected by the runner. An execution without the `dbt`
 step still counts as succeeded for the no-recent-success alarm.
 
 ### Running again after a failure
@@ -248,10 +236,10 @@ Run again with a new execution rather than a
 
 Every execution with the `dbt` step ends by sending this event to the default
 event bus, except one that was stopped, see [Operating](#operating), or one
-where Step Functions
-couldn't check for another run or send the event, even after retrying. Those
-fail the execution, which the no-recent-success alarm reports. Notifications,
-and anything else that reacts to a run, should use the event.
+where Step Functions couldn't check for another run or send the event, even
+after retrying. Those fail the execution, which the no-recent-success alarm
+reports. Notifications, and anything else that reacts to a run, should use the
+event.
 
 The runner writes how the run went to `runs/<execution name>/event.json` in the
 results bucket. The state machine reads it, adds the fields every run event has,
@@ -297,11 +285,11 @@ An example of an event going to EventBridge:
 - `durationMinutes` is from when the execution started.
 - `logsUrl` is the task's log stream. It's null when the task never started, and
   when the run timed out.
-- `crawlIncomplete` lists the crawls that didn't finish before dbt ran, separated
-  by commas, such as `orcabus-db-crawler-filemanager (still running)`. Each is
-  `not started`, `still running`, `failed`, `cancelled`, or `not checked` when
-  its state couldn't be read. It's empty when every crawl finished, or the run
-  had no `crawl` step.
+- `crawlIncomplete` lists the crawls that didn't finish before dbt ran,
+  separated by commas, such as `orcabus-db-crawler-filemanager (still running)`.
+  Each is `not started`, `still running`, `failed`, `cancelled`, or
+  `not checked` when its state couldn't be read. It's empty when every crawl
+  finished, or the run had no `crawl` step.
 
 ### The run's manifest
 
