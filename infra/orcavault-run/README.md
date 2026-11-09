@@ -52,7 +52,7 @@ orcavault-run-<env>
 
 - The run proceeds whether the crawls succeed or not. A source that didn't
   load is stale, which only delays its data until a later run loads it.
-- A failed crawl, or a stopped DMS task, have their own alerts, see
+- A failed crawl has its own alert, see
   [infra/notification](../notification/ARCHITECTURE.md).
 - Step Functions can't wait for a crawl by itself, so each crawler is checked
   until it's `READY`. A crawl still running after `crawl_max_wait_minutes`

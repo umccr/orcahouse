@@ -41,7 +41,7 @@ to separate channels.
 | --- | --- | ---------- |
 | `glue-job-failure` | dev, prod | An `orcaglue-<env>-*` Glue job ends `FAILED` or `TIMEOUT` |
 | `crawler-failed`, `crawler-start-failed` | dev, prod | A listed crawler fails, or its scheduled start fails |
-| `dms-<identifier>` | prod | A DMS instance or task reports `Failure` or `LowStorage`, or a task stops |
+| `dms-<identifier>` | prod | A DMS instance or task reports `Failure` or `LowStorage` |
 | `orcavault-run-failed` | dev, prod | An OrcaVault dbt run in this environment ends `failed` |
 | `orcavault-run-warned` | dev, prod | An OrcaVault dbt run in this environment ends `warned`: models were applied, but warn-severity tests failed |
 | `orcavault-run-error` | dev, prod | An OrcaVault dbt run in this environment ends `error` or `skipped` |
@@ -62,10 +62,7 @@ OrcaVault run rules match the `OrcaVaultRunFinished` event that
   `warnedNodes` on one line without double quotes or backslashes.
 - **Crawls before a run:** each OrcaVault run starts the `orcabus-db-crawler-*` crawlers
   first, unless it's started without its `crawl` step, and goes ahead whether they
-  succeed or not. A failed crawl is only alerted by
-  `crawler-failed`, and a stopped DMS task by its `dms-<identifier>` rule.
-- **DMS stops:** stopping a task on purpose, such as to change an endpoint, alerts too.
-  Mute it for the maintenance window with `disabled_notification_rules`.
+  succeed or not. A failed crawl is only alerted by `crawler-failed`.
 - **Environment:** dev and prod OrcaVault runs send to the same default bus, so the run
   rules match `detail.environment`.
 - **DMS:** ARNs end in a generated ID, so there is one rule per resource, matched by ARN.
