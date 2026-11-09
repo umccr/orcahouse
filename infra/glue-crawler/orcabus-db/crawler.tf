@@ -51,6 +51,6 @@ resource "aws_glue_crawler" "this" {
     exclusions = ["*.{tsv,csv,avro,json,orc}"]
   }
 
-  # No schedule. The OrcaVault sources stage starts the crawlers before each run, see
+  # No schedule. Each OrcaVault run starts the crawlers before it builds, see
   # infra/orcavault-run.
 }

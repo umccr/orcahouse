@@ -66,7 +66,7 @@ The sibling `umccr/orcavault` repo is the **dbt-redshift** rebuild (dbt-core 1.1
 
 - No public database endpoints. Reach `orcahouse-db` or Redshift through the bastions (`infra/ec2/umccr-mgmt`, `infra/ec2/warehouse-mgmt`) via SSM port-forwarding or EC2 Instance Connect Endpoint tunnels.
 - Human access is IAM Identity Center SSO roles (`AWSAdministratorAccess`, `PlatformOwnerAccess`, `AWSPowerUserAccess`, `ProdOperator`, `ProdDataExplorer`). Deploying needs an admin session (`iam:PassRole`); non-admins ask for a deploy.
-- Nightly chain (`infra/orcavault-run`), per environment at 03:00 Australia/Melbourne: sources stage (DMS check, `orcabus-db` CDC crawlers, OrcaGlue jobs tagged `orcahouse:pipeline-stage=sources`) → dbt run → publish stage (mart crawler). The stages are chained by their `OrcaVault*Finished` EventBridge events, and the crawlers have no schedules of their own. Other schedules (UTC, as coded): 13:40 legacy ECS dbt run; Sundays 17:00 AWS Backup of `orcahouse-db`.
+- Daily OrcaVault run (`infra/orcavault-run`), per environment at 03:00 Australia/Melbourne: one state machine crawls the `orcabus-db` CDC crawlers, which have no schedules of their own, then runs dbt, and sends the `OrcaVaultRunFinished` EventBridge event. Other schedules (UTC, as coded): 13:40 legacy ECS dbt run; Sundays 17:00 AWS Backup of `orcahouse-db`.
 
 ## Repo-wide tooling & commands
 

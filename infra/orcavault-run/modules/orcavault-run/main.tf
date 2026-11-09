@@ -12,19 +12,25 @@ terraform {
 }
 
 locals {
-  name_prefix       = "orcavault-run-${var.environment}"
-  container_name    = "dbt"
-  results_prefix    = "runs/"
-  manifest_key      = "state/manifest.json"
-  event_source      = "orcahouse.orcavault"
-  event_detail_type = "OrcaVaultRunFinished"
-  region            = data.aws_region.current.region
-  console_url       = "https://${local.region}.console.aws.amazon.com"
+  name_prefix          = "orcavault-run-${var.environment}"
+  container_name       = "dbt"
+  results_prefix       = "runs/"
+  manifest_key         = "state/manifest.json"
+  event_source         = "orcahouse.orcavault"
+  event_detail_type    = "OrcaVaultRunFinished"
+  region               = data.aws_region.current.region
+  console_url          = "https://${local.region}.console.aws.amazon.com"
+  execution_url_prefix = "${local.console_url}/states/home?region=${local.region}#/v2/executions/details/"
 
   # The console escapes names twice using $ in place of %.
   log_group_name    = replace(urlencode(urlencode(aws_cloudwatch_log_group.dbt.name)), "%", "$")
   log_stream_prefix = replace(urlencode(urlencode("${local.container_name}/${local.container_name}/")), "%", "$")
   logs_url_prefix   = "${local.console_url}/cloudwatch/home?region=${local.region}#logsV2:log-groups/log-group/${local.log_group_name}/log-events/${local.log_stream_prefix}"
+
+  crawler_arns = [
+    for name in var.cdc_crawler_names :
+    "arn:${data.aws_partition.current.partition}:glue:${local.region}:${data.aws_caller_identity.current.account_id}:crawler/${name}"
+  ]
 }
 
 data "aws_caller_identity" "current" {}

@@ -45,15 +45,11 @@ to separate channels.
 | `orcavault-run-failed` | dev, prod | An OrcaVault dbt run in this environment ends `failed` |
 | `orcavault-run-warned` | dev, prod | An OrcaVault dbt run in this environment ends `warned`: models were applied, but warn-severity tests failed |
 | `orcavault-run-error` | dev, prod | An OrcaVault dbt run in this environment ends `error` or `skipped` |
-| `orcavault-sources-degraded` | dev, prod | The OrcaVault sources stage ends `degraded`: a DMS task wasn't running, or a crawl didn't succeed. Publish has nothing to fail yet, so only its `error` is alerted |
-| `orcavault-sources-error`, `orcavault-publish-error` | dev, prod | The OrcaVault stage before or after the run ends `error` |
 | `alarm-firing`, `alarm-resolved` | dev, prod | An `orcahouse-notify-<env>-*` or `orcavault-run-<env>-*` alarm enters `ALARM` or returns to `OK` |
 
 Watched crawlers and DMS resources are listed in `environments/<env>/main.tf`. The
-OrcaVault rules match the `OrcaVaultRunFinished`, `OrcaVaultSourcesFinished` and
-`OrcaVaultPublishFinished` events that
-[infra/orcavault-run](../orcavault-run/README.md#the-run-event) sends. The
-`orcavault-run-<env>-*` alarms include the sources and publish stages' alarms.
+OrcaVault run rules match the `OrcaVaultRunFinished` event that
+[infra/orcavault-run](../orcavault-run/README.md#the-run-event) sends.
 
 ## Notes
 
@@ -62,12 +58,12 @@ OrcaVault rules match the `OrcaVaultRunFinished`, `OrcaVaultSourcesFinished` and
   ([CROSS_ACCOUNT_TOPIC_POLICY.md](CROSS_ACCOUNT_TOPIC_POLICY.md)).
 - **No free text:** EventBridge inserts values unescaped, so messages never include error
   text. Alarm descriptions must have no double quotes; `\n` marks a line break. The
-  OrcaVault events are the exception: the run's runner writes `error`, `failedNodes` and
-  `warnedNodes` on one line without double quotes or backslashes, and the sources and
-  publish stages only list crawler and DMS task names with their states, or their own fixed
-  messages.
-- **Duplicates:** a failed crawler that the sources stage started has its own alert, and
-  also makes the stage `degraded`, which says that the run went ahead without it.
+  OrcaVault run event is the exception: its runner writes `error`, `failedNodes` and
+  `warnedNodes` on one line without double quotes or backslashes.
+- **Crawls before a run:** each OrcaVault run starts the `orcabus-db-crawler-*` crawlers
+  first, unless it's started without its `crawl` step, and goes ahead whether they
+  succeed or not. A failed crawl is only alerted by
+  `crawler-failed`, and a stopped DMS task by its `dms-<identifier>` rule.
 - **DMS stops:** stopping a task on purpose, such as to change an endpoint, alerts too.
   Mute it for the maintenance window with `disabled_notification_rules`.
 - **Environment:** dev and prod OrcaVault runs send to the same default bus, so the run

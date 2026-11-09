@@ -44,18 +44,9 @@ variable "orcavault_release_ref" {
 }
 
 variable "schedule_enabled" {
-  description = "Set to false to pause the nightly chain."
+  description = "Set to false to pause the daily run."
   type        = bool
   default     = true
-}
-
-# The nightly chain: sources, then the run, then publishing. Each stage sends an event when
-# it finishes, which starts the next one when the chain continues, see the README.
-module "sources" {
-  source = "../../modules/sources"
-
-  environment      = local.environment
-  schedule_enabled = var.schedule_enabled
 }
 
 module "orcavault_run" {
@@ -64,6 +55,7 @@ module "orcavault_run" {
   environment             = local.environment
   redshift_workgroup_name = "orcahouse-${local.environment}"
   orcavault_release_ref   = var.orcavault_release_ref
+  schedule_enabled        = var.schedule_enabled
 
   glue_databases = [
     "orcabus_case_manager",
@@ -79,39 +71,18 @@ module "orcavault_run" {
     "data-portal/orcavault-legacy-20260623/orcavault/",
   ]
 
-  # The run starts whatever the sources' outcome, because a stale source only delays its
-  # data, see the orcavault watermark.
-  start_after = {
-    source      = module.sources.event.source
-    detail_type = module.sources.event.detail_type
-    outcomes    = module.sources.event.outcomes
-  }
-}
-
-module "publish" {
-  source = "../../modules/publish"
-
-  environment = local.environment
-
-  # Only a run that applied its models is published.
-  start_after = {
-    source      = module.orcavault_run.event.source
-    detail_type = module.orcavault_run.event.detail_type
-    outcomes    = module.orcavault_run.event.succeeded_outcomes
-  }
-}
-
-output "sources" {
-  description = "The dev OrcaVault sources outputs, see the module's outputs.tf."
-  value       = module.sources
+  # The upstream CDC crawlers, created by infra/glue-crawler/orcabus-db, which each run
+  # crawls first. Dev and prod both start the same crawlers.
+  cdc_crawler_names = [
+    "orcabus-db-crawler-case-manager",
+    "orcabus-db-crawler-filemanager",
+    "orcabus-db-crawler-metadata-manager",
+    "orcabus-db-crawler-sequence-run-manager",
+    "orcabus-db-crawler-workflow-manager",
+  ]
 }
 
 output "orcavault_run" {
   description = "The dev OrcaVault run outputs, see the module's outputs.tf."
   value       = module.orcavault_run
-}
-
-output "publish" {
-  description = "The dev OrcaVault publish outputs, see the module's outputs.tf."
-  value       = module.publish
 }

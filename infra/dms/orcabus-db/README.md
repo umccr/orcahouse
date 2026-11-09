@@ -23,8 +23,7 @@ Aurora PostgreSQL → DMS CDC → S3 datalake (parquet)
 ## Changing an endpoint setting
 
 DMS can't modify an endpoint while its tasks are running, so stop them before
-`terraform apply`, and resume them afterwards. Stopping a task posts a Slack alert, and
-the OrcaVault sources stage reports it, until it's resumed, see
+`terraform apply`, and resume them afterwards. Stopping a task posts a Slack alert, see
 [infra/notification](../../notification/ARCHITECTURE.md#notes):
 
 ```

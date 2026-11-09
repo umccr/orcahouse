@@ -12,10 +12,11 @@ terraform apply
 
 ## When the crawlers run
 
-The crawlers have no schedule. The OrcaVault sources stage starts them before
-each run, in both dev and prod, see
-[infra/orcavault-run](../../orcavault-run/README.md#sources). To crawl now, start
-a crawler from the console, or the sources stage with `{}`.
+The crawlers have no schedule. Each OrcaVault run starts them before it builds,
+in both dev and prod, see
+[infra/orcavault-run](../../orcavault-run/README.md#crawling-the-cdc). To crawl
+now, start a crawler from the console, or the OrcaVault run with
+`{"steps": ["crawl"]}`.
 
 Each crawl only crawls new folders, which adds the day's new partitions quickly.
 
@@ -37,5 +38,5 @@ aws glue get-crawler --name orcabus-db-crawler-<database> --query 'Crawler.[Stat
 terraform apply
 ```
 
-A full crawl takes longer than a nightly one, so do it outside the nightly
-chain, or the sources stage may report it as `TIMEOUT`.
+A full crawl takes longer than a nightly one, so do it outside the daily run,
+or the run may stop waiting for it and build without it.

@@ -1,16 +1,15 @@
 # Notification Infrastructure
 
 Sends failures of OrcaHouse warehouse processes in account `115253169271` to Slack.
-EventBridge rules match failed Glue jobs, Glue crawlers, DMS tasks, and OrcaVault dbt runs
-and the stages around them, turn them into Amazon Q messages, and publish them to each
-environment's Slack SNS topic.
+EventBridge rules match failed Glue jobs, Glue crawlers, DMS tasks and OrcaVault dbt runs,
+turn them into Amazon Q messages, and publish them to each environment's Slack SNS topic.
 Alerts that cannot be delivered go to a dead-letter queue, and an alarm on that queue posts
 to the same channel.
 
 | Env  | Slack channel | Watches |
 | ---- | ------------- | ------- |
-| dev  | `alerts-dev`  | `orcaglue-dev-*` Glue jobs, crawler `orcavault-db-dev-mart-crawler`, `orcavault-run-dev` dbt runs, sources and publish stages, and alarms |
-| prod | `alerts-prod` | `orcaglue-prod-*` Glue jobs, `orcabus-db` DMS instance and tasks, `orcabus-db-crawler-*` crawlers, `orcavault-run-prod` dbt runs, sources and publish stages, and alarms |
+| dev  | `alerts-dev`  | `orcaglue-dev-*` Glue jobs, crawler `orcavault-db-dev-mart-crawler`, `orcavault-run-dev` dbt runs and alarm |
+| prod | `alerts-prod` | `orcaglue-prod-*` Glue jobs, `orcabus-db` DMS instance and tasks, `orcabus-db-crawler-*` crawlers, `orcavault-run-prod` dbt runs and alarm |
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the diagram, rules and design notes.
 

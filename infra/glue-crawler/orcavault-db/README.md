@@ -12,10 +12,10 @@ terraform apply
 
 ## When the crawler runs
 
-The crawler runs on its own daily schedule. The OrcaVault chain starts only the
+The crawler runs on its own daily schedule. The OrcaVault run starts only the
 upstream CDC crawlers, see
 [orcabus-db](../orcabus-db/README.md#when-the-crawlers-run), so this mart crawler
-isn't part of the chain yet, see
+isn't part of the run yet, see
 [issue #58](https://github.com/umccr/orcahouse-project/issues/58). To crawl now,
 start the crawler from the console.
 
