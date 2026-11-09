@@ -101,11 +101,11 @@ run "steps_define_runs" {
   assert {
     condition = (
       jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Choices[0].Condition == "{% 'dbt' in $steps %}" &&
-      jsondecode(aws_sfn_state_machine.run.[jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Default].Type == "Succeed"
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Choices[0].Next == "CheckNoRunInProgress" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States[jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Default].Type == "Succeed"
     )
     error_message = "dbt should only run when dbt is a step"
-  }definition).States.ShouldRunDbt.Choices[0].Next == "CheckNoRunInProgress" &&
-      jsondecode(aws_sfn_state_machine.run.definition).States
+  }
 }
 
 run "the_run_crawls_the_cdc_first" {

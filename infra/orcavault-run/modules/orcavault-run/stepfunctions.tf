@@ -93,7 +93,7 @@ resource "aws_sfn_state_machine" "run" {
       UnknownStep = {
         Type  = "Fail"
         Error = "error"
-        Cause = "{% 'Invalid steps specified.') %}"
+        Cause = "Invalid steps specified."
       }
 
       # The crawls add the CDC's new partitions before dbt reads them. A crawl that fails, or
