@@ -31,6 +31,17 @@ variable "s3_prefix" {
   type        = list(string)
 }
 
+variable "cdc_crawler_names" {
+  description = "The upstream Glue crawlers for the CDC files, created by infra/glue-crawler/orcabus-db."
+  type        = list(string)
+}
+
+variable "crawl_max_wait_minutes" {
+  description = "How long a run waits for the crawls before proceeding."
+  type        = number
+  default     = 60
+}
+
 variable "orcavault_release_ref" {
   description = "The release tag or commit of umccr/orcavault to deploy"
   type        = string

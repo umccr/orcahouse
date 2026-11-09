@@ -52,6 +52,7 @@ infra/
 │   └── environments/
 │       ├── warehouse/        # LF producer: registered locations, internal + RAM cross-account grants
 │       └── umccr-prod/       # LF consumer: resource links (mart, result)
+├── orcavault-run/            # Daily run per env: CDC crawlers -> dbt run on ECS Fargate -> OrcaVaultRunFinished event
 ├── redshift/                 # Redshift Serverless (modules/redshift-serverless), environments dev/prod
 ├── s3/                       # Lake buckets: landing-zone, orcavault, oncovault, cache, pulumi-state
 ├── service-event-ingestion/  # EventBridge -> Lambda -> PSA event__* tables (6 ingest pipes)

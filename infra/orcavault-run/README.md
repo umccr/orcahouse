@@ -1,7 +1,9 @@
 # OrcaVault daily run
 
 Builds the [umccr/orcavault](https://github.com/umccr/orcavault) dbt project on
-Redshift Serverless once a day, in dev and prod.
+Redshift Serverless once a day, in dev and prod. Each run crawls CDC first, see
+[Crawling the CDC](#crawling-the-cdc), and an execution can be called with only
+partial steps, see [Steps](#steps).
 
 ![orcavault-run.drawio.svg](docs/orcavault-run.drawio.svg)
 
@@ -31,14 +33,35 @@ downstream notifications or services. Fargate is used as the executor for the
 dbt run to avoid any time limits associated with a Lambda function, which would
 be too short.
 
+## Crawling the CDC
+
+Each run starts by crawling the `infra/glue-crawler/orcabus-db` crawlers, so
+that the CDC partitions are visible for dbt. One state machine in each
+environment does this.
+
+The run proceeds whether the crawls succeed or not. A source that didn't load is
+stale, which only delays its data until a later run loads it. The run event's
+`crawlIncomplete` lists each crawl that didn't finish,
+`orcavault-run-crawl-incomplete` alerts a notification.
+
+Step Functions can't wait for a crawl by itself, so each crawler is checked
+until it's `READY`. A crawl still running after `crawl_max_wait_minutes`
+proceeds in Glue, and the run builds without waiting. Dev and prod both read the
+same CDC, so both runs start the same crawlers. Whichever starts second waits
+for the crawl that is already running.
+
+Only these upstream CDC crawlers are in the run with room to expand later either
+upstream or downstream from the Step Function.
+
 ## What a run does
 
 Each run effectively runs `dbt build` which updates orcavault models. Tests are
 run as part of this, with different kinds of outcomes representing success or
 failure. OrcaVault's incremental models assume runs don't overlap, so the Step
 Functions checks that no other executions are currently running. The run is
-configured to start at 03:00 Melbourne time. That is after the OrcaGlue TSA jobs
-(13:10 UTC) and the OrcaBus Glue crawlers (15:00 UTC).
+configured to start at 03:00 Melbourne time, which is after the OrcaGlue TSA
+jobs (13:10 UTC), and crawls the CDC before it builds, see
+[Crawling the CDC](#crawling-the-cdc).
 
 ### Outcomes
 
@@ -89,6 +112,9 @@ directory, `environments/dev` or `environments/prod`. Its outputs are under
 
 - **Start a run** with the `start_run_command` output, or from the Step
   Functions console with input `{}`. Leave the execution name to Step Functions.
+  Every run crawls the CDC first, which takes a few minutes, unless it's started
+  with `{"steps": ["dbt"]}` only.
+- **Crawl the CDC only** with `{"steps": ["crawl"]}`, see [Steps](#steps).
 - **Pause the schedule** with `-var schedule_enabled=false`.
 - **Stop a run** by stopping its task, from the ECS console or the execution's
   `RunDbt` step. The runner tells dbt to cancel its queries. If dbt hasn't
@@ -148,8 +174,9 @@ document what each environment runs.
 
 ### Requests
 
-The execution input is the dbt arguments for the run. The scheduled run's `{}`
-is `dbt build`. Arguments can be specified in the input:
+The execution input is the dbt arguments for the run, and the steps it does. The
+scheduled run's `{}` crawls the CDC, and then runs `dbt build`. Arguments can be
+specified in the input:
 
 ```json
 {
@@ -174,21 +201,45 @@ manually, however this has no outcome tracking. See
 multiple commands, they should be executed in sequence with a new Step Functions
 invocation.
 
+### Steps
+
+`steps` lists the steps an execution does. They're always done in the state
+machine order, i.e. `crawl` then `dbt`, irrespective of the order defined here.
+
+| `steps`       | Does                                                                            |
+| ------------- | ------------------------------------------------------------------------------- |
+| Not specified | `crawl`, then `dbt`                                                             |
+| `["crawl"]`   | crawls the CDC, and ends without a run or event. Fails if a crawl didn't finish |
+| `["dbt"]`     | runs dbt without crawling first, and sends the run event                        |
+
+For example, `{"steps": ["dbt"], "args": "build --select lims+"}` rebuilds
+`lims` and runs dbt without the crawler. A step that doesn't exist fails the
+execution.
+
+`steps` is only for the state machine. It gets removed before the runner gets a
+request. Any other key is rejected by the runner. An execution without the `dbt`
+step still counts as succeeded for the no-recent-success alarm.
+
 ### Running again after a failure
 
 Once the cause is fixed, start the same request again, which for a scheduled run
 is `{}`. dbt builds everything again, and the models skip the rows they already
 have. To rebuild only a part, such as the model that failed and what depends on
-it, select it using `{"args": "build --select lims+"}`.
+it, select it using `{"args": "build --select lims+"}`. The run crawls the CDC
+again first, so a source that failed to load is crawled again too. To skip the
+crawl, add `"steps": ["dbt"]`, see [Steps](#steps).
 
 Run again with a new execution rather than a
 [redrive](https://docs.aws.amazon.com/step-functions/latest/dg/redrive-executions.html).
 
 ### The run event
 
-Every execution ends by sending this event to the default event bus, except one
-that was stopped, see [Operating](#operating). Notifications, and anything else
-that reacts to a run, should use it.
+Every execution with the `dbt` step ends by sending this event to the default
+event bus, except one that was stopped, see [Operating](#operating), or one
+where Step Functions couldn't check for another run or send the event, even
+after retrying. Those fail the execution, which the no-recent-success alarm
+reports. Notifications, and anything else that reacts to a run, should use the
+event.
 
 The runner writes how the run went to `runs/<execution name>/event.json` in the
 results bucket. The state machine reads it, adds the fields every run event has,
@@ -218,7 +269,8 @@ An example of an event going to EventBridge:
     "orcavaultRef": "v1.2.3",
     "durationMinutes": 42,
     "logsUrl": "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?…",
-    "executionUrl": "https://ap-southeast-2.console.aws.amazon.com/states/home?…"
+    "executionUrl": "https://ap-southeast-2.console.aws.amazon.com/states/home?…",
+    "crawlIncomplete": ""
   }
 }
 ```
@@ -233,6 +285,11 @@ An example of an event going to EventBridge:
 - `durationMinutes` is from when the execution started.
 - `logsUrl` is the task's log stream. It's null when the task never started, and
   when the run timed out.
+- `crawlIncomplete` lists the crawls that didn't finish before dbt ran,
+  separated by commas, such as `orcabus-db-crawler-filemanager (still running)`.
+  Each is `not started`, `still running`, `failed`, `cancelled`, or
+  `not checked` when its state couldn't be read. It's empty when every crawl
+  finished, or the run had no `crawl` step.
 
 ### The run's manifest
 
@@ -292,6 +349,9 @@ terraform test
   towards it, including this runner.
 - **Image archiving.** An image that no environment has pulled for 90 days is
   archived, and deleted a year later, see `account-wide/main.tf`.
+- **Overlapping runs.** Two runs at once share their crawls, since a crawler
+  that is running isn't started again, and the second run is `skipped`.
+- **The diagram** doesn't show the CDC crawls yet.
 - **Network.** The task runs in the private subnets of `UomPrimaryVpc`, without
   a public IP. It needs to reach ECR and CloudWatch Logs to start, the
   `redshift-serverless` API to get credentials, the workgroup on port 5439, and

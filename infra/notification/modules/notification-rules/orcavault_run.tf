@@ -10,6 +10,8 @@
 # The rules are split so that every placeholder is always set: failed and warned always
 # have logsUrl and a null error; error and skipped always have an error, but logsUrl can be
 # null. warned has its own rule for a warning title, and so that it can be muted on its own.
+# crawl-incomplete matches any outcome where crawlIncomplete isn't empty, i.e.
+# the run read some CDC before its crawl finished.
 
 locals {
   orcavault_run_input_paths = {
@@ -117,6 +119,35 @@ locals {
           description = "*Process:* OrcaVault dbt run\n*Run ID:* `<runId>`\n*Reason:* <error>\n${local.orcavault_run_footer}"
           nextSteps   = ["Execution: <executionUrl>"]
           keywords    = ["OrcaHouse", var.environment, "dbt", "<outcome>"]
+        }
+      })
+    }
+
+    "orcavault-run-crawl-incomplete" = {
+      description = "Send OrcaVault ${var.environment} runs that read the CDC before crawls finish"
+
+      event_pattern = jsonencode({
+        source        = ["orcahouse.orcavault"]
+        "detail-type" = ["OrcaVaultRunFinished"]
+        detail = {
+          environment     = [var.environment]
+          crawlIncomplete = [{ "anything-but" = "" }]
+        }
+      })
+
+      input_paths = merge(local.orcavault_run_input_paths, {
+        crawlIncomplete = "$.detail.crawlIncomplete"
+      })
+
+      input_template = jsonencode({
+        version = "1.0"
+        source  = "custom"
+        content = {
+          textType    = "client-markdown"
+          title       = ":warning: [${var.environment}] OrcaVault run read stale CDC"
+          description = "*Process:* OrcaVault CDC crawl\n*Run ID:* `<runId>`\n*Run outcome:* <outcome>\n*Incomplete crawls:* <crawlIncomplete>\n*Effect:* the run read these sources as of their last finished crawl\n${local.orcavault_run_footer}"
+          nextSteps   = ["Execution: <executionUrl>"]
+          keywords    = ["OrcaHouse", var.environment, "crawler"]
         }
       })
     }

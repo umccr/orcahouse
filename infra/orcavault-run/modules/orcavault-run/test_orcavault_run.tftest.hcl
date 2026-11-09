@@ -57,6 +57,7 @@ variables {
   glue_databases          = ["orcabus_filemanager", "data_portal"]
   bucket_name             = "landing-zone"
   s3_prefix               = ["orcabus/v1/cdc/", "data-portal/export/"]
+  cdc_crawler_names       = ["orcabus-db-crawler-filemanager", "orcabus-db-crawler-workflow-manager"]
 }
 
 run "schedule_builds_everything" {
@@ -68,6 +69,134 @@ run "schedule_builds_everything" {
   assert {
     condition     = jsondecode(aws_scheduler_schedule.daily.target[0].input) == {}
     error_message = "the scheduled run should be the default request, {}"
+  }
+}
+
+run "steps_define_runs" {
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).StartAt == "ReadSteps" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ReadSteps.Assign.steps == "{% $exists($states.input.steps) ? $states.input.steps : [\"crawl\",\"dbt\"] %}"
+    )
+    error_message = "an execution without steps should do everything"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldCrawl.Choices[0].Next == "UnknownStep" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.UnknownStep.Type == "Fail"
+    )
+    error_message = "a step that doesn't exist should fail the execution"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldCrawl.Choices[1].Condition == "{% 'crawl' in $steps %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldCrawl.Choices[1].Next == "CrawlCdc" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldCrawl.Default == "ShouldRunDbt"
+    )
+    error_message = "the CDC should only be crawled when crawl is a step"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Choices[0].Condition == "{% 'dbt' in $steps %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Choices[0].Next == "CheckNoRunInProgress" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Default == "NoDbtStep" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Default == "NoRun" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.NoRun.Type == "Succeed"
+    )
+    error_message = "dbt should only run when dbt is a step"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Choices[0].Condition == "{% $crawlIncomplete != '' %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Choices[0].Next == "CrawlIncomplete" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlIncomplete.Type == "Fail"
+    )
+    error_message = "an execution without dbt should fail if a crawl didn't finish, since it sends no event"
+  }
+}
+
+run "the_run_crawls_the_cdc_first" {
+  assert {
+    condition     = jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.Next == "ShouldRunDbt"
+    error_message = "the run should crawl the CDC before dbt"
+  }
+
+  assert {
+    condition     = jsonencode(jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.Items) == jsonencode(var.cdc_crawler_names)
+    error_message = "the run should crawl every CDC crawler"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States.StartCrawler.Catch[0].ErrorEquals == ["Glue.CrawlerRunningException"] &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States.StartCrawler.Catch[0].Next == "WaitForCrawl"
+    )
+    error_message = "a crawl that is already running should wait"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States.StartCrawler.Retry[0].ErrorEquals == ["Glue.CrawlerRunningException"] &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States.StartCrawler.Retry[0].MaxAttempts == 0
+    )
+    error_message = "a crawl that is already running should be waited for without retrying the start"
+  }
+
+  assert {
+    condition = alltrue([
+      for name in ["StartCrawler", "GetCrawler"] : alltrue([
+        for catch in jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States[name].Catch :
+        jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States[catch.Next].Type == "Succeed" if catch.ErrorEquals == ["States.ALL"]
+      ])
+    ])
+    error_message = "a crawl that can't be started or read shouldn't stop the run"
+  }
+
+  assert {
+    condition = anytrue([
+      for choice in jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States.IsCrawlDone.Choices :
+      strcontains(choice.Condition, "> 3600000 %}") && choice.Next == "StillRunning"
+    ])
+    error_message = "the run should stop waiting for the crawls after crawl_max_wait_minutes"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, state in jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States :
+      name == "Crawled" ? state.Output == "" : strcontains(state.Output, "$crawler & ' (") if state.Type == "Succeed"
+    ])
+    error_message = "every crawl that didn't finish should output its crawler and why"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.ReadSteps.Assign.crawlIncomplete == "" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.Assign.crawlIncomplete == "{% $join($append([], $states.result[$ != '']), ', ') %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.AddRunFields.Output.crawlIncomplete == "{% $crawlIncomplete %}"
+    )
+    error_message = "the run event should list the crawls that didn't finish"
+  }
+
+  assert {
+    condition = (
+      toset(one([for statement in data.aws_iam_policy_document.states.statement : statement.resources if statement.sid == "CrawlCdc"])) == toset(local.crawler_arns) &&
+      alltrue([for i, name in var.cdc_crawler_names : endswith(local.crawler_arns[i], ":crawler/${name}")])
+    )
+    error_message = "the run should be able to start and read every CDC crawler"
+  }
+}
+
+run "the_runner_gets_the_request" {
+  assert {
+    condition = one([
+      for variable in jsondecode(aws_sfn_state_machine.run.definition).States.RunDbt.Arguments.Overrides.ContainerOverrides[0].Environment :
+      variable.Value if variable.Name == "ORCAVAULT_RUN_REQUEST"
+    ]) == "{% $string($states.context.Execution.Input ~> |$|{}, ['steps']|) %}"
+    error_message = "the runner should get the execution input without steps"
   }
 }
 
@@ -83,6 +212,14 @@ run "every_run_sends_its_event" {
   }
 
   assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.ReadEvent.Catch[0].ErrorEquals == ["States.ALL"] &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ReadEvent.Catch[0].Next == "AddRunFields"
+    )
+    error_message = "a run writing no event should send one"
+  }
+
+  assert {
     condition = jsondecode(aws_sfn_state_machine.run.definition).States.AddRunFields.Next == "SendEvent" && alltrue([
       for name, state in jsondecode(aws_sfn_state_machine.run.definition).States :
       name == "AddRunFields" || !contains(concat([try(state.Next, null)], [for catch in try(state.Catch, []) : catch.Next]), "SendEvent")
@@ -91,11 +228,8 @@ run "every_run_sends_its_event" {
   }
 
   assert {
-    condition = alltrue([
-      for state in ["CheckNoRunInProgress", "ReadEvent", "SendEvent"] :
-      jsondecode(aws_sfn_state_machine.run.definition).States[state].Catch[0].ErrorEquals == ["States.ALL"]
-    ])
-    error_message = "every state after the event is lost should catch errors"
+    condition     = try(jsondecode(aws_sfn_state_machine.run.definition).States.SendEvent.Catch, null) == null
+    error_message = "an event that can't be sent should fail the execution, rather than be lost"
   }
 
   assert {

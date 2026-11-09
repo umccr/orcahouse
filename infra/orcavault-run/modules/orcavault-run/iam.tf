@@ -147,6 +147,13 @@ resource "aws_iam_role" "states" {
 
 data "aws_iam_policy_document" "states" {
   statement {
+    sid       = "CrawlCdc"
+    effect    = "Allow"
+    actions   = ["glue:StartCrawler", "glue:GetCrawler"]
+    resources = local.crawler_arns
+  }
+
+  statement {
     sid       = "RunDbtTask"
     effect    = "Allow"
     actions   = ["ecs:RunTask"]

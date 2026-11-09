@@ -1,7 +1,12 @@
-# The Step Functions run definition for the orcavault runner.
+# The Step Functions run definition for the orcavault runner. Each run crawls the CDC,
+# builds the dbt project, and sends the run event, or does only the steps its input lists.
 
 locals {
   run_timeout_seconds = var.run_timeout_hours * 3600
+  crawl_max_wait_ms   = var.crawl_max_wait_minutes * 60000
+
+  # This defines the steps that a run can do in the required order.
+  steps = ["crawl", "dbt"]
 
   # Warning is a successful outcome because models were still applied correctly.
   succeeded_outcomes = ["succeeded", "warned"]
@@ -18,39 +23,26 @@ locals {
     warnedNodes     = ""
   }
 
-  # Map the reasons for why the runner might not have written the event, which then defines the error message.
-  no_runner_events = {
-    run_in_progress = {
-      outcome = "skipped"
-      error   = "Another OrcaVault dbt task was still running, so this run didn't start"
-    }
-    check_failed = {
-      outcome = "error"
-      error   = "Couldn't check for another run, so this run didn't start. Check the execution for details"
-    }
-    no_event = {
-      outcome = "error"
-      error   = "The runner wrote no event. The task may have failed to start, or been killed. Check the execution for details"
-    }
-  }
+  run_in_progress_detail = merge(local.empty_event_detail, {
+    outcome = "skipped"
+    error   = "Another OrcaVault dbt task was still running, so this run didn't start"
+  })
 
-  no_runner_event_detail = {
-    for name, event in local.no_runner_events : name => merge(local.empty_event_detail, event)
-  }
+  no_event_detail = merge(local.empty_event_detail, {
+    outcome = "error"
+    error   = "The runner wrote no event. The task may have failed to start, or been killed. Check the execution for details"
+  })
 
-  # These are the fields from the run's event. The line breaks are replaced, so
-  # the expression is on one line in the definition.
-  with_run_fields = replace(trimspace(<<-EOT
-    {% $merge([$detail, {
-      'environment': ${jsonencode(var.environment)},
-      'runId': $states.context.Execution.Name,
-      'orcavaultRef': ${jsonencode(var.orcavault_release_ref)},
-      'durationMinutes': $round(($millis() - $toMillis($states.context.Execution.StartTime)) / 60000),
-      'logsUrl': $taskArn ? '${local.logs_url_prefix}' & $split($taskArn, '/')[-1] : null,
-      'executionUrl': '${local.execution_url_prefix}' & $states.context.Execution.Id
-    }]) %}
-  EOT
-  ), "\n", " ")
+  # The run's detail, i.e. the runner's event or one of the above, and the fields every run
+  # event has.
+  event_detail = "{% $merge([$detail, $states.input]) %}"
+
+  retry_api_errors = {
+    ErrorEquals     = ["States.ALL"]
+    IntervalSeconds = 10
+    MaxAttempts     = 3
+    BackoffRate     = 2
+  }
 }
 
 resource "aws_cloudwatch_log_group" "states" {
@@ -71,11 +63,190 @@ resource "aws_sfn_state_machine" "run" {
   }
 
   definition = jsonencode({
-    Comment       = "Runs the OrcaVault dbt project on Redshift Serverless."
+    Comment       = "Crawls the CDC, then runs the OrcaVault dbt project on Redshift Serverless."
     QueryLanguage = "JSONata"
-    StartAt       = "CheckNoRunInProgress"
+    StartAt       = "ReadSteps"
 
     States = {
+      ReadSteps = {
+        Type    = "Pass"
+        Comment = "The steps to run."
+        Assign = {
+          steps           = "{% $exists($states.input.steps) ? $states.input.steps : ${jsonencode(local.steps)} %}"
+          crawlIncomplete = ""
+        }
+        Next = "ShouldCrawl"
+      }
+
+      ShouldCrawl = {
+        Type = "Choice"
+        Choices = [
+          {
+            Condition = "{% $count($steps[$not($ in ${jsonencode(local.steps)})]) > 0 %}"
+            Next      = "UnknownStep"
+          },
+          {
+            Condition = "{% 'crawl' in $steps %}"
+            Next      = "CrawlCdc"
+          },
+        ]
+        Default = "ShouldRunDbt"
+      }
+
+      UnknownStep = {
+        Type  = "Fail"
+        Error = "error"
+        Cause = "Invalid steps specified."
+      }
+
+      # The crawls add the CDC's new partitions before dbt reads them. A crawl that fails, or
+      # is still running after crawl_max_wait_minutes, doesn't stop the run.
+      CrawlCdc = {
+        Type  = "Map"
+        Items = var.cdc_crawler_names
+        ItemProcessor = {
+          StartAt = "StartCrawler"
+          States = {
+            StartCrawler = {
+              Type      = "Task"
+              Resource  = "arn:aws:states:::aws-sdk:glue:startCrawler"
+              Arguments = { Name = "{% $states.input %}" }
+              Assign    = { crawler = "{% $states.input %}" }
+              Retry = [
+                # Retries come before the Catch, so without this the retrier for every error
+                # would retry a crawl that is already running.
+                {
+                  ErrorEquals = ["Glue.CrawlerRunningException"]
+                  MaxAttempts = 0
+                },
+                local.retry_api_errors,
+              ]
+              Catch = [
+                # Another crawl is running so this waits here.
+                {
+                  ErrorEquals = ["Glue.CrawlerRunningException"]
+                  Assign      = { crawler = "{% $states.input %}" }
+                  Next        = "WaitForCrawl"
+                },
+                {
+                  ErrorEquals = ["States.ALL"]
+                  Assign      = { crawler = "{% $states.input %}" }
+                  Next        = "NotStarted"
+                },
+              ]
+              Next = "WaitForCrawl"
+            }
+
+            WaitForCrawl = {
+              Type    = "Wait"
+              Seconds = 60
+              Next    = "GetCrawler"
+            }
+
+            GetCrawler = {
+              Type      = "Task"
+              Resource  = "arn:aws:states:::aws-sdk:glue:getCrawler"
+              Arguments = { Name = "{% $crawler %}" }
+              Output    = "{% {'state': $states.result.Crawler.State, 'lastCrawl': $states.result.Crawler.LastCrawl.Status} %}"
+              Retry     = [local.retry_api_errors]
+              Catch = [
+                {
+                  ErrorEquals = ["States.ALL"]
+                  Next        = "NotChecked"
+                }
+              ]
+              Next = "IsCrawlDone"
+            }
+
+            # The crawls are the first step, so the time since the execution started is how
+            # long it has waited.
+            IsCrawlDone = {
+              Type = "Choice"
+              Choices = [
+                {
+                  Condition = "{% $states.input.state = 'READY' and $states.input.lastCrawl = 'SUCCEEDED' %}"
+                  Next      = "Crawled"
+                },
+                {
+                  Condition = "{% $states.input.state = 'READY' %}"
+                  Next      = "CrawlFailed"
+                },
+                {
+                  Condition = "{% $millis() - $toMillis($states.context.Execution.StartTime) > ${local.crawl_max_wait_ms} %}"
+                  Next      = "StillRunning"
+                },
+              ]
+              Default = "WaitForCrawl"
+            }
+
+            Crawled = {
+              Type   = "Succeed"
+              Output = ""
+            }
+
+            # The last crawl's status is FAILED or CANCELLED.
+            CrawlFailed = {
+              Type   = "Succeed"
+              Output = "{% $crawler & ' (' & ($exists($states.input.lastCrawl) ? $lowercase($states.input.lastCrawl) : 'not crawled') & ')' %}"
+            }
+
+            StillRunning = {
+              Type   = "Succeed"
+              Output = "{% $crawler & ' (still running)' %}"
+            }
+
+            NotStarted = {
+              Type   = "Succeed"
+              Output = "{% $crawler & ' (not started)' %}"
+            }
+
+            NotChecked = {
+              Type   = "Succeed"
+              Output = "{% $crawler & ' (not checked)' %}"
+            }
+          }
+        }
+        # A filter that matches nothing is undefined, which $append turns into an empty list.
+        Assign = { crawlIncomplete = "{% $join($append([], $states.result[$ != '']), ', ') %}" }
+        Output = {}
+        Next   = "ShouldRunDbt"
+      }
+
+      ShouldRunDbt = {
+        Type = "Choice"
+        Choices = [
+          {
+            Condition = "{% 'dbt' in $steps %}"
+            Next      = "CheckNoRunInProgress"
+          }
+        ]
+        Default = "NoDbtStep"
+      }
+
+      # Without the dbt step there is no run event to report the crawls, so the execution fails
+      # if one didn't finish.
+      NoDbtStep = {
+        Type    = "Choice"
+        Comment = "dbt isn't one of the steps, so the execution ends without a run or its event."
+        Choices = [
+          {
+            Condition = "{% $crawlIncomplete != '' %}"
+            Next      = "CrawlIncomplete"
+          }
+        ]
+        Default = "NoRun"
+      }
+
+      CrawlIncomplete = {
+        Type  = "Fail"
+        Error = "crawlIncomplete"
+        Cause = "{% 'These crawls did not finish: ' & $crawlIncomplete %}"
+      }
+
+      NoRun = {
+        Type = "Succeed"
+      }
+
       # Overlapping runs are not safe so ensure that there is no concurrent executions.
       CheckNoRunInProgress = {
         Type     = "Task"
@@ -85,30 +256,16 @@ resource "aws_sfn_state_machine" "run" {
           Family        = aws_ecs_task_definition.dbt.family
           DesiredStatus = "RUNNING"
         }
-        Output = "{% { 'running': $count($states.result.TaskArns) } %}"
-        Retry = [
-          {
-            ErrorEquals     = ["States.ALL"]
-            IntervalSeconds = 10
-            MaxAttempts     = 3
-            BackoffRate     = 2
-          }
-        ]
-        Catch = [
-          {
-            ErrorEquals = ["States.ALL"]
-            Assign      = { detail = local.no_runner_event_detail["check_failed"], taskArn = null }
-            Next        = "AddRunFields"
-          }
-        ]
-        Next = "IsRunInProgress"
+        Output = "{% $count($states.result.TaskArns) %}"
+        Retry  = [local.retry_api_errors]
+        Next   = "IsRunInProgress"
       }
 
       IsRunInProgress = {
         Type = "Choice"
         Choices = [
           {
-            Condition = "{% $states.input.running > 0 %}"
+            Condition = "{% $states.input > 0 %}"
             Next      = "RunInProgress"
           }
         ]
@@ -118,7 +275,7 @@ resource "aws_sfn_state_machine" "run" {
       RunInProgress = {
         Type    = "Pass"
         Comment = "Another OrcaVault dbt task is still running, so this run doesn't start."
-        Assign  = { detail = local.no_runner_event_detail["run_in_progress"], taskArn = null }
+        Assign  = { detail = local.run_in_progress_detail, taskArn = null }
         Next    = "AddRunFields"
       }
 
@@ -143,17 +300,17 @@ resource "aws_sfn_state_machine" "run" {
             ContainerOverrides = [
               {
                 Name = local.container_name
+                # steps is for the state machine, not the runner, which only takes args.
                 Environment = [
                   { Name = "ORCAVAULT_RUN_ID", Value = "{% $states.context.Execution.Name %}" },
-                  { Name = "ORCAVAULT_RUN_REQUEST", Value = "{% $string($states.context.Execution.Input) %}" },
+                  { Name = "ORCAVAULT_RUN_REQUEST", Value = "{% $string($states.context.Execution.Input ~> |$|{}, ['steps']|) %}" },
                 ]
               }
             ]
           }
         }
 
-        # Only failures to start the task are retried, such as throttling or no
-        # Fargate capacity.
+        # Only failures to start the task are retried, such as throttling or no Fargate capacity.
         Retry = [
           {
             ErrorEquals     = ["ECS.AmazonECSException", "AmazonECS.Unknown"]
@@ -206,7 +363,7 @@ resource "aws_sfn_state_machine" "run" {
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
-            Assign      = { detail = local.no_runner_event_detail["no_event"] }
+            Assign      = { detail = local.no_event_detail }
             Next        = "AddRunFields"
           }
         ]
@@ -215,9 +372,17 @@ resource "aws_sfn_state_machine" "run" {
 
       AddRunFields = {
         Type    = "Pass"
-        Comment = "Adds the fields every run event has."
-        Assign  = { detail = local.with_run_fields }
-        Next    = "SendEvent"
+        Comment = "The fields of a run event."
+        Output = {
+          environment     = var.environment
+          orcavaultRef    = var.orcavault_release_ref
+          runId           = "{% $states.context.Execution.Name %}"
+          durationMinutes = "{% $round(($millis() - $toMillis($states.context.Execution.StartTime)) / 60000) %}"
+          logsUrl         = "{% $taskArn ? '${local.logs_url_prefix}' & $split($taskArn, '/')[-1] : null %}"
+          executionUrl    = "{% '${local.execution_url_prefix}' & $states.context.Execution.Id %}"
+          crawlIncomplete = "{% $crawlIncomplete %}"
+        }
+        Next = "SendEvent"
       }
 
       SendEvent = {
@@ -229,28 +394,14 @@ resource "aws_sfn_state_machine" "run" {
               EventBusName = "default"
               Source       = local.event_source
               DetailType   = local.event_detail_type
-              Detail       = "{% $detail %}"
+              Detail       = local.event_detail
             }
           ]
         }
-        Output = {}
-        Retry = [
-          {
-            ErrorEquals     = ["States.ALL"]
-            IntervalSeconds = 10
-            MaxAttempts     = 3
-            BackoffRate     = 2
-          }
-        ]
-        # The execution still ends with the run outcome, which means the
-        # no-success alarm in monitoring.tf doesn't count a failed run.
-        Catch = [
-          {
-            ErrorEquals = ["States.ALL"]
-            Next        = "Finish"
-          }
-        ]
-        Next = "Finish"
+        # A succeeded execution output is the event detail.
+        Output = local.event_detail
+        Retry  = [local.retry_api_errors]
+        Next   = "Finish"
       }
 
       Finish = {
@@ -265,8 +416,7 @@ resource "aws_sfn_state_machine" "run" {
       }
 
       Succeeded = {
-        Type   = "Succeed"
-        Output = "{% $detail %}"
+        Type = "Succeed"
       }
 
       Failed = {

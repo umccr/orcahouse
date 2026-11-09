@@ -70,6 +70,13 @@ module "orcavault_run" {
     "orcabus/v1/cdc/",
     "data-portal/orcavault-legacy-20260623/orcavault/",
   ]
+  cdc_crawler_names = [
+    "orcabus-db-crawler-case-manager",
+    "orcabus-db-crawler-filemanager",
+    "orcabus-db-crawler-metadata-manager",
+    "orcabus-db-crawler-sequence-run-manager",
+    "orcabus-db-crawler-workflow-manager",
+  ]
 }
 
 output "orcavault_run" {

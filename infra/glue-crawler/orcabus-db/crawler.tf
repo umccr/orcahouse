@@ -48,6 +48,6 @@ resource "aws_glue_crawler" "this" {
     exclusions = ["*.{tsv,csv,avro,json,orc}"]
   }
 
-  # Runs once a day in UTC - 2:00 AM Sydney time AEDT
-  schedule = "cron(0 15 * * ? *)"
+  # No schedule. Each OrcaVault run starts the crawlers before it builds, see
+  # infra/orcavault-run.
 }
