@@ -71,8 +71,11 @@ resource "aws_sfn_state_machine" "run" {
       ReadSteps = {
         Type    = "Pass"
         Comment = "The steps to run."
-        Assign  = { steps = "{% $exists($states.input.steps) ? $states.input.steps : ${jsonencode(local.steps)} %}" }
-        Next    = "ShouldCrawl"
+        Assign = {
+          steps         = "{% $exists($states.input.steps) ? $states.input.steps : ${jsonencode(local.steps)} %}"
+          crawlsNotDone = ""
+        }
+        Next = "ShouldCrawl"
       }
 
       ShouldCrawl = {
@@ -97,7 +100,8 @@ resource "aws_sfn_state_machine" "run" {
       }
 
       # The crawls add the CDC's new partitions before dbt reads them. A crawl that fails, or
-      # is still running after crawl_max_wait_minutes, doesn't stop the run.
+      # is still running after crawl_max_wait_minutes, doesn't stop the run. Each crawl outputs
+      # an empty string if it finished, or else its crawler and why, which crawlsNotDone lists.
       CrawlCdc = {
         Type  = "Map"
         Items = var.cdc_crawler_names
@@ -109,7 +113,15 @@ resource "aws_sfn_state_machine" "run" {
               Resource  = "arn:aws:states:::aws-sdk:glue:startCrawler"
               Arguments = { Name = "{% $states.input %}" }
               Assign    = { crawler = "{% $states.input %}" }
-              Retry     = [local.retry_api_errors]
+              Retry = [
+                # Retries come before the Catch, so without this the retrier for every error
+                # would retry a crawl that is already running.
+                {
+                  ErrorEquals = ["Glue.CrawlerRunningException"]
+                  MaxAttempts = 0
+                },
+                local.retry_api_errors,
+              ]
               Catch = [
                 # Another crawl is running so this waits here.
                 {
@@ -119,7 +131,8 @@ resource "aws_sfn_state_machine" "run" {
                 },
                 {
                   ErrorEquals = ["States.ALL"]
-                  Next        = "CrawlDone"
+                  Assign      = { crawler = "{% $states.input %}" }
+                  Next        = "NotStarted"
                 },
               ]
               Next = "WaitForCrawl"
@@ -135,12 +148,12 @@ resource "aws_sfn_state_machine" "run" {
               Type      = "Task"
               Resource  = "arn:aws:states:::aws-sdk:glue:getCrawler"
               Arguments = { Name = "{% $crawler %}" }
-              Output    = "{% $states.result.Crawler.State %}"
+              Output    = "{% {'state': $states.result.Crawler.State, 'lastCrawl': $states.result.Crawler.LastCrawl.Status} %}"
               Retry     = [local.retry_api_errors]
               Catch = [
                 {
                   ErrorEquals = ["States.ALL"]
-                  Next        = "CrawlDone"
+                  Next        = "NotChecked"
                 }
               ]
               Next = "IsCrawlDone"
@@ -152,18 +165,50 @@ resource "aws_sfn_state_machine" "run" {
               Type = "Choice"
               Choices = [
                 {
-                  Condition = "{% $states.input = 'READY' or $millis() - $toMillis($states.context.Execution.StartTime) > ${local.crawl_max_wait_ms} %}"
-                  Next      = "CrawlDone"
-                }
+                  Condition = "{% $states.input.state = 'READY' and $states.input.lastCrawl = 'SUCCEEDED' %}"
+                  Next      = "Crawled"
+                },
+                {
+                  Condition = "{% $states.input.state = 'READY' %}"
+                  Next      = "CrawlFailed"
+                },
+                {
+                  Condition = "{% $millis() - $toMillis($states.context.Execution.StartTime) > ${local.crawl_max_wait_ms} %}"
+                  Next      = "StillRunning"
+                },
               ]
               Default = "WaitForCrawl"
             }
 
-            CrawlDone = {
-              Type = "Succeed"
+            Crawled = {
+              Type   = "Succeed"
+              Output = ""
+            }
+
+            # The last crawl's status is FAILED or CANCELLED.
+            CrawlFailed = {
+              Type   = "Succeed"
+              Output = "{% $crawler & ' (' & ($exists($states.input.lastCrawl) ? $lowercase($states.input.lastCrawl) : 'not crawled') & ')' %}"
+            }
+
+            StillRunning = {
+              Type   = "Succeed"
+              Output = "{% $crawler & ' (still running)' %}"
+            }
+
+            NotStarted = {
+              Type   = "Succeed"
+              Output = "{% $crawler & ' (not started)' %}"
+            }
+
+            NotChecked = {
+              Type   = "Succeed"
+              Output = "{% $crawler & ' (not checked)' %}"
             }
           }
         }
+        # A filter that matches nothing is undefined, which $append turns into an empty list.
+        Assign = { crawlsNotDone = "{% $join($append([], $states.result[$ != '']), ', ') %}" }
         Output = {}
         Next   = "ShouldRunDbt"
       }
@@ -179,9 +224,28 @@ resource "aws_sfn_state_machine" "run" {
         Default = "NoDbtStep"
       }
 
+      # Without the dbt step there is no run event to report the crawls, so the execution fails
+      # if one didn't finish.
       NoDbtStep = {
-        Type    = "Succeed"
+        Type    = "Choice"
         Comment = "dbt isn't one of the steps, so the execution ends without a run or its event."
+        Choices = [
+          {
+            Condition = "{% $crawlsNotDone != '' %}"
+            Next      = "CrawlsNotDone"
+          }
+        ]
+        Default = "NoRun"
+      }
+
+      CrawlsNotDone = {
+        Type  = "Fail"
+        Error = "crawlsNotDone"
+        Cause = "{% 'These crawls did not finish: ' & $crawlsNotDone %}"
+      }
+
+      NoRun = {
+        Type = "Succeed"
       }
 
       # Overlapping runs are not safe so ensure that there is no concurrent executions.
@@ -318,6 +382,7 @@ resource "aws_sfn_state_machine" "run" {
           durationMinutes = "{% $round(($millis() - $toMillis($states.context.Execution.StartTime)) / 60000) %}"
           logsUrl         = "{% $taskArn ? '${local.logs_url_prefix}' & $split($taskArn, '/')[-1] : null %}"
           executionUrl    = "{% '${local.execution_url_prefix}' & $states.context.Execution.Id %}"
+          crawlsNotDone   = "{% $crawlsNotDone %}"
         }
         Next = "SendEvent"
       }

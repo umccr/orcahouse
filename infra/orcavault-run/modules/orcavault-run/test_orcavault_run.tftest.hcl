@@ -102,9 +102,20 @@ run "steps_define_runs" {
     condition = (
       jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Choices[0].Condition == "{% 'dbt' in $steps %}" &&
       jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Choices[0].Next == "CheckNoRunInProgress" &&
-      jsondecode(aws_sfn_state_machine.run.definition).States[jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Default].Type == "Succeed"
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Default == "NoDbtStep" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Default == "NoRun" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.NoRun.Type == "Succeed"
     )
     error_message = "dbt should only run when dbt is a step"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Choices[0].Condition == "{% $crawlsNotDone != '' %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Choices[0].Next == "CrawlsNotDone" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlsNotDone.Type == "Fail"
+    )
+    error_message = "an execution without dbt should fail if a crawl didn't finish, since it sends no event"
   }
 }
 
@@ -128,18 +139,46 @@ run "the_run_crawls_the_cdc_first" {
   }
 
   assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States.StartCrawler.Retry[0].ErrorEquals == ["Glue.CrawlerRunningException"] &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States.StartCrawler.Retry[0].MaxAttempts == 0
+    )
+    error_message = "a crawl that is already running should be waited for without retrying the start"
+  }
+
+  assert {
     condition = alltrue([
-      for name in ["StartCrawler", "GetCrawler"] : contains([
+      for name in ["StartCrawler", "GetCrawler"] : alltrue([
         for catch in jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States[name].Catch :
-        catch.Next if catch.ErrorEquals == ["States.ALL"]
-      ], "CrawlDone")
+        jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States[catch.Next].Type == "Succeed" if catch.ErrorEquals == ["States.ALL"]
+      ])
     ])
     error_message = "a crawl that can't be started or read shouldn't stop the run"
   }
 
   assert {
-    condition     = strcontains(jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States.IsCrawlDone.Choices[0].Condition, "> 3600000 %}")
+    condition = anytrue([
+      for choice in jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States.IsCrawlDone.Choices :
+      strcontains(choice.Condition, "> 3600000 %}") && choice.Next == "StillRunning"
+    ])
     error_message = "the run should stop waiting for the crawls after crawl_max_wait_minutes"
+  }
+
+  assert {
+    condition = alltrue([
+      for name, state in jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.ItemProcessor.States :
+      name == "Crawled" ? state.Output == "" : strcontains(state.Output, "$crawler & ' (") if state.Type == "Succeed"
+    ])
+    error_message = "every crawl that didn't finish should output its crawler and why"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.ReadSteps.Assign.crawlsNotDone == "" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.Assign.crawlsNotDone == "{% $join($append([], $states.result[$ != '']), ', ') %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.AddRunFields.Output.crawlsNotDone == "{% $crawlsNotDone %}"
+    )
+    error_message = "the run event should list the crawls that didn't finish"
   }
 
   assert {
