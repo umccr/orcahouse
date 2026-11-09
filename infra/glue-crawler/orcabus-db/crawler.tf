@@ -21,7 +21,7 @@ resource "aws_glue_crawler" "this" {
         AddOrUpdateBehavior = "InheritFromTable"
       }
       Tables = {
-        AddOrUpdateBehavior = "MergeNewColumns" # Add new columns on schema evolution
+        AddOrUpdateBehavior = "MergeNewColumns" # Only applies with full_crawl, which adds new columns
       }
     }
     Grouping = {
@@ -30,9 +30,12 @@ resource "aws_glue_crawler" "this" {
     }
   })
 
+  # Crawling new folders only forces LOG, so a schema change is only logged, see
+  # https://docs.aws.amazon.com/glue/latest/dg/incremental-crawls.html. A full crawl
+  # updates the tables, see "Picking up a schema change" in the README.
   schema_change_policy {
     delete_behavior = "LOG" # Log schema deletions — do not drop tables
-    update_behavior = "LOG" # Log update schema changes
+    update_behavior = var.full_crawl ? "UPDATE_IN_DATABASE" : "LOG"
   }
 
   lineage_configuration {
@@ -40,7 +43,7 @@ resource "aws_glue_crawler" "this" {
   }
 
   recrawl_policy {
-    recrawl_behavior = "CRAWL_NEW_FOLDERS_ONLY" # Only crawl new partitions
+    recrawl_behavior = var.full_crawl ? "CRAWL_EVERYTHING" : "CRAWL_NEW_FOLDERS_ONLY" # Only new partitions, unless full_crawl
   }
 
   s3_target {
