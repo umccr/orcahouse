@@ -111,9 +111,9 @@ run "steps_define_runs" {
 
   assert {
     condition = (
-      jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Choices[0].Condition == "{% $crawlsNotDone != '' %}" &&
-      jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Choices[0].Next == "CrawlsNotDone" &&
-      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlsNotDone.Type == "Fail"
+      jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Choices[0].Condition == "{% $crawlIncomplete != '' %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Choices[0].Next == "CrawlIncomplete" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlIncomplete.Type == "Fail"
     )
     error_message = "an execution without dbt should fail if a crawl didn't finish, since it sends no event"
   }
@@ -174,9 +174,9 @@ run "the_run_crawls_the_cdc_first" {
 
   assert {
     condition = (
-      jsondecode(aws_sfn_state_machine.run.definition).States.ReadSteps.Assign.crawlsNotDone == "" &&
-      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.Assign.crawlsNotDone == "{% $join($append([], $states.result[$ != '']), ', ') %}" &&
-      jsondecode(aws_sfn_state_machine.run.definition).States.AddRunFields.Output.crawlsNotDone == "{% $crawlsNotDone %}"
+      jsondecode(aws_sfn_state_machine.run.definition).States.ReadSteps.Assign.crawlIncomplete == "" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.CrawlCdc.Assign.crawlIncomplete == "{% $join($append([], $states.result[$ != '']), ', ') %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.AddRunFields.Output.crawlIncomplete == "{% $crawlIncomplete %}"
     )
     error_message = "the run event should list the crawls that didn't finish"
   }

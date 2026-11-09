@@ -70,9 +70,6 @@ module "orcavault_run" {
     "orcabus/v1/cdc/",
     "data-portal/orcavault-legacy-20260623/orcavault/",
   ]
-
-  # The upstream CDC crawlers, created by infra/glue-crawler/orcabus-db, which each run
-  # crawls first. Dev and prod both start the same crawlers.
   cdc_crawler_names = [
     "orcabus-db-crawler-case-manager",
     "orcabus-db-crawler-filemanager",

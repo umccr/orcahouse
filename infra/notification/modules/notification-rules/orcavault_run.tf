@@ -10,8 +10,8 @@
 # The rules are split so that every placeholder is always set: failed and warned always
 # have logsUrl and a null error; error and skipped always have an error, but logsUrl can be
 # null. warned has its own rule for a warning title, and so that it can be muted on its own.
-# crawls-not-done matches any outcome, succeeded too, whose crawlsNotDone isn't empty, i.e.
-# the run read some CDC before its crawl finished. It lists crawler names and fixed words.
+# crawl-incomplete matches any outcome where crawlIncomplete isn't empty, i.e.
+# the run read some CDC before its crawl finished.
 
 locals {
   orcavault_run_input_paths = {
@@ -123,20 +123,20 @@ locals {
       })
     }
 
-    "orcavault-run-crawls-not-done" = {
-      description = "Send OrcaVault ${var.environment} runs that read the CDC before every crawl finished to the Slack SNS topic"
+    "orcavault-run-crawl-incomplete" = {
+      description = "Send OrcaVault ${var.environment} runs that read the CDC before crawls finish"
 
       event_pattern = jsonencode({
         source        = ["orcahouse.orcavault"]
         "detail-type" = ["OrcaVaultRunFinished"]
         detail = {
-          environment   = [var.environment]
-          crawlsNotDone = [{ "anything-but" = "" }]
+          environment     = [var.environment]
+          crawlIncomplete = [{ "anything-but" = "" }]
         }
       })
 
       input_paths = merge(local.orcavault_run_input_paths, {
-        crawlsNotDone = "$.detail.crawlsNotDone"
+        crawlIncomplete = "$.detail.crawlIncomplete"
       })
 
       input_template = jsonencode({
@@ -145,7 +145,7 @@ locals {
         content = {
           textType    = "client-markdown"
           title       = ":warning: [${var.environment}] OrcaVault run read stale CDC"
-          description = "*Process:* OrcaVault CDC crawl\n*Run ID:* `<runId>`\n*Run outcome:* <outcome>\n*Crawls not done:* <crawlsNotDone>\n*Effect:* the run read these sources as of their last finished crawl\n${local.orcavault_run_footer}"
+          description = "*Process:* OrcaVault CDC crawl\n*Run ID:* `<runId>`\n*Run outcome:* <outcome>\n*Incomplete crawls:* <crawlIncomplete>\n*Effect:* the run read these sources as of their last finished crawl\n${local.orcavault_run_footer}"
           nextSteps   = ["Execution: <executionUrl>"]
           keywords    = ["OrcaHouse", var.environment, "crawler"]
         }

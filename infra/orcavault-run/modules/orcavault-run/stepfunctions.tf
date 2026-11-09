@@ -72,8 +72,8 @@ resource "aws_sfn_state_machine" "run" {
         Type    = "Pass"
         Comment = "The steps to run."
         Assign = {
-          steps         = "{% $exists($states.input.steps) ? $states.input.steps : ${jsonencode(local.steps)} %}"
-          crawlsNotDone = ""
+          steps           = "{% $exists($states.input.steps) ? $states.input.steps : ${jsonencode(local.steps)} %}"
+          crawlIncomplete = ""
         }
         Next = "ShouldCrawl"
       }
@@ -101,7 +101,7 @@ resource "aws_sfn_state_machine" "run" {
 
       # The crawls add the CDC's new partitions before dbt reads them. A crawl that fails, or
       # is still running after crawl_max_wait_minutes, doesn't stop the run. Each crawl outputs
-      # an empty string if it finished, or else its crawler and why, which crawlsNotDone lists.
+      # an empty string if it finished, or else its crawler and why, which crawlIncomplete lists.
       CrawlCdc = {
         Type  = "Map"
         Items = var.cdc_crawler_names
@@ -208,7 +208,7 @@ resource "aws_sfn_state_machine" "run" {
           }
         }
         # A filter that matches nothing is undefined, which $append turns into an empty list.
-        Assign = { crawlsNotDone = "{% $join($append([], $states.result[$ != '']), ', ') %}" }
+        Assign = { crawlIncomplete = "{% $join($append([], $states.result[$ != '']), ', ') %}" }
         Output = {}
         Next   = "ShouldRunDbt"
       }
@@ -231,17 +231,17 @@ resource "aws_sfn_state_machine" "run" {
         Comment = "dbt isn't one of the steps, so the execution ends without a run or its event."
         Choices = [
           {
-            Condition = "{% $crawlsNotDone != '' %}"
-            Next      = "CrawlsNotDone"
+            Condition = "{% $crawlIncomplete != '' %}"
+            Next      = "CrawlIncomplete"
           }
         ]
         Default = "NoRun"
       }
 
-      CrawlsNotDone = {
+      CrawlIncomplete = {
         Type  = "Fail"
-        Error = "crawlsNotDone"
-        Cause = "{% 'These crawls did not finish: ' & $crawlsNotDone %}"
+        Error = "crawlIncomplete"
+        Cause = "{% 'These crawls did not finish: ' & $crawlIncomplete %}"
       }
 
       NoRun = {
@@ -382,7 +382,7 @@ resource "aws_sfn_state_machine" "run" {
           durationMinutes = "{% $round(($millis() - $toMillis($states.context.Execution.StartTime)) / 60000) %}"
           logsUrl         = "{% $taskArn ? '${local.logs_url_prefix}' & $split($taskArn, '/')[-1] : null %}"
           executionUrl    = "{% '${local.execution_url_prefix}' & $states.context.Execution.Id %}"
-          crawlsNotDone   = "{% $crawlsNotDone %}"
+          crawlIncomplete = "{% $crawlIncomplete %}"
         }
         Next = "SendEvent"
       }

@@ -45,7 +45,7 @@ to separate channels.
 | `orcavault-run-failed` | dev, prod | An OrcaVault dbt run in this environment ends `failed` |
 | `orcavault-run-warned` | dev, prod | An OrcaVault dbt run in this environment ends `warned`: models were applied, but warn-severity tests failed |
 | `orcavault-run-error` | dev, prod | An OrcaVault dbt run in this environment ends `error` or `skipped` |
-| `orcavault-run-crawls-not-done` | dev, prod | An OrcaVault run in this environment read the CDC before every crawl finished, with any outcome |
+| `orcavault-run-crawl-incomplete` | dev, prod | An OrcaVault run in this environment read the CDC before every crawl finished, with any outcome |
 | `alarm-firing`, `alarm-resolved` | dev, prod | An `orcahouse-notify-<env>-*` or `orcavault-run-<env>-*` alarm enters `ALARM` or returns to `OK` |
 
 Watched crawlers and DMS resources are listed in `environments/<env>/main.tf`. The
@@ -64,9 +64,7 @@ OrcaVault run rules match the `OrcaVaultRunFinished` event that
 - **Crawls before a run:** each OrcaVault run starts the `orcabus-db-crawler-*` crawlers
   first, unless it's started without its `crawl` step, and goes ahead whether they
   succeed or not. A crawl that didn't start, failed, or was still running is in the run
-  event's `crawlsNotDone`, which `orcavault-run-crawls-not-done` alerts on. In prod, a
-  failed crawl is also alerted by `crawler-failed`. `crawler-start-failed` only matches
-  scheduled starts, so it doesn't fire for these crawlers, which have no schedule.
+  event's `crawlIncomplete`, which `orcavault-run-crawl-incomplete` alerts on.
 - **Environment:** dev and prod OrcaVault runs send to the same default bus, so the run
   rules match `detail.environment`.
 - **DMS:** ARNs end in a generated ID, so there is one rule per resource, matched by ARN.

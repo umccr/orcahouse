@@ -52,8 +52,8 @@ orcavault-run-<env>
 
 - The run proceeds whether the crawls succeed or not. A source that didn't
   load is stale, which only delays its data until a later run loads it.
-- The run event's `crawlsNotDone` lists each crawl that didn't finish, and why,
-  see [The run event](#the-run-event). `orcavault-run-crawls-not-done` alerts
+- The run event's `crawlIncomplete` lists each crawl that didn't finish, and why,
+  see [The run event](#the-run-event). `orcavault-run-crawl-incomplete` alerts
   on it, and in prod `crawler-failed` alerts on a failed crawl too, see
   [infra/notification](../notification/ARCHITECTURE.md).
 - Step Functions can't wait for a crawl by itself, so each crawler is checked
@@ -282,7 +282,7 @@ An example of an event going to EventBridge:
     "durationMinutes": 42,
     "logsUrl": "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?…",
     "executionUrl": "https://ap-southeast-2.console.aws.amazon.com/states/home?…",
-    "crawlsNotDone": ""
+    "crawlIncomplete": ""
   }
 }
 ```
@@ -297,7 +297,7 @@ An example of an event going to EventBridge:
 - `durationMinutes` is from when the execution started.
 - `logsUrl` is the task's log stream. It's null when the task never started, and
   when the run timed out.
-- `crawlsNotDone` lists the crawls that didn't finish before dbt ran, separated
+- `crawlIncomplete` lists the crawls that didn't finish before dbt ran, separated
   by commas, such as `orcabus-db-crawler-filemanager (still running)`. Each is
   `not started`, `still running`, `failed`, `cancelled`, or `not checked` when
   its state couldn't be read. It's empty when every crawl finished, or the run
