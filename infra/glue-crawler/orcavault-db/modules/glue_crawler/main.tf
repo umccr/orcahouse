@@ -13,7 +13,7 @@ resource "aws_glue_crawler" "this" {
       Partitions = {
         AddOrUpdateBehavior = "InheritFromTable"
       }
-      Tables = {
+      Tables     = {
         AddOrUpdateBehavior = "MergeNewColumns"
       }
     }
@@ -40,9 +40,7 @@ resource "aws_glue_crawler" "this" {
     ]
   }
 
-  # Not part of the OrcaVault run yet, which only starts the upstream CDC crawlers, see
-  # infra/orcavault-run. TODO - crawl the mart as a step after the run's dbt step, see
-  # https://github.com/umccr/orcahouse-project/issues/58.
-  # Runs once a day in UTC - 4:00 AM Sydney time AEDT.
+  # TODO - we could do event-based notification or steps orchestration
+  # Runs once a day in UTC - 4:00 AM Sydney time AEDT
   schedule = "cron(0 18 * * ? *)"
 }
