@@ -37,12 +37,6 @@ locals {
   databases   = ["workflow_manager", "sequence_run_manager", "metadata_manager", "filemanager", "case_manager"]
 }
 
-variable "full_crawl" {
-  description = "Set to true to crawl everything and add new columns, after an upstream schema change. Set back to false afterwards."
-  type        = bool
-  default     = false
-}
-
 data "aws_s3_bucket" "lz" {
   bucket = "orcahouse-prod-landing-zone-115253169271-ap-southeast-2-an"
 }
