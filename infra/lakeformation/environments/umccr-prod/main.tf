@@ -40,8 +40,12 @@ module "lakeformation_consumer" {
 
   dw_account_id = "115253169271"
 
+  # FIXME oncovault is still in dev mode. we should share prod mart for cross account
+  #   so far this stack only create the Glue database resource linking. nothing is dropping or _really_ deleting data.
+  #   it is just database aliasing. like the directory soft linking `ln -s orcavault_prod_mart mart`
+  #   so, it is ok to TF destroy & apply again. ala `rm mart`, hence it is fine.  ~victor
   database_resource_links = {
-    "mart"   = "orcavault_dev_mart"
+    "mart"   = "orcavault_prod_mart"
     "result" = "oncovault_dev_mart"
   }
 }
