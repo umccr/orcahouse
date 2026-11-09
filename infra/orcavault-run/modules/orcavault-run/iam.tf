@@ -254,14 +254,14 @@ resource "aws_iam_role_policy" "states" {
   policy = data.aws_iam_policy_document.states.json
 }
 
-# This defines the policy and role for the scheduler.
-data "aws_iam_policy_document" "scheduler_assume" {
+# This defines the policy and role for the rule that starts the run.
+data "aws_iam_policy_document" "start_assume" {
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
-      identifiers = ["scheduler.amazonaws.com"]
+      identifiers = ["events.amazonaws.com"]
     }
     condition {
       test     = "StringEquals"
@@ -271,12 +271,12 @@ data "aws_iam_policy_document" "scheduler_assume" {
   }
 }
 
-resource "aws_iam_role" "scheduler" {
-  name               = "${local.name_prefix}-scheduler-role"
-  assume_role_policy = data.aws_iam_policy_document.scheduler_assume.json
+resource "aws_iam_role" "start" {
+  name               = "${local.name_prefix}-start-role"
+  assume_role_policy = data.aws_iam_policy_document.start_assume.json
 }
 
-data "aws_iam_policy_document" "scheduler" {
+data "aws_iam_policy_document" "start" {
   statement {
     effect    = "Allow"
     actions   = ["states:StartExecution"]
@@ -284,8 +284,8 @@ data "aws_iam_policy_document" "scheduler" {
   }
 }
 
-resource "aws_iam_role_policy" "scheduler" {
-  name   = "${local.name_prefix}-scheduler-policy"
-  role   = aws_iam_role.scheduler.id
-  policy = data.aws_iam_policy_document.scheduler.json
+resource "aws_iam_role_policy" "start" {
+  name   = "${local.name_prefix}-start-policy"
+  role   = aws_iam_role.start.id
+  policy = data.aws_iam_policy_document.start.json
 }

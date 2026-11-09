@@ -1,7 +1,9 @@
 # OrcaVault daily run
 
 Builds the [umccr/orcavault](https://github.com/umccr/orcavault) dbt project on
-Redshift Serverless once a day, in dev and prod.
+Redshift Serverless once a day, in dev and prod. The run is the middle of a
+nightly chain that loads its sources first and publishes the mart afterwards,
+see [The nightly chain](#the-nightly-chain).
 
 ![orcavault-run.drawio.svg](docs/orcavault-run.drawio.svg)
 
@@ -12,13 +14,16 @@ their own workgroup, `orcahouse-dev` or `orcahouse-prod`. Both are in the
 warehouse account, and resources created by an environment have the environment
 name, to avoid conflicts.
 
-| Directory                               | Purpose                                                                                | Applied         |
-| --------------------------------------- | -------------------------------------------------------------------------------------- | --------------- |
-| `account-wide`                          | Creates the ECR repository, `orcavault-run-dbt`                                        | once            |
-| `environments/dev`, `environments/prod` | The run infrastructure, with a schedule, state machine, task, roles, results and alarm | per environment |
-| `modules/orcavault-run`                 | The common module that each environment uses                                           |                 |
-| `docker`                                | The python wrapper that performs `dbt build`                                           |                 |
-| `docs`                                  | The [initial load](docs/initial-load.md) of a new environment, and the diagram         |                 |
+| Directory                               | Purpose                                                                                                     | Applied         |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------- |
+| `account-wide`                          | Creates the ECR repository, `orcavault-run-dbt`                                                             | once            |
+| `environments/dev`, `environments/prod` | The nightly chain, with a schedule, state machines, task, rules, roles, results and alarms                  | per environment |
+| `modules/sources`                       | The stage before the run, which loads its sources                                                           |                 |
+| `modules/orcavault-run`                 | The run                                                                                                     |                 |
+| `modules/publish`                       | The stage after the run, which publishes the mart                                                           |                 |
+| `modules/sfn-finish`, `modules/sfn-crawl` | States that the stages share: sending the stage's event and finishing, and crawling a Glue crawler        |                 |
+| `docker`                                | The python wrapper that performs `dbt build`                                                                |                 |
+| `docs`                                  | The [initial load](docs/initial-load.md) of a new environment, and the diagram                              |                 |
 
 There is a single image for both dev and prod to ensure that both use the same
 build. The orcavault git ref controls which image is used for a deployment.
@@ -31,14 +36,92 @@ downstream notifications or services. Fargate is used as the executor for the
 dbt run to avoid any time limits associated with a Lambda function, which would
 be too short.
 
+## The nightly chain
+
+The run is one of three stages, each a state machine in each environment:
+
+```text
+Scheduler, 03:00 Melbourne time, with {"downstream": true}
+  ▼
+orcavault-run-<env>-sources   CDC: checks the DMS tasks, then crawls the orcabus-db crawlers
+                              TSA: runs the OrcaGlue jobs tagged for this stage, one at a time
+  │ OrcaVaultSourcesFinished, whatever its outcome
+  ▼
+orcavault-run-<env>           dbt build, see What a run does
+  │ OrcaVaultRunFinished, when succeeded or warned
+  ▼
+orcavault-run-<env>-publish   crawls the mart crawler
+  │ OrcaVaultPublishFinished
+```
+
+Each stage sends an event when it finishes, and an EventBridge rule starts the
+next stage from it. Within a stage, Step Functions waits for everything the
+stage does, such as several crawlers, which a rule can't do. Between stages,
+there is only ever one stage before the next, so an event is enough, and each
+stage can still be started on its own.
+
+### Continuing the chain
+
+A stage only starts the next one when its execution was started with
+`{"downstream": true}`, which is the event's `downstream` field. The schedule
+starts the sources stage with it, and each rule starts the next stage with it,
+so the scheduled chain runs to the end. An execution started by hand with `{}`,
+or with only `args` for the run, does that stage alone. To carry on through the
+rest of the chain, add `"downstream": true` to its input.
+
+- The run starts whatever the sources' outcome. A source that didn't load is
+  stale, which only delays its data until it loads, because the orcavault
+  watermark reads up to what is visible, see its
+  [watermark architecture](https://github.com/umccr/orcavault/blob/main/docs/watermark-architecture.md).
+  Every OrcaGlue PSA model is incremental, so an empty or stale TSA table adds
+  nothing rather than removing anything.
+- Publishing only starts after a run that applied its models, `succeeded` or
+  `warned`.
+- Dev and prod both read the same CDC, so both sources stages start the same
+  orcabus-db crawlers. Whichever starts second waits for the crawl that is
+  already running.
+
+### Sources
+
+The sources stage loads the CDC and TSA sources in parallel, and its event
+lists what didn't load. Nothing it does fails the stage.
+
+- **CDC.** It checks that the DMS tasks in `infra/dms/orcabus-db` are running,
+  and then crawls the `infra/glue-crawler/orcabus-db` crawlers, which have no
+  schedule of their own. DMS replicates continuously, so it isn't started, only
+  checked. A crawl still running after `crawl_max_wait_minutes` is reported as
+  `TIMEOUT`, and carries on.
+- **TSA.** It runs the OrcaGlue Glue jobs tagged
+  `orcahouse:pipeline-stage = sources` whose names start with
+  `orcaglue-<env>-`, one at a time so they don't contend on the workgroup. A job
+  joins the stage with its `pipeline-stage` config, see the OrcaGlue
+  `README_DEPLOY.md`. A job that is already running, such as one started by
+  hand, is reported with `Glue.ConcurrentRunsExceededException`.
+
+| Outcome     | Meaning                                                                          | Execution |
+| ----------- | -------------------------------------------------------------------------------- | --------- |
+| `succeeded` | Every DMS task was running, and every crawl and Glue job succeeded.              | succeeds  |
+| `degraded`  | A DMS task wasn't running, or a crawl or Glue job didn't succeed.                | succeeds  |
+| `error`     | The stage itself failed, see the execution.                                      | fails     |
+
+### Publish
+
+The publish stage crawls the mart crawler from `infra/glue-crawler/orcavault-db`
+so that the mart's readers, such as Athena through Lake Formation, see the
+latest tables. Its outcomes are the same as the sources', where `degraded` means
+a crawl didn't succeed. Prod has no mart crawler until
+`infra/glue-crawler/orcavault-db` prod is applied, so until then publishing only
+sends its event. Publishing doesn't UNLOAD the mart, it catalogs what is in the
+bucket.
+
 ## What a run does
 
 Each run effectively runs `dbt build` which updates orcavault models. Tests are
 run as part of this, with different kinds of outcomes representing success or
 failure. OrcaVault's incremental models assume runs don't overlap, so the Step
-Functions checks that no other executions are currently running. The run is
-configured to start at 03:00 Melbourne time. That is after the OrcaGlue TSA jobs
-(13:10 UTC) and the OrcaBus Glue crawlers (15:00 UTC).
+Functions checks that no other executions are currently running. The scheduled
+run starts once the sources stage finishes, see
+[The nightly chain](#the-nightly-chain).
 
 ### Outcomes
 
@@ -85,11 +168,16 @@ followed for a deployment in a new environment, see
 
 Each environment is run on its own. The `terraform` commands here are run in its
 directory, `environments/dev` or `environments/prod`. Its outputs are under
-`orcavault_run`.
+`sources`, `orcavault_run` and `publish`.
 
 - **Start a run** with the `start_run_command` output, or from the Step
   Functions console with input `{}`. Leave the execution name to Step Functions.
-- **Pause the schedule** with `-var schedule_enabled=false`.
+  It doesn't publish afterwards, see [Continuing the chain](#continuing-the-chain).
+- **Start the whole chain** as the schedule does, by starting the sources stage
+  with `{"downstream": true}`. The `start_command` output of `sources` loads the
+  sources only, and of `publish`, publishes only.
+- **Pause the chain** with `-var schedule_enabled=false`, which pauses the
+  sources stage's schedule. The stages can still be started by hand.
 - **Stop a run** by stopping its task, from the ECS console or the execution's
   `RunDbt` step. The runner tells dbt to cancel its queries. If dbt hasn't
   exited in time ECS kills the task, and the state machine sends the run event.
@@ -148,8 +236,10 @@ document what each environment runs.
 
 ### Requests
 
-The execution input is the dbt arguments for the run. The scheduled run's `{}`
-is `dbt build`. Arguments can be specified in the input:
+The execution input is the dbt arguments for the run, and whether the chain
+continues. `{}` is `dbt build`, and the chain's run is `{"downstream": true}`,
+which is `dbt build` and then publishing. Arguments can be specified in the
+input:
 
 ```json
 {
@@ -167,6 +257,10 @@ is `dbt build`. Arguments can be specified in the input:
 `{"args": "build --select +lims --full-refresh"}` or
 `{"args": "build --selector orcabus"}`.
 
+`downstream` is only for the state machine, which removes it before the runner
+gets the request. Any other key is rejected by the runner, so a misspelt
+`downstream` fails the run rather than being ignored.
+
 The command must be `build`, `run`, `test`, `seed` or `snapshot`. This runs the
 Step Functions via ECS as the runner, tracks outcomes. Other commands can be run
 manually, however this has no outcome tracking. See
@@ -177,9 +271,13 @@ invocation.
 ### Running again after a failure
 
 Once the cause is fixed, start the same request again, which for a scheduled run
-is `{}`. dbt builds everything again, and the models skip the rows they already
-have. To rebuild only a part, such as the model that failed and what depends on
-it, select it using `{"args": "build --select lims+"}`.
+is `{"downstream": true}`, so that the mart is published afterwards. dbt builds
+everything again, and the models skip the rows they already have. To rebuild
+only a part, such as the model that failed and what depends on it, select it
+using `{"args": "build --select lims+", "downstream": true}`. Leave out
+`downstream` to rebuild without publishing. A source that failed to load can be
+loaded by itself first, with the sources stage's `{}`, or a Glue job or crawler
+started by hand.
 
 Run again with a new execution rather than a
 [redrive](https://docs.aws.amazon.com/step-functions/latest/dg/redrive-executions.html).
@@ -216,6 +314,7 @@ An example of an event going to EventBridge:
     "failedNodes": "unique_hub_library_library_hk",
     "warnedNodes": "accepted_values_lims_type",
     "orcavaultRef": "v1.2.3",
+    "downstream": true,
     "durationMinutes": 42,
     "logsUrl": "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?…",
     "executionUrl": "https://ap-southeast-2.console.aws.amazon.com/states/home?…"
@@ -230,6 +329,8 @@ An example of an event going to EventBridge:
   quotes or backslashes to that an input transformer can put it in a JSON
   string.
 - `failedNodes` and `warnedNodes` have up to 10 nodes.
+- `downstream` is whether the chain continues, see
+  [Continuing the chain](#continuing-the-chain).
 - `durationMinutes` is from when the execution started.
 - `logsUrl` is the task's log stream. It's null when the task never started, and
   when the run timed out.
@@ -241,6 +342,40 @@ After every run, the runner also writes dbt's `target/manifest.json` to
 describes the models the environment builds and where they are, and is replaced
 by each run. This mechanism is what the OrcaVault personal schemas are based on,
 see [README_DEV.md](https://github.com/umccr/orcavault/blob/main/README_DEV.md).
+
+### The sources and publish events
+
+The other stages send events in the same way, with `environment`, `outcome`,
+`error`, `runId`, `downstream`, `durationMinutes` and `executionUrl`, from
+`modules/sfn-finish`, and their own fields. Lists are joined with `, `, and are
+empty when there is nothing to list. Their `error` is the stage's own message,
+and only set for `error`.
+
+```json
+{
+  "source": "orcahouse.orcavault",
+  "detail-type": "OrcaVaultSourcesFinished",
+  "detail": {
+    "environment": "prod",
+    "outcome": "degraded",
+    "error": null,
+    "dmsTasksNotRunning": "orcabus-db-task-filemanager (stopped)",
+    "crawlersSucceeded": 3,
+    "crawlersFailed": 1,
+    "failedCrawlers": "orcabus-db-crawler-workflow-manager (TIMEOUT)",
+    "jobsSucceeded": 1,
+    "jobsFailed": 1,
+    "failedJobs": "orcaglue-prod-spreadsheet-ica-usage-report-job (FAILED)",
+    "runId": "4b8e1f3a-…",
+    "downstream": true,
+    "durationMinutes": 12,
+    "executionUrl": "https://ap-southeast-2.console.aws.amazon.com/states/home?…"
+  }
+}
+```
+
+`OrcaVaultPublishFinished` has `crawlersSucceeded`, `crawlersFailed` and
+`failedCrawlers` for the mart crawlers.
 
 ### Running the image by hand
 
@@ -292,6 +427,11 @@ terraform test
   towards it, including this runner.
 - **Image archiving.** An image that no environment has pulled for 90 days is
   archived, and deleted a year later, see `account-wide/main.tf`.
+- **Overlapping stages.** Only the run checks for another execution of itself.
+  Two sources executions at once share their crawls, and the second's Glue jobs
+  are reported as already running. If both continue the chain, the second run
+  is `skipped`.
+- **The diagram** shows the run stage, not the stages around it.
 - **Network.** The task runs in the private subnets of `UomPrimaryVpc`, without
   a public IP. It needs to reach ECR and CloudWatch Logs to start, the
   `redshift-serverless` API to get credentials, the workgroup on port 5439, and

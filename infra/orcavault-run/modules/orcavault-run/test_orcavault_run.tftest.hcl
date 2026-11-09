@@ -57,17 +57,45 @@ variables {
   glue_databases          = ["orcabus_filemanager", "data_portal"]
   bucket_name             = "landing-zone"
   s3_prefix               = ["orcabus/v1/cdc/", "data-portal/export/"]
+
+  start_after = {
+    source      = "orcahouse.orcavault"
+    detail_type = "OrcaVaultSourcesFinished"
+    outcomes    = ["succeeded", "degraded", "error"]
+  }
 }
 
-run "schedule_builds_everything" {
+run "sources_start_the_run" {
   assert {
-    condition     = aws_scheduler_schedule.daily.state == "ENABLED"
-    error_message = "the daily schedule should be enabled"
+    condition = jsonencode(jsondecode(aws_cloudwatch_event_rule.start.event_pattern).detail) == jsonencode({
+      downstream  = [true]
+      environment = ["prod"]
+      outcome     = ["succeeded", "degraded", "error"]
+    })
+    error_message = "this environment's sources executions that continue the chain should start the run"
   }
 
   assert {
-    condition     = jsondecode(aws_scheduler_schedule.daily.target[0].input) == {}
-    error_message = "the scheduled run should be the default request, {}"
+    condition     = jsonencode(jsondecode(aws_cloudwatch_event_target.start.input)) == jsonencode({ downstream = true })
+    error_message = "the chain's run should build everything and continue the chain, {\"downstream\": true}"
+  }
+}
+
+run "the_runner_only_gets_args" {
+  assert {
+    condition = strcontains(
+      one([
+        for variable in jsondecode(aws_sfn_state_machine.run.definition).States.RunDbt.Arguments.Overrides.ContainerOverrides[0].Environment :
+        variable.Value if variable.Name == "ORCAVAULT_RUN_REQUEST"
+      ]),
+      "~> |$|{}, ['downstream']|",
+    )
+    error_message = "the request should not pass downstream to the runner, which rejects it"
+  }
+
+  assert {
+    condition     = strcontains(jsondecode(aws_sfn_state_machine.run.definition).States.AddRunFields.Assign.detail, "'downstream': $states.context.Execution.Input.downstream = true")
+    error_message = "the event should say whether the chain continues"
   }
 }
 
@@ -170,8 +198,8 @@ run "environments_are_separate" {
         aws_iam_role.ecs_execution.name,
         aws_iam_role.dbt_task.name,
         aws_iam_role.states.name,
-        aws_iam_role.scheduler.name,
-        aws_scheduler_schedule.daily.name,
+        aws_iam_role.start.name,
+        aws_cloudwatch_event_rule.start.name,
         aws_cloudwatch_metric_alarm.no_recent_success.alarm_name,
       ] : strcontains(name, "-dev")
     ])

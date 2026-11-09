@@ -4,6 +4,7 @@ locals {
   run_timeout_seconds = var.run_timeout_hours * 3600
 
   # Warning is a successful outcome because models were still applied correctly.
+  outcomes           = ["succeeded", "warned", "failed", "error", "skipped"]
   succeeded_outcomes = ["succeeded", "warned"]
 
   # The event detail used if the runner didn't write one.
@@ -37,20 +38,23 @@ locals {
   no_runner_event_detail = {
     for name, event in local.no_runner_events : name => merge(local.empty_event_detail, event)
   }
+}
 
-  # These are the fields from the run's event. The line breaks are replaced, so
-  # the expression is on one line in the definition.
-  with_run_fields = replace(trimspace(<<-EOT
-    {% $merge([$detail, {
-      'environment': ${jsonencode(var.environment)},
-      'runId': $states.context.Execution.Name,
-      'orcavaultRef': ${jsonencode(var.orcavault_release_ref)},
-      'durationMinutes': $round(($millis() - $toMillis($states.context.Execution.StartTime)) / 60000),
-      'logsUrl': $taskArn ? '${local.logs_url_prefix}' & $split($taskArn, '/')[-1] : null,
-      'executionUrl': '${local.execution_url_prefix}' & $states.context.Execution.Id
-    }]) %}
-  EOT
-  ), "\n", " ")
+# Adds the fields every stage's event has, sends the event and finishes with the outcome.
+module "finish" {
+  source = "../sfn-finish"
+
+  environment        = var.environment
+  event_source       = local.event_source
+  event_detail_type  = local.event_detail_type
+  succeeded_outcomes = local.succeeded_outcomes
+
+  extra_fields = {
+    orcavaultRef = jsonencode(var.orcavault_release_ref)
+    logsUrl      = "$taskArn ? '${local.logs_url_prefix}' & $split($taskArn, '/')[-1] : null"
+  }
+
+  failed_cause = "$detail.error ? $detail.error : 'The run ended with ' & $detail.outcome & ': ' & $detail.failedNodes"
 }
 
 resource "aws_cloudwatch_log_group" "states" {
@@ -75,7 +79,8 @@ resource "aws_sfn_state_machine" "run" {
     QueryLanguage = "JSONata"
     StartAt       = "CheckNoRunInProgress"
 
-    States = {
+    # The states that send the event and finish are in module.finish, from ../sfn-finish.
+    States = merge(module.finish.states, {
       # Overlapping runs are not safe so ensure that there is no concurrent executions.
       CheckNoRunInProgress = {
         Type     = "Task"
@@ -143,9 +148,10 @@ resource "aws_sfn_state_machine" "run" {
             ContainerOverrides = [
               {
                 Name = local.container_name
+                # downstream is for the state machine, not the runner, which only takes args.
                 Environment = [
                   { Name = "ORCAVAULT_RUN_ID", Value = "{% $states.context.Execution.Name %}" },
-                  { Name = "ORCAVAULT_RUN_REQUEST", Value = "{% $string($states.context.Execution.Input) %}" },
+                  { Name = "ORCAVAULT_RUN_REQUEST", Value = "{% $string($states.context.Execution.Input ~> |$|{}, ['downstream']|) %}" },
                 ]
               }
             ]
@@ -212,96 +218,43 @@ resource "aws_sfn_state_machine" "run" {
         ]
         Next = "AddRunFields"
       }
-
-      AddRunFields = {
-        Type    = "Pass"
-        Comment = "Adds the fields every run event has."
-        Assign  = { detail = local.with_run_fields }
-        Next    = "SendEvent"
-      }
-
-      SendEvent = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::events:putEvents"
-        Arguments = {
-          Entries = [
-            {
-              EventBusName = "default"
-              Source       = local.event_source
-              DetailType   = local.event_detail_type
-              Detail       = "{% $detail %}"
-            }
-          ]
-        }
-        Output = {}
-        Retry = [
-          {
-            ErrorEquals     = ["States.ALL"]
-            IntervalSeconds = 10
-            MaxAttempts     = 3
-            BackoffRate     = 2
-          }
-        ]
-        # The execution still ends with the run outcome, which means the
-        # no-success alarm in monitoring.tf doesn't count a failed run.
-        Catch = [
-          {
-            ErrorEquals = ["States.ALL"]
-            Next        = "Finish"
-          }
-        ]
-        Next = "Finish"
-      }
-
-      Finish = {
-        Type = "Choice"
-        Choices = [
-          {
-            Condition = "{% $detail.outcome in ${jsonencode(local.succeeded_outcomes)} %}"
-            Next      = "Succeeded"
-          }
-        ]
-        Default = "Failed"
-      }
-
-      Succeeded = {
-        Type   = "Succeed"
-        Output = "{% $detail %}"
-      }
-
-      Failed = {
-        Type  = "Fail"
-        Error = "{% $detail.outcome %}"
-        Cause = "{% $detail.error ? $detail.error : 'The run ended with ' & $detail.outcome & ': ' & $detail.failedNodes %}"
-      }
-    }
+    })
   })
 
   # Creating the state machine checks that the role can deliver its logs.
   depends_on = [aws_iam_role_policy.states]
 }
 
-resource "aws_scheduler_schedule" "daily" {
-  name       = "${local.name_prefix}-daily"
-  group_name = "default"
-  state      = var.schedule_enabled ? "ENABLED" : "DISABLED"
+# Starts the run after the sources stage, when the chain continues with {"downstream": true}.
+resource "aws_cloudwatch_event_rule" "start" {
+  name           = "${local.name_prefix}-start"
+  description    = "Starts the OrcaVault ${var.environment} run after ${var.start_after.detail_type} with ${join(" or ", var.start_after.outcomes)}"
+  event_bus_name = "default"
 
-  schedule_expression          = var.schedule_expression
-  schedule_expression_timezone = var.schedule_timezone
-
-  flexible_time_window {
-    mode = "OFF"
-  }
-
-  target {
-    arn      = aws_sfn_state_machine.run.arn
-    role_arn = aws_iam_role.scheduler.arn
-    input    = jsonencode({})
-
-    # Retries starting the execution, not the run itself.
-    retry_policy {
-      maximum_event_age_in_seconds = 3600
-      maximum_retry_attempts       = 5
+  event_pattern = jsonencode({
+    source        = [var.start_after.source]
+    "detail-type" = [var.start_after.detail_type]
+    detail = {
+      environment = [var.environment]
+      downstream  = [true]
+      outcome     = var.start_after.outcomes
     }
+  })
+}
+
+resource "aws_cloudwatch_event_target" "start" {
+  rule           = aws_cloudwatch_event_rule.start.name
+  event_bus_name = "default"
+  target_id      = "state-machine"
+  arn            = aws_sfn_state_machine.run.arn
+  role_arn       = aws_iam_role.start.arn
+
+  # A plain dbt build, which continues the chain on to publishing.
+  input = jsonencode({ downstream = true })
+
+  # Retries starting the execution, not the run itself.
+  retry_policy {
+    maximum_event_age_in_seconds = 3600
+    maximum_retry_attempts       = 5
   }
 }

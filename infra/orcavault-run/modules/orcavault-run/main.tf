@@ -12,15 +12,14 @@ terraform {
 }
 
 locals {
-  name_prefix          = "orcavault-run-${var.environment}"
-  container_name       = "dbt"
-  results_prefix       = "runs/"
-  manifest_key         = "state/manifest.json"
-  event_source         = "orcahouse.orcavault"
-  event_detail_type    = "OrcaVaultRunFinished"
-  region               = data.aws_region.current.region
-  console_url          = "https://${local.region}.console.aws.amazon.com"
-  execution_url_prefix = "${local.console_url}/states/home?region=${local.region}#/v2/executions/details/"
+  name_prefix       = "orcavault-run-${var.environment}"
+  container_name    = "dbt"
+  results_prefix    = "runs/"
+  manifest_key      = "state/manifest.json"
+  event_source      = "orcahouse.orcavault"
+  event_detail_type = "OrcaVaultRunFinished"
+  region            = data.aws_region.current.region
+  console_url       = "https://${local.region}.console.aws.amazon.com"
 
   # The console escapes names twice using $ in place of %.
   log_group_name    = replace(urlencode(urlencode(aws_cloudwatch_log_group.dbt.name)), "%", "$")

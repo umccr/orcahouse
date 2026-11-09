@@ -44,9 +44,18 @@ variable "orcavault_release_ref" {
 }
 
 variable "schedule_enabled" {
-  description = "Set to false to pause the daily run."
+  description = "Set to false to pause the nightly chain."
   type        = bool
   default     = true
+}
+
+# The nightly chain: sources, then the run, then publishing. Each stage sends an event when
+# it finishes, which starts the next one when the chain continues, see the README.
+module "sources" {
+  source = "../../modules/sources"
+
+  environment      = local.environment
+  schedule_enabled = var.schedule_enabled
 }
 
 module "orcavault_run" {
@@ -55,7 +64,6 @@ module "orcavault_run" {
   environment             = local.environment
   redshift_workgroup_name = "orcahouse-${local.environment}"
   orcavault_release_ref   = var.orcavault_release_ref
-  schedule_enabled        = var.schedule_enabled
 
   glue_databases = [
     "orcabus_case_manager",
@@ -70,9 +78,44 @@ module "orcavault_run" {
     "orcabus/v1/cdc/",
     "data-portal/orcavault-legacy-20260623/orcavault/",
   ]
+
+  # The run starts whatever the sources' outcome, because a stale source only delays its
+  # data, see the orcavault watermark.
+  start_after = {
+    source      = module.sources.event.source
+    detail_type = module.sources.event.detail_type
+    outcomes    = module.sources.event.outcomes
+  }
+}
+
+module "publish" {
+  source = "../../modules/publish"
+
+  environment = local.environment
+  # Add orcavault-db-prod-mart-crawler here once infra/glue-crawler/orcavault-db prod is
+  # applied (it is defined there but not deployed yet). Until then, publishing only sends
+  # its event.
+  mart_crawler_names = []
+
+  # Only a run that applied its models is published.
+  start_after = {
+    source      = module.orcavault_run.event.source
+    detail_type = module.orcavault_run.event.detail_type
+    outcomes    = module.orcavault_run.event.succeeded_outcomes
+  }
+}
+
+output "sources" {
+  description = "The prod OrcaVault sources outputs, see the module's outputs.tf."
+  value       = module.sources
 }
 
 output "orcavault_run" {
   description = "The prod OrcaVault run outputs, see the module's outputs.tf."
   value       = module.orcavault_run
+}
+
+output "publish" {
+  description = "The prod OrcaVault publish outputs, see the module's outputs.tf."
+  value       = module.publish
 }

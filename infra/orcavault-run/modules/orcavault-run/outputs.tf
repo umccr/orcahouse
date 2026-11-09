@@ -4,7 +4,7 @@ output "state_machine_arn" {
 }
 
 output "start_run_command" {
-  description = "The command to start a run now."
+  description = "The command to start a run now, without publishing afterwards."
   value       = "aws stepfunctions start-execution --state-machine-arn ${aws_sfn_state_machine.run.arn} --input '{}'"
 }
 
@@ -38,4 +38,14 @@ output "logs_command" {
 output "dbt_task_db_identity" {
   description = "The Redshift database user the dbt task connects as."
   value       = "IAMR:${aws_iam_role.dbt_task.name}"
+}
+
+output "event" {
+  description = "The event every run sends, for the stage that starts after it."
+  value = {
+    source             = local.event_source
+    detail_type        = local.event_detail_type
+    outcomes           = local.outcomes
+    succeeded_outcomes = local.succeeded_outcomes
+  }
 }

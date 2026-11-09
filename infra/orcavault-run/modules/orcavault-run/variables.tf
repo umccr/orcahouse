@@ -54,22 +54,13 @@ variable "task_memory" {
   default     = "8192"
 }
 
-variable "schedule_expression" {
-  description = "The schedule expression to run the orcavault task with"
-  type        = string
-  default     = "cron(0 3 * * ? *)"
-}
-
-variable "schedule_timezone" {
-  description = "The timezone for schedule_expression."
-  type        = string
-  default     = "Australia/Melbourne"
-}
-
-variable "schedule_enabled" {
-  description = "Set to false to pause the daily run."
-  type        = bool
-  default     = true
+variable "start_after" {
+  description = "The event of the stage the run starts after, and its outcomes that start it, from that stage's event output."
+  type = object({
+    source      = string
+    detail_type = string
+    outcomes    = list(string)
+  })
 }
 
 variable "run_timeout_hours" {

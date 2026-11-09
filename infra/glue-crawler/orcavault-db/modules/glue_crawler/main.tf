@@ -40,7 +40,6 @@ resource "aws_glue_crawler" "this" {
     ]
   }
 
-  # TODO - we could do event-based notification or steps orchestration
-  # Runs once a day in UTC - 4:00 AM Sydney time AEDT
-  schedule = "cron(0 18 * * ? *)"
+  # No schedule. The OrcaVault publish stage starts the crawler after each run, see
+  # infra/orcavault-run.
 }
