@@ -85,24 +85,24 @@ run "only_the_upstream_cdc_crawlers_are_included" {
 
 run "the_cdc_is_checked_then_crawled" {
   assert {
-    condition     = jsondecode(aws_sfn_state_machine.sources.definition).StartAt == "CheckDms"
+    condition     = jsondecode(local.definition).StartAt == "CheckDms"
     error_message = "the execution should start by checking the DMS tasks"
   }
 
   assert {
-    condition     = jsondecode(aws_sfn_state_machine.sources.definition).States.CheckDms.Next == "CrawlCdc"
+    condition     = jsondecode(local.definition).States.CheckDms.Next == "CrawlCdc"
     error_message = "the crawls should follow the DMS check, whatever it found"
   }
 
   assert {
-    condition     = jsonencode(jsondecode(aws_sfn_state_machine.sources.definition).States.CrawlCdc.Items) == jsonencode(var.cdc_crawler_names)
+    condition     = jsonencode(jsondecode(local.definition).States.CrawlCdc.Items) == jsonencode(var.cdc_crawler_names)
     error_message = "every CDC crawler should be crawled"
   }
 
   assert {
     condition = alltrue([
-      jsondecode(aws_sfn_state_machine.sources.definition).States.CrawlCdc.Next == "AddRunFields",
-      jsondecode(aws_sfn_state_machine.sources.definition).States.CrawlCdc.Catch[0].Next == "AddRunFields",
+      jsondecode(local.definition).States.CrawlCdc.Next == "AddRunFields",
+      jsondecode(local.definition).States.CrawlCdc.Catch[0].Next == "AddRunFields",
     ])
     error_message = "every execution should send its event"
   }
@@ -112,8 +112,8 @@ run "a_failed_source_is_reported" {
   assert {
     condition = alltrue([
       for state in [
-        jsondecode(aws_sfn_state_machine.sources.definition).States.CheckDms,
-        jsondecode(aws_sfn_state_machine.sources.definition).States.CrawlCdc,
+        jsondecode(local.definition).States.CheckDms,
+        jsondecode(local.definition).States.CrawlCdc,
       ] : state.Catch[length(state.Catch) - 1].ErrorEquals == ["States.ALL"]
     ])
     error_message = "a failed DMS check or crawl should be reported, not fail the stage"
@@ -133,12 +133,11 @@ run "environments_are_separate" {
   assert {
     condition = alltrue([
       for name in [
-        aws_sfn_state_machine.sources.name,
-        aws_cloudwatch_log_group.states.name,
-        aws_iam_role.states.name,
-        aws_iam_role.scheduler.name,
+        module.stage.state_machine_name,
+        module.stage.log_group_name,
+        module.stage.states_role_name,
+        module.stage.alarm_name,
         aws_scheduler_schedule.daily.name,
-        aws_cloudwatch_metric_alarm.no_recent_success.alarm_name,
       ] : startswith(name, "orcavault-run-dev-") || startswith(name, "/aws/vendedlogs/states/orcavault-run-dev-")
     ])
     error_message = "everything an environment creates should be named after it"

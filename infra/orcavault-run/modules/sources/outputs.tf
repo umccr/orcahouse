@@ -1,11 +1,11 @@
 output "state_machine_arn" {
   description = "The OrcaVault sources state machine."
-  value       = aws_sfn_state_machine.sources.arn
+  value       = module.stage.state_machine_arn
 }
 
 output "start_command" {
   description = "The command to load the sources now, without starting the run afterwards."
-  value       = "aws stepfunctions start-execution --state-machine-arn ${aws_sfn_state_machine.sources.arn} --input '{}'"
+  value       = module.stage.start_command
 }
 
 output "event" {

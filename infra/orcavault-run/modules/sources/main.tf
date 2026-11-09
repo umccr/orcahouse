@@ -22,12 +22,6 @@ locals {
   succeeded_outcomes = ["succeeded", "degraded"]
 }
 
-data "aws_caller_identity" "current" {}
-
-data "aws_region" "current" {}
-
-data "aws_partition" "current" {}
-
 module "crawl" {
   source = "../sfn-crawl"
 
@@ -42,4 +36,24 @@ module "finish" {
   event_source       = local.event_source
   event_detail_type  = local.event_detail_type
   succeeded_outcomes = local.succeeded_outcomes
+}
+
+# The state machine, its logs, its roles and its alarm. Besides the crawlers, this stage
+# only checks whether DMS is replicating.
+module "stage" {
+  source = "../sfn-stage"
+
+  environment     = var.environment
+  name            = "sources"
+  definition      = local.definition
+  starter_service = "scheduler.amazonaws.com"
+
+  policy_statements = [{
+    sid       = "CheckDmsTasks"
+    actions   = ["dms:DescribeReplicationTasks"]
+    resources = ["*"]
+  }]
+
+  source_policy_documents   = compact([module.crawl.policy_json])
+  max_hours_without_success = var.max_hours_without_success
 }

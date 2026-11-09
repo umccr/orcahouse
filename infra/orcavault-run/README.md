@@ -21,7 +21,8 @@ name, to avoid conflicts.
 | `modules/sources`                       | The stage before the run, which loads its sources                                                           |                 |
 | `modules/orcavault-run`                 | The run                                                                                                     |                 |
 | `modules/publish`                       | The stage after the run, which ends the chain                                                               |                 |
-| `modules/sfn-finish`, `modules/sfn-crawl` | States that the stages share: sending the stage's event and finishing, and crawling a Glue crawler        |                 |
+| `modules/sfn-stage`                       | The resources every stage needs: its state machine, logs, roles and alarm                                 |                 |
+| `modules/sfn-finish`, `modules/sfn-crawl` | The states stages share: sending the stage's event and finishing, and crawling a Glue crawler             |                 |
 | `docker`                                | The python wrapper that performs `dbt build`                                                                |                 |
 | `docs`                                  | The [initial load](docs/initial-load.md) of a new environment, and the diagram                              |                 |
 

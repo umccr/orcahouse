@@ -1,11 +1,11 @@
 output "state_machine_arn" {
   description = "The OrcaVault publish state machine."
-  value       = aws_sfn_state_machine.publish.arn
+  value       = module.stage.state_machine_arn
 }
 
 output "start_command" {
   description = "The command to publish now, without starting anything after it."
-  value       = "aws stepfunctions start-execution --state-machine-arn ${aws_sfn_state_machine.publish.arn} --input '{}'"
+  value       = module.stage.start_command
 }
 
 output "event" {

@@ -1,13 +1,13 @@
-# This notifies if no sources execution has succeeded recently, which catches a schedule
-# that stopped starting it. A degraded execution counts as succeeded.
+# This notifies if no execution of this stage has succeeded recently, which catches a start
+# that stopped firing. A degraded execution counts as succeeded.
 resource "aws_cloudwatch_metric_alarm" "no_recent_success" {
   alarm_name        = "${local.name_prefix}-no-recent-success"
-  alarm_description = "No OrcaVault ${var.environment} sources execution has succeeded in the last ${var.max_hours_without_success} hours."
+  alarm_description = "No OrcaVault ${var.environment} ${var.name} execution has succeeded in the last ${var.max_hours_without_success} hours."
 
   namespace   = "AWS/States"
   metric_name = "ExecutionsSucceeded"
   dimensions = {
-    StateMachineArn = aws_sfn_state_machine.sources.arn
+    StateMachineArn = aws_sfn_state_machine.this.arn
   }
   statistic = "Sum"
   period    = 3600

@@ -70,12 +70,12 @@ run "runs_that_continue_the_chain_start_it" {
 
 run "every_execution_sends_its_event" {
   assert {
-    condition     = jsondecode(aws_sfn_state_machine.publish.definition).States.Publish.Next == "AddRunFields"
+    condition     = jsondecode(local.definition).States.Publish.Next == "AddRunFields"
     error_message = "every execution should send its event"
   }
 
   assert {
-    condition     = jsondecode(aws_sfn_state_machine.publish.definition).StartAt == "Publish"
+    condition     = jsondecode(local.definition).StartAt == "Publish"
     error_message = "the execution should end with the publish event"
   }
 }
@@ -84,7 +84,7 @@ run "nothing_else_is_published_yet" {
   # The mart crawler keeps its own schedule, so this stage has no work of its own and
   # nothing that could make it degraded.
   assert {
-    condition     = jsondecode(aws_sfn_state_machine.publish.definition).States.Publish.Type == "Pass"
+    condition     = jsondecode(local.definition).States.Publish.Type == "Pass"
     error_message = "the stage only carries the outcome to the event"
   }
 
@@ -94,7 +94,7 @@ run "nothing_else_is_published_yet" {
   }
 
   assert {
-    condition     = !contains([for state in values(jsondecode(aws_sfn_state_machine.publish.definition).States) : state.Type], "Map")
+    condition     = !contains([for state in values(jsondecode(local.definition).States) : state.Type], "Map")
     error_message = "the stage should crawl nothing"
   }
 }
@@ -107,11 +107,10 @@ run "environments_are_separate" {
   assert {
     condition = alltrue([
       for name in [
-        aws_sfn_state_machine.publish.name,
-        aws_iam_role.states.name,
-        aws_iam_role.start.name,
+        module.stage.state_machine_name,
+        module.stage.states_role_name,
+        module.stage.alarm_name,
         aws_cloudwatch_event_rule.start.name,
-        aws_cloudwatch_metric_alarm.no_recent_success.alarm_name,
       ] : startswith(name, "orcavault-run-dev-")
     ])
     error_message = "everything an environment creates should be named after it"

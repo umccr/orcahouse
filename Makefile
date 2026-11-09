@@ -28,6 +28,7 @@ test-iac:
 	@(cd infra/orcavault-run/modules/orcavault-run && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
 	@(cd infra/orcavault-run/modules/sfn-finish && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
 	@(cd infra/orcavault-run/modules/sfn-crawl && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
+	@(cd infra/orcavault-run/modules/sfn-stage && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
 	@(cd infra/orcavault-run/modules/sources && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
 	@(cd infra/orcavault-run/modules/publish && terraform init -backend=false && terraform fmt -check && terraform validate && terraform test)
 	@(cd infra/orcavault-run/account-wide && terraform init -backend=false && terraform fmt -check && terraform validate)

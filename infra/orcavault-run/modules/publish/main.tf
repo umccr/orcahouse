@@ -21,12 +21,6 @@ locals {
   succeeded_outcomes = ["succeeded"]
 }
 
-data "aws_caller_identity" "current" {}
-
-data "aws_region" "current" {}
-
-data "aws_partition" "current" {}
-
 module "finish" {
   source = "../sfn-finish"
 
@@ -34,4 +28,17 @@ module "finish" {
   event_source       = local.event_source
   event_detail_type  = local.event_detail_type
   succeeded_outcomes = local.succeeded_outcomes
+}
+
+# The state machine, its logs, its roles and its alarm. The stage is started by the run's
+# event, so EventBridge rules start it rather than a schedule.
+module "stage" {
+  source = "../sfn-stage"
+
+  environment     = var.environment
+  name            = "publish"
+  definition      = local.definition
+  starter_service = "events.amazonaws.com"
+
+  max_hours_without_success = var.max_hours_without_success
 }

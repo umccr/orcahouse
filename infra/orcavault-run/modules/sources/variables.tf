@@ -54,12 +54,7 @@ variable "schedule_enabled" {
 }
 
 variable "max_hours_without_success" {
-  description = "An alarm that triggers when no sources execution succeeded for this many hours."
+  description = "An alarm that triggers when no sources execution succeeded for this many hours. sfn-stage validates the range."
   type        = number
   default     = 30
-
-  validation {
-    condition     = var.max_hours_without_success >= 1 && var.max_hours_without_success <= 168
-    error_message = "max_hours_without_success must be between 1 and 168."
-  }
 }

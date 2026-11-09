@@ -1,5 +1,5 @@
-# The Step Functions definition that loads the sources the run reads, and the schedule that
-# starts the nightly chain with it.
+# The stage's definition, and the schedule that starts the nightly chain with it. The state
+# machine itself comes from sfn-stage.
 
 locals {
   # A DMS task that isn't running means its CDC is going stale. It doesn't stop the stage,
@@ -44,24 +44,6 @@ locals {
     IntervalSeconds = 10
     MaxAttempts     = 3
     BackoffRate     = 2
-  }
-}
-
-resource "aws_cloudwatch_log_group" "states" {
-  name              = "/aws/vendedlogs/states/${local.name_prefix}"
-  retention_in_days = 90
-}
-
-resource "aws_sfn_state_machine" "sources" {
-  name     = local.name_prefix
-  role_arn = aws_iam_role.states.arn
-  type     = "STANDARD"
-
-  # Only errors are logged, without the execution's data, which its history has.
-  logging_configuration {
-    log_destination        = "${aws_cloudwatch_log_group.states.arn}:*"
-    include_execution_data = false
-    level                  = "ERROR"
   }
 
   definition = jsonencode({
@@ -109,9 +91,6 @@ resource "aws_sfn_state_machine" "sources" {
       }
     })
   })
-
-  # Creating the state machine checks that the role can deliver its logs.
-  depends_on = [aws_iam_role_policy.states]
 }
 
 resource "aws_scheduler_schedule" "daily" {
@@ -127,8 +106,8 @@ resource "aws_scheduler_schedule" "daily" {
   }
 
   target {
-    arn      = aws_sfn_state_machine.sources.arn
-    role_arn = aws_iam_role.scheduler.arn
+    arn      = module.stage.state_machine_arn
+    role_arn = module.stage.start_role_arn
 
     # The scheduled chain continues on to the run.
     input = jsonencode({ downstream = true })
