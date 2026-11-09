@@ -9,6 +9,7 @@ variable "dms_replication_task_ids" {
   description = "The DMS tasks that write the CDC files, created by infra/dms/orcabus-db. Both environments read the same CDC."
   type        = list(string)
   default = [
+    "orcabus-db-task-case-manager",
     "orcabus-db-task-filemanager",
     "orcabus-db-task-metadata-manager",
     "orcabus-db-task-sequence-run-manager",
@@ -17,9 +18,10 @@ variable "dms_replication_task_ids" {
 }
 
 variable "cdc_crawler_names" {
-  description = "The Glue crawlers for the CDC files, created by infra/glue-crawler/orcabus-db. Both environments start them."
+  description = "The upstream Glue crawlers for the CDC files, created by infra/glue-crawler/orcabus-db. Both environments start them. The other crawlers, such as the mart's and OrcaGlue's, keep their own schedules."
   type        = list(string)
   default = [
+    "orcabus-db-crawler-case-manager",
     "orcabus-db-crawler-filemanager",
     "orcabus-db-crawler-metadata-manager",
     "orcabus-db-crawler-sequence-run-manager",

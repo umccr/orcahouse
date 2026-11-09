@@ -5,11 +5,6 @@ variable "environment" {
   type        = string
 }
 
-variable "mart_crawler_names" {
-  description = "The Glue crawlers for the mart, created by infra/glue-crawler/orcavault-db. Can be empty."
-  type        = list(string)
-}
-
 variable "start_after" {
   description = "The event of the stage this one starts after, and its outcomes that start it, from that stage's event output."
   type = object({
@@ -17,12 +12,6 @@ variable "start_after" {
     detail_type = string
     outcomes    = list(string)
   })
-}
-
-variable "crawl_max_wait_minutes" {
-  description = "How long to wait for each crawl before reporting it as TIMEOUT. The mart crawler crawls everything each time."
-  type        = number
-  default     = 60
 }
 
 variable "max_hours_without_success" {

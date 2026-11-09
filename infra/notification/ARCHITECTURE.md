@@ -45,7 +45,7 @@ to separate channels.
 | `orcavault-run-failed` | dev, prod | An OrcaVault dbt run in this environment ends `failed` |
 | `orcavault-run-warned` | dev, prod | An OrcaVault dbt run in this environment ends `warned`: models were applied, but warn-severity tests failed |
 | `orcavault-run-error` | dev, prod | An OrcaVault dbt run in this environment ends `error` or `skipped` |
-| `orcavault-sources-degraded`, `orcavault-publish-degraded` | dev, prod | The OrcaVault stage before or after the run ends `degraded`: a DMS task wasn't running, or a crawl or Glue job didn't succeed |
+| `orcavault-sources-degraded` | dev, prod | The OrcaVault sources stage ends `degraded`: a DMS task wasn't running, or a crawl didn't succeed. Publish has nothing to fail yet, so only its `error` is alerted |
 | `orcavault-sources-error`, `orcavault-publish-error` | dev, prod | The OrcaVault stage before or after the run ends `error` |
 | `alarm-firing`, `alarm-resolved` | dev, prod | An `orcahouse-notify-<env>-*` or `orcavault-run-<env>-*` alarm enters `ALARM` or returns to `OK` |
 
@@ -64,8 +64,9 @@ OrcaVault rules match the `OrcaVaultRunFinished`, `OrcaVaultSourcesFinished` and
   text. Alarm descriptions must have no double quotes; `\n` marks a line break. The
   OrcaVault events are the exception: the run's runner writes `error`, `failedNodes` and
   `warnedNodes` on one line without double quotes or backslashes, and the sources and
-  publish stages only list names with their states, or their own fixed messages.
-- **Duplicates:** a failed crawler or Glue job that a stage started has its own alert, and
+  publish stages only list crawler and DMS task names with their states, or their own fixed
+  messages.
+- **Duplicates:** a failed crawler that the sources stage started has its own alert, and
   also makes the stage `degraded`, which says that the run went ahead without it.
 - **DMS stops:** stopping a task on purpose, such as to change an endpoint, alerts too.
   Mute it for the maintenance window with `disabled_notification_rules`.

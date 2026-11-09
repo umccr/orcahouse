@@ -59,23 +59,52 @@ run "schedule_starts_the_chain" {
   }
 }
 
-run "sources_load_together" {
+run "only_the_upstream_cdc_crawlers_are_included" {
   assert {
-    condition     = length(jsondecode(aws_sfn_state_machine.sources.definition).States.LoadSources.Branches) == 2
-    error_message = "the CDC and TSA sources should load in parallel"
+    condition = jsonencode(var.cdc_crawler_names) == jsonencode([
+      "orcabus-db-crawler-case-manager",
+      "orcabus-db-crawler-filemanager",
+      "orcabus-db-crawler-metadata-manager",
+      "orcabus-db-crawler-sequence-run-manager",
+      "orcabus-db-crawler-workflow-manager",
+    ])
+    error_message = "the stage should crawl the upstream orcabus-db crawlers, and no others"
+  }
+
+  assert {
+    condition = jsonencode(var.dms_replication_task_ids) == jsonencode([
+      "orcabus-db-task-case-manager",
+      "orcabus-db-task-filemanager",
+      "orcabus-db-task-metadata-manager",
+      "orcabus-db-task-sequence-run-manager",
+      "orcabus-db-task-workflow-manager",
+    ])
+    error_message = "the DMS tasks to check should be the ones writing this CDC"
+  }
+}
+
+run "the_cdc_is_checked_then_crawled" {
+  assert {
+    condition     = jsondecode(aws_sfn_state_machine.sources.definition).StartAt == "CheckDms"
+    error_message = "the execution should start by checking the DMS tasks"
+  }
+
+  assert {
+    condition     = jsondecode(aws_sfn_state_machine.sources.definition).States.CheckDms.Next == "CrawlCdc"
+    error_message = "the crawls should follow the DMS check, whatever it found"
+  }
+
+  assert {
+    condition     = jsonencode(jsondecode(aws_sfn_state_machine.sources.definition).States.CrawlCdc.Items) == jsonencode(var.cdc_crawler_names)
+    error_message = "every CDC crawler should be crawled"
   }
 
   assert {
     condition = alltrue([
-      jsondecode(aws_sfn_state_machine.sources.definition).States.LoadSources.Next == "AddRunFields",
-      jsondecode(aws_sfn_state_machine.sources.definition).States.LoadSources.Catch[0].Next == "AddRunFields",
+      jsondecode(aws_sfn_state_machine.sources.definition).States.CrawlCdc.Next == "AddRunFields",
+      jsondecode(aws_sfn_state_machine.sources.definition).States.CrawlCdc.Catch[0].Next == "AddRunFields",
     ])
     error_message = "every execution should send its event"
-  }
-
-  assert {
-    condition     = jsonencode(jsondecode(aws_sfn_state_machine.sources.definition).States.LoadSources.Branches[0].States.CrawlCdc.Items) == jsonencode(var.cdc_crawler_names)
-    error_message = "every CDC crawler should be crawled"
   }
 }
 
@@ -83,43 +112,16 @@ run "a_failed_source_is_reported" {
   assert {
     condition = alltrue([
       for state in [
-        jsondecode(aws_sfn_state_machine.sources.definition).States.LoadSources.Branches[0].States.CheckDms,
-        jsondecode(aws_sfn_state_machine.sources.definition).States.LoadSources.Branches[1].States.FindGlueJobs,
-        jsondecode(aws_sfn_state_machine.sources.definition).States.LoadSources.Branches[1].States.RunGlueJobs.ItemProcessor.States.RunGlueJob,
+        jsondecode(aws_sfn_state_machine.sources.definition).States.CheckDms,
+        jsondecode(aws_sfn_state_machine.sources.definition).States.CrawlCdc,
       ] : state.Catch[length(state.Catch) - 1].ErrorEquals == ["States.ALL"]
     ])
-    error_message = "a failed DMS check, job listing or job should be reported, not fail the stage"
+    error_message = "a failed DMS check or crawl should be reported, not fail the stage"
   }
 
   assert {
     condition     = contains(local.succeeded_outcomes, "degraded")
     error_message = "a stale source should not fail the execution"
-  }
-}
-
-run "only_this_environments_jobs_run" {
-  variables {
-    environment = "dev"
-  }
-
-  assert {
-    condition     = jsonencode(jsondecode(aws_sfn_state_machine.sources.definition).States.LoadSources.Branches[1].States.FindGlueJobs.Arguments.Tags) == jsonencode({ "orcahouse:pipeline-stage" = "sources" })
-    error_message = "the jobs should be the ones tagged for this stage"
-  }
-
-  assert {
-    condition     = strcontains(jsondecode(aws_sfn_state_machine.sources.definition).States.LoadSources.Branches[1].States.FindGlueJobs.Output, "= 'orcaglue-dev-'")
-    error_message = "only this environment's jobs should run"
-  }
-
-  assert {
-    condition     = jsonencode(one([for statement in data.aws_iam_policy_document.states.statement : tolist(statement.resources) if statement.sid == "RunGlueJobs"])) == jsonencode(["arn:aws:glue:ap-southeast-2:123456789012:job/orcaglue-dev-*"])
-    error_message = "the role should only run this environment's jobs"
-  }
-
-  assert {
-    condition     = jsondecode(aws_sfn_state_machine.sources.definition).States.LoadSources.Branches[1].States.RunGlueJobs.MaxConcurrency == 1
-    error_message = "the jobs should run one at a time"
   }
 }
 

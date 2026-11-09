@@ -33,22 +33,6 @@ data "aws_iam_policy_document" "states" {
   }
 
   statement {
-    sid       = "FindGlueJobs"
-    effect    = "Allow"
-    actions   = ["glue:ListJobs"]
-    resources = ["*"]
-  }
-
-  # Only this environment's OrcaGlue jobs, even if a job from the other one is tagged.
-  # See https://docs.aws.amazon.com/step-functions/latest/dg/glue-iam.html
-  statement {
-    sid       = "RunGlueJobs"
-    effect    = "Allow"
-    actions   = ["glue:StartJobRun", "glue:GetJobRun", "glue:GetJobRuns", "glue:BatchStopJobRun"]
-    resources = ["arn:${data.aws_partition.current.partition}:glue:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:job/${local.glue_job_name_prefix}*"]
-  }
-
-  statement {
     sid       = "SendSourcesEvent"
     effect    = "Allow"
     actions   = ["events:PutEvents"]

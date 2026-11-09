@@ -22,9 +22,6 @@ resource "aws_iam_role" "states" {
 }
 
 data "aws_iam_policy_document" "states" {
-  # The crawlers, from the sfn-crawl module.
-  source_policy_documents = compact([module.crawl.policy_json])
-
   statement {
     sid       = "SendPublishEvent"
     effect    = "Allow"

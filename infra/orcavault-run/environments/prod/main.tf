@@ -92,12 +92,9 @@ module "publish" {
   source = "../../modules/publish"
 
   environment = local.environment
-  # Add orcavault-db-prod-mart-crawler here once infra/glue-crawler/orcavault-db prod is
-  # applied (it is defined there but not deployed yet). Until then, publishing only sends
-  # its event.
-  mart_crawler_names = []
 
-  # Only a run that applied its models is published.
+  # Only a run that applied its models is published. Publishing does nothing of its own
+  # yet, so this stage only sends its event, see the module.
   start_after = {
     source      = module.orcavault_run.event.source
     detail_type = module.orcavault_run.event.detail_type

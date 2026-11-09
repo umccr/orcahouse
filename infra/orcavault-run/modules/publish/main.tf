@@ -16,9 +16,9 @@ locals {
   event_source      = "orcahouse.orcavault"
   event_detail_type = "OrcaVaultPublishFinished"
 
-  # degraded means a mart crawl failed, so the catalog is stale but the mart was built.
-  outcomes           = ["succeeded", "degraded", "error"]
-  succeeded_outcomes = ["succeeded", "degraded"]
+  # The stage does nothing of its own yet, so it only ends succeeded or error.
+  outcomes           = ["succeeded", "error"]
+  succeeded_outcomes = ["succeeded"]
 }
 
 data "aws_caller_identity" "current" {}
@@ -26,13 +26,6 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 data "aws_partition" "current" {}
-
-module "crawl" {
-  source = "../sfn-crawl"
-
-  crawler_names    = var.mart_crawler_names
-  max_wait_minutes = var.crawl_max_wait_minutes
-}
 
 module "finish" {
   source = "../sfn-finish"

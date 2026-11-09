@@ -4,7 +4,7 @@ output "state_machine_arn" {
 }
 
 output "start_command" {
-  description = "The command to publish the mart now."
+  description = "The command to publish now, without starting anything after it."
   value       = "aws stepfunctions start-execution --state-machine-arn ${aws_sfn_state_machine.publish.arn} --input '{}'"
 }
 

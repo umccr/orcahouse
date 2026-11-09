@@ -44,8 +44,7 @@ mock_provider "aws" {
 }
 
 variables {
-  environment        = "prod"
-  mart_crawler_names = ["orcavault-db-prod-mart-crawler"]
+  environment = "prod"
   start_after = {
     source      = "orcahouse.orcavault"
     detail_type = "OrcaVaultRunFinished"
@@ -71,32 +70,32 @@ run "runs_that_continue_the_chain_start_it" {
 
 run "every_execution_sends_its_event" {
   assert {
-    condition = alltrue([
-      jsondecode(aws_sfn_state_machine.publish.definition).States.CrawlMart.Next == "AddRunFields",
-      jsondecode(aws_sfn_state_machine.publish.definition).States.CrawlMart.Catch[0].Next == "AddRunFields",
-    ])
+    condition     = jsondecode(aws_sfn_state_machine.publish.definition).States.Publish.Next == "AddRunFields"
     error_message = "every execution should send its event"
   }
 
   assert {
-    condition     = jsonencode(jsondecode(aws_sfn_state_machine.publish.definition).States.CrawlMart.Items) == jsonencode(["orcavault-db-prod-mart-crawler"])
-    error_message = "the mart crawler should be crawled"
+    condition     = jsondecode(aws_sfn_state_machine.publish.definition).StartAt == "Publish"
+    error_message = "the execution should end with the publish event"
   }
 }
 
-run "nothing_to_crawl" {
-  variables {
-    mart_crawler_names = []
+run "nothing_else_is_published_yet" {
+  # The mart crawler keeps its own schedule, so this stage has no work of its own and
+  # nothing that could make it degraded.
+  assert {
+    condition     = jsondecode(aws_sfn_state_machine.publish.definition).States.Publish.Type == "Pass"
+    error_message = "the stage only carries the outcome to the event"
   }
 
   assert {
-    condition     = jsonencode(jsondecode(aws_sfn_state_machine.publish.definition).States.CrawlMart.Items) == jsonencode([])
-    error_message = "an environment without a mart crawler should still publish its event"
+    condition     = !contains(local.outcomes, "degraded")
+    error_message = "a stage with nothing to do cannot be degraded"
   }
 
   assert {
-    condition     = length(data.aws_iam_policy_document.states.source_policy_documents) == 0
-    error_message = "without crawlers, the role should not have crawler permissions"
+    condition     = !contains([for state in values(jsondecode(aws_sfn_state_machine.publish.definition).States) : state.Type], "Map")
+    error_message = "the stage should crawl nothing"
   }
 }
 

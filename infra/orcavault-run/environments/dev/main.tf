@@ -91,8 +91,7 @@ module "orcavault_run" {
 module "publish" {
   source = "../../modules/publish"
 
-  environment        = local.environment
-  mart_crawler_names = ["orcavault-db-${local.environment}-mart-crawler"]
+  environment = local.environment
 
   # Only a run that applied its models is published.
   start_after = {

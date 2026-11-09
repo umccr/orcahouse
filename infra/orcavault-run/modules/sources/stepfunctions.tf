@@ -13,34 +13,17 @@ locals {
   EOT
   ), "\n", " ")
 
-  # A failed job's state is in the cause of a .sync error, otherwise the error says why
-  # it didn't run, such as Glue.ConcurrentRunsExceededException.
-  glue_job_failed = replace(trimspace(<<-EOT
-    {% { 'job': $states.input, 'status': (
-      $cause := $states.errorOutput.Cause;
-      $found := $type($cause) = 'string' ? $match($cause, /"JobRunState"\s*:\s*"([A-Z_]+)"/);
-      $found ? $found[0].groups[0] : $states.errorOutput.Error
-    ) } %}
-  EOT
-  ), "\n", " ")
-
-  # The event detail from the CDC and TSA branches' outputs.
+  # The event detail, from the DMS check's output and the crawls' results.
   loaded_detail = replace(trimspace(<<-EOT
     {% (
-      $cdc := $states.result[0];
-      $tsa := $states.result[1];
-      $failedCrawls := $cdc.crawls[status != 'SUCCEEDED'];
-      $failedJobs := $tsa.jobs[status != 'SUCCEEDED'];
+      $failedCrawls := $states.result[status != 'SUCCEEDED'];
       {
-        'outcome': $count($cdc.dmsTasksNotRunning) + $count($failedCrawls) + $count($failedJobs) > 0 ? 'degraded' : 'succeeded',
+        'outcome': $count($states.input.dmsTasksNotRunning) + $count($failedCrawls) > 0 ? 'degraded' : 'succeeded',
         'error': null,
-        'dmsTasksNotRunning': $join($cdc.dmsTasksNotRunning, ', '),
-        'crawlersSucceeded': $count($cdc.crawls[status = 'SUCCEEDED']),
+        'dmsTasksNotRunning': $join($states.input.dmsTasksNotRunning, ', '),
+        'crawlersSucceeded': $count($states.result[status = 'SUCCEEDED']),
         'crawlersFailed': $count($failedCrawls),
-        'failedCrawlers': $join([$failedCrawls.(crawler & ' (' & status & ')')], ', '),
-        'jobsSucceeded': $count($tsa.jobs[status = 'SUCCEEDED']),
-        'jobsFailed': $count($failedJobs),
-        'failedJobs': $join([$failedJobs.(job & ' (' & status & ')')], ', ')
+        'failedCrawlers': $join([$failedCrawls.(crawler & ' (' & status & ')')], ', ')
       }
     ) %}
   EOT
@@ -54,9 +37,6 @@ locals {
     crawlersSucceeded  = 0
     crawlersFailed     = 0
     failedCrawlers     = ""
-    jobsSucceeded      = 0
-    jobsFailed         = 0
-    failedJobs         = ""
   }
 
   retry_api_errors = {
@@ -87,110 +67,37 @@ resource "aws_sfn_state_machine" "sources" {
   definition = jsonencode({
     Comment       = "Loads the sources that the OrcaVault ${var.environment} run reads."
     QueryLanguage = "JSONata"
-    StartAt       = "LoadSources"
+    StartAt       = "CheckDms"
 
     States = merge(module.finish.states, {
-      # The CDC and TSA sources don't depend on each other, so they load at the same time.
-      LoadSources = {
-        Type = "Parallel"
-        Branches = [
+      # DMS replicates continuously, so its tasks are only checked, never started. A task
+      # that isn't running is reported, and the crawls still crawl what DMS has written.
+      CheckDms = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::aws-sdk:databasemigration:describeReplicationTasks"
+        Arguments = {
+          Filters         = [{ Name = "replication-task-id", Values = var.dms_replication_task_ids }]
+          WithoutSettings = true
+        }
+        Output = local.dms_tasks_not_running
+        Retry  = [local.retry_api_errors]
+        Catch = [
           {
-            StartAt = "CheckDms"
-            States = {
-              CheckDms = {
-                Type     = "Task"
-                Resource = "arn:aws:states:::aws-sdk:databasemigration:describeReplicationTasks"
-                Arguments = {
-                  Filters         = [{ Name = "replication-task-id", Values = var.dms_replication_task_ids }]
-                  WithoutSettings = true
-                }
-                Output = local.dms_tasks_not_running
-                Retry  = [local.retry_api_errors]
-                Catch = [
-                  {
-                    ErrorEquals = ["States.ALL"]
-                    Output      = "{% { 'dmsTasksNotRunning': ['DMS check failed with ' & $states.errorOutput.Error] } %}"
-                    Next        = "CrawlCdc"
-                  }
-                ]
-                Next = "CrawlCdc"
-              }
-
-              CrawlCdc = {
-                Type          = "Map"
-                Items         = module.crawl.items
-                ItemProcessor = module.crawl.item_processor
-                Output        = "{% $merge([$states.input, { 'crawls': $states.result }]) %}"
-                End           = true
-              }
-            }
-          },
-          {
-            StartAt = "FindGlueJobs"
-            States = {
-              # Far fewer than MaxResults jobs are tagged, so there's no next page.
-              FindGlueJobs = {
-                Type     = "Task"
-                Resource = "arn:aws:states:::aws-sdk:glue:listJobs"
-                Arguments = {
-                  Tags       = local.glue_job_stage_tag
-                  MaxResults = 1000
-                }
-                Output = "{% [$states.result.JobNames[$substring($, 0, ${length(local.glue_job_name_prefix)}) = '${local.glue_job_name_prefix}']] %}"
-                Retry  = [local.retry_api_errors]
-                Catch = [
-                  {
-                    ErrorEquals = ["States.ALL"]
-                    Output      = "{% { 'jobs': [{ 'job': '${local.glue_job_name_prefix}*', 'status': 'NOT_LISTED' }] } %}"
-                    Next        = "GlueJobsNotListed"
-                  }
-                ]
-                Next = "RunGlueJobs"
-              }
-
-              GlueJobsNotListed = {
-                Type = "Pass"
-                End  = true
-              }
-
-              # One at a time, so the jobs don't contend on the Redshift workgroup.
-              RunGlueJobs = {
-                Type           = "Map"
-                Items          = "{% $states.input %}"
-                MaxConcurrency = 1
-                ItemProcessor = {
-                  StartAt = "RunGlueJob"
-                  States = {
-                    # A failed job isn't retried, the same as a scheduled job.
-                    RunGlueJob = {
-                      Type           = "Task"
-                      Resource       = "arn:aws:states:::glue:startJobRun.sync"
-                      TimeoutSeconds = 3600
-                      Arguments      = { JobName = "{% $states.input %}" }
-                      Output         = "{% { 'job': $states.input, 'status': $states.result.JobRunState } %}"
-                      Catch = [
-                        {
-                          ErrorEquals = ["States.ALL"]
-                          Output      = local.glue_job_failed
-                          Next        = "GlueJobFinished"
-                        }
-                      ]
-                      Next = "GlueJobFinished"
-                    }
-
-                    GlueJobFinished = {
-                      Type = "Pass"
-                      End  = true
-                    }
-                  }
-                }
-                Output = "{% { 'jobs': $states.result } %}"
-                End    = true
-              }
-            }
+            ErrorEquals = ["States.ALL"]
+            Output      = "{% { 'dmsTasksNotRunning': ['DMS check failed with ' & $states.errorOutput.Error] } %}"
+            Next        = "CrawlCdc"
           }
         ]
-        Assign = { detail = local.loaded_detail }
+        Next = "CrawlCdc"
+      }
+
+      # The upstream CDC crawlers have no schedule of their own, this stage starts them, see
+      # infra/glue-crawler/orcabus-db. Other crawlers keep their own schedules.
+      CrawlCdc = {
+        Type          = "Map"
+        Items         = module.crawl.items
+        ItemProcessor = module.crawl.item_processor
+        Assign        = { detail = local.loaded_detail }
         Catch = [
           {
             ErrorEquals = ["States.ALL"]

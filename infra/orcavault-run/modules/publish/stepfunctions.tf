@@ -1,29 +1,14 @@
-# The Step Functions definition that publishes the mart after a run, and the rule that
-# starts it.
+# The Step Functions definition that ends the chain after a run, and the rule that starts it.
 
 locals {
-  # The event detail from the mart crawls.
-  crawled_detail = replace(trimspace(<<-EOT
-    {% (
-      $failedCrawls := $states.result[status != 'SUCCEEDED'];
-      {
-        'outcome': $count($failedCrawls) > 0 ? 'degraded' : 'succeeded',
-        'error': null,
-        'crawlersSucceeded': $count($states.result[status = 'SUCCEEDED']),
-        'crawlersFailed': $count($failedCrawls),
-        'failedCrawlers': $join([$failedCrawls.(crawler & ' (' & status & ')')], ', ')
-      }
-    ) %}
-  EOT
-  ), "\n", " ")
+  # The stage has nothing to do of its own, so an execution that gets this far has
+  # published the run. Its event is what anything downstream of the chain reacts to.
+  published_detail = "{% { 'outcome': 'succeeded', 'error': null } %}"
 
-  # The stage itself broke, rather than a crawl.
+  # The stage itself broke.
   error_detail = {
-    outcome           = "error"
-    error             = "Publishing the mart failed unexpectedly. Check the execution for details"
-    crawlersSucceeded = 0
-    crawlersFailed    = 0
-    failedCrawlers    = ""
+    outcome = "error"
+    error   = "Publishing the mart failed unexpectedly. Check the execution for details"
   }
 }
 
@@ -45,25 +30,18 @@ resource "aws_sfn_state_machine" "publish" {
   }
 
   definition = jsonencode({
-    Comment       = "Publishes the OrcaVault ${var.environment} mart after a run."
+    Comment       = "Publishes the OrcaVault ${var.environment} run and ends the chain."
     QueryLanguage = "JSONata"
-    StartAt       = "CrawlMart"
+    StartAt       = "Publish"
 
     States = merge(module.finish.states, {
-      # Catalogs the mart for its readers, such as Athena through Lake Formation.
-      CrawlMart = {
-        Type          = "Map"
-        Items         = module.crawl.items
-        ItemProcessor = module.crawl.item_processor
-        Assign        = { detail = local.crawled_detail }
-        Catch = [
-          {
-            ErrorEquals = ["States.ALL"]
-            Assign      = { detail = local.error_detail }
-            Next        = module.finish.start_at
-          }
-        ]
-        Next = module.finish.start_at
+      # Nothing is published yet. The mart crawler keeps its own schedule, see
+      # infra/glue-crawler/orcavault-db, so this state only carries the outcome to the
+      # event. Crawlers and anything else downstream of a run are added here.
+      Publish = {
+        Type   = "Pass"
+        Assign = { detail = local.published_detail }
+        Next   = module.finish.start_at
       }
     })
   })
@@ -75,7 +53,7 @@ resource "aws_sfn_state_machine" "publish" {
 # Starts publishing after a run that continues the chain, with {"downstream": true}.
 resource "aws_cloudwatch_event_rule" "start" {
   name           = "${local.name_prefix}-start"
-  description    = "Starts publishing the OrcaVault ${var.environment} mart after ${var.start_after.detail_type} with ${join(" or ", var.start_after.outcomes)}"
+  description    = "Starts publishing the OrcaVault ${var.environment} run after ${var.start_after.detail_type} with ${join(" or ", var.start_after.outcomes)}"
   event_bus_name = "default"
 
   event_pattern = jsonencode({

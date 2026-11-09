@@ -40,6 +40,9 @@ resource "aws_glue_crawler" "this" {
     ]
   }
 
-  # No schedule. The OrcaVault publish stage starts the crawler after each run, see
-  # infra/orcavault-run.
+  # Not part of the OrcaVault chain yet, which only starts the upstream CDC crawlers, see
+  # infra/orcavault-run/modules/sources. TODO - crawl the mart from the chain's publish
+  # stage instead of here, see https://github.com/umccr/orcahouse-project/issues/58.
+  # Runs once a day in UTC - 4:00 AM Sydney time AEDT.
+  schedule = "cron(0 18 * * ? *)"
 }

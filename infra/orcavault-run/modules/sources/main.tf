@@ -20,10 +20,6 @@ locals {
   # orcavault watermark, so it doesn't fail the execution.
   outcomes           = ["succeeded", "degraded", "error"]
   succeeded_outcomes = ["succeeded", "degraded"]
-
-  # OrcaGlue jobs opt in to this stage with this tag, see the OrcaGlue README_DEPLOY.md.
-  glue_job_stage_tag   = { "orcahouse:pipeline-stage" = "sources" }
-  glue_job_name_prefix = "orcaglue-${var.environment}-"
 }
 
 data "aws_caller_identity" "current" {}
