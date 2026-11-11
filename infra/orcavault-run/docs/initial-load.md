@@ -34,7 +34,10 @@ already runs that ref, its image is already pushed.
 ## 3. Apply the environment
 
 Apply the environment, see step 3 of
-[Releasing a version](../README.md#releasing-a-version).
+[Releasing a version](../README.md#releasing-a-version). For the run results to
+be queried with Athena, its `orcavault_run_<env>` Glue database also needs to be
+in `run_databases` in `infra/lakeformation/environments/warehouse`, which is
+applied after, see [The run's results](../README.md#the-runs-results).
 
 The schedule starts a run every day at 03:00 Melbourne time once it's
 applied. Steps 4 to 7 should be done before then, as a daily run before the

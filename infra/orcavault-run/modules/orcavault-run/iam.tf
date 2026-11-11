@@ -102,17 +102,10 @@ data "aws_iam_policy_document" "dbt_task" {
   }
 
   statement {
-    sid       = "WriteRunEvent"
+    sid       = "WriteResults"
     effect    = "Allow"
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.results.arn}/${local.results_prefix}*/event.json"]
-  }
-
-  statement {
-    sid       = "WriteManifest"
-    effect    = "Allow"
-    actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.results.arn}/${local.manifest_key}"]
+    resources = ["${aws_s3_bucket.results.arn}/*"]
   }
 }
 

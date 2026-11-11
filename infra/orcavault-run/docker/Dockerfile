@@ -31,5 +31,8 @@ RUN dbt deps \
     && ORCAVAULT_REDSHIFT_HOST=localhost dbt parse \
     && chown -R dbt:dbt /orcavault
 
+# dbt adds this to the metadata.env of its artifacts, such as run_results.json.
+ENV DBT_ENV_CUSTOM_ENV_ORCAVAULT_REF=$ORCAVAULT_REF
+
 USER dbt
 ENTRYPOINT ["/opt/runner/.venv/bin/python", "-m", "orcavault_runner"]

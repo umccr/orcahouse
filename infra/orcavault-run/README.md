@@ -298,6 +298,74 @@ After every run, the runner also writes dbt's `target/manifest.json` to
 describes the models the environment builds and where they are, and is replaced
 by each run. This mechanism is what the OrcaVault personal schemas are based on,
 see [README_DEV.md](https://github.com/umccr/orcavault/blob/main/README_DEV.md).
+Each run's manifest is also kept with its run results, see
+[The run's results](#the-runs-results).
+
+### The run's results
+
+After every run, the runner also writes dbt's `target/run_results.json` and
+`target/manifest.json` to the results bucket, at the `run_results_uri` and
+`run_manifests_uri`, with a Hive style partition by day:
+
+```text
+s3://<results bucket>/v1/run_results/year=<YYYY>/month=<MM>/day=<DD>/<execution name>/run_results.json
+s3://<results bucket>/v1/manifest/year=<YYYY>/month=<MM>/day=<DD>/<execution name>/manifest.json
+```
+
+A run's manifest records the project as it ran, and can be downloaded as
+the `--state` of a dbt command to compare against it. Athena reads every
+file under a table's location, so each artifact has its own prefix.
+
+The run results can be explored with Athena in the `run_results_table`, i.e.
+`orcavault_run_<env>.run_results`, in the `development` or `production`
+workgroup. Each row is one run, and has the dbt fields:
+
+| Column         | Contents                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metadata`     | The dbt version and `invocation_id`, and when it started. Its `env` has the run's `RUN_ID`, i.e. the execution name, `ORCAVAULT_REF` and `ENVIRONMENT`. |
+| `results`      | One for each node or hook that ran, with its `status`, `message`, `execution_time` and `compiled_code`.                                                 |
+| `elapsed_time` | The seconds the dbt command took.                                                                                                                       |
+| `args`         | `which` and `invocation_command`, the dbt command that ran.                                                                                             |
+
+The table doesn't need a crawler, because its partitions are projected from the
+date. Filter on `year`, `month` and `day` to read fewer files. They're strings
+with two digit months and days, such as `month = '01'`. The times are strings in
+UTC, which `from_iso8601_timestamp` converts:
+
+```sql
+-- The runs this month, with how long they took.
+select
+  element_at(metadata.env, 'RUN_ID') as run_id,
+  element_at(metadata.env, 'ORCAVAULT_REF') as orcavault_ref,
+  from_iso8601_timestamp(metadata.invocation_started_at) as started_at,
+  elapsed_time,
+  args.invocation_command
+from orcavault_run_prod.run_results
+where year = '2026' and month = '11'
+order by started_at desc;
+
+-- The nodes that failed, errored or warned on a day.
+select r.unique_id, r.status, r.message
+from orcavault_run_prod.run_results
+cross join unnest(results) as t(r)
+where year = '2026' and month = '11' and day = '04'
+  and r.status in ('error', 'fail', 'warn');
+
+-- The slowest models this month.
+select r.unique_id, avg(r.execution_time) as seconds, count(*) as runs
+from orcavault_run_prod.run_results
+cross join unnest(results) as t(r)
+where year = '2026' and month = '11' and r.unique_id like 'model.%'
+group by r.unique_id
+order by seconds desc
+limit 20;
+```
+
+The account uses Lake Formation and the grants are defined in
+`infra/lakeformation/environments/warehouse`. That stack
+gives the PowerUser read-only access to `orcavault_run_dev` and
+`orcavault_run_prod` and the Admin full access. No other role is granted these
+databases.
 
 ### Running the image by hand
 
@@ -313,7 +381,9 @@ docker run --rm -e AWS_PROFILE -v ~/.aws:/home/dbt/.aws:ro \
 ```
 
 Without `ORCAVAULT_RESULTS_BUCKET`, the event stays in the container, under
-`ORCAVAULT_RESULTS_DIR`, and the manifest isn't written.
+`ORCAVAULT_RESULTS_DIR`, and the manifest and run results aren't written. Only
+the task definition sets `ENVIRONMENT` in the run results' `metadata.env`, so
+it's missing when the image is run by hand.
 
 ### Local development
 
@@ -355,5 +425,5 @@ terraform test
 - **Network.** The task runs in the private subnets of `UomPrimaryVpc`, without
   a public IP. It needs to reach ECR and CloudWatch Logs to start, the
   `redshift-serverless` API to get credentials, the workgroup on port 5439, and
-  S3 to write its event and manifest. These need VPC endpoints or a NAT gateway.
-  `debug_command` can be used to quickly check.
+  S3 to write its event, manifest and run results. These need VPC endpoints or a
+  NAT gateway. `debug_command` can be used to quickly check.

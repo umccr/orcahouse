@@ -1,5 +1,5 @@
 # The s3 bucket configuration for run results. Each run writes an event to
-# runs/<run_id>/event.json.
+# runs/<run_id>/event.json, and dbt's run_results.json and manifest.json under v1/.
 
 resource "aws_s3_bucket" "results" {
   bucket           = "${local.name_prefix}-results-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.region}-an"
@@ -29,6 +29,7 @@ resource "aws_s3_bucket_public_access_block" "results" {
 resource "aws_s3_bucket_lifecycle_configuration" "results" {
   bucket = aws_s3_bucket.results.id
 
+  # Only the events expire. The dbt artifacts under v1/ are kept.
   rule {
     id     = "expire-runs"
     status = "Enabled"

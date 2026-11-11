@@ -46,6 +46,8 @@ resource "aws_ecs_task_definition" "dbt" {
         { name = "ORCAVAULT_REDSHIFT_HOST", value = data.aws_redshiftserverless_workgroup.this.endpoint[0].address },
         { name = "ORCAVAULT_DBT_THREADS", value = tostring(var.dbt_threads) },
         { name = "ORCAVAULT_RESULTS_BUCKET", value = aws_s3_bucket.results.bucket },
+        # dbt adds this to the metadata.env of its artifacts, such as run_results.json.
+        { name = "DBT_ENV_CUSTOM_ENV_ENVIRONMENT", value = var.environment },
       ]
 
       stopTimeout = 120
