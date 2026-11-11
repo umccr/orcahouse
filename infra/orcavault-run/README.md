@@ -330,7 +330,8 @@ workgroup. Each row is one run, and has the dbt fields:
 The table doesn't need a crawler, because its partitions are projected from the
 date. Filter on `year`, `month` and `day` to read fewer files. They're strings
 with two digit months and days, such as `month = '01'`. The times are strings in
-UTC, which `from_iso8601_timestamp` converts:
+UTC, which `from_iso8601_timestamp` converts. `cross join unnest(results)` gives
+a row for each node or hook, with a column for each of its fields:
 
 ```sql
 -- The runs this month, with how long they took.
@@ -345,18 +346,18 @@ where year = '2026' and month = '11'
 order by started_at desc;
 
 -- The nodes that failed, errored or warned on a day.
-select r.unique_id, r.status, r.message
+select unique_id, status, message
 from orcavault_run_prod.run_results
-cross join unnest(results) as t(r)
+cross join unnest(results)
 where year = '2026' and month = '11' and day = '04'
-  and r.status in ('error', 'fail', 'warn');
+  and status in ('error', 'fail', 'warn');
 
 -- The slowest models this month.
-select r.unique_id, avg(r.execution_time) as seconds, count(*) as runs
+select unique_id, avg(execution_time) as seconds, count(*) as runs
 from orcavault_run_prod.run_results
-cross join unnest(results) as t(r)
-where year = '2026' and month = '11' and r.unique_id like 'model.%'
-group by r.unique_id
+cross join unnest(results)
+where year = '2026' and month = '11' and unique_id like 'model.%'
+group by unique_id
 order by seconds desc
 limit 20;
 ```
