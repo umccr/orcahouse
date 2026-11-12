@@ -312,9 +312,9 @@ s3://<results bucket>/v1/run_results/year=<YYYY>/month=<MM>/day=<DD>/<execution 
 s3://<results bucket>/v1/manifest/year=<YYYY>/month=<MM>/day=<DD>/<execution name>/manifest.json
 ```
 
-A run's manifest records the project as it ran, and can be downloaded as
-the `--state` of a dbt command to compare against it. Athena reads every
-file under a table's location, so each artifact has its own prefix.
+A run's manifest records the project as it ran, and can be downloaded as the
+`--state` of a dbt command to compare against it. Athena reads every file under
+a table's location, so each artifact has its own prefix.
 
 The run results can be explored with Athena in the `run_results_table`, i.e.
 `orcavault_run_<env>.run_results`, in the `development` or `production`
@@ -330,8 +330,9 @@ workgroup. Each row is one run, and has the dbt fields:
 The table doesn't need a crawler, because its partitions are projected from the
 date. Filter on `year`, `month` and `day` to read fewer files. They're strings
 with two digit months and days, such as `month = '01'`. The times are strings in
-UTC, which `from_iso8601_timestamp` converts. `cross join unnest(results)` gives
-a row for each node or hook, with a column for each of its fields:
+UTC, which `from_iso8601_timestamp` converts.
+`cross join unnest(results) as t(r)` gives a row for each node or hook, with its
+fields under `r`:
 
 ```sql
 -- The runs this month, with how long they took.
@@ -346,27 +347,25 @@ where year = '2026' and month = '11'
 order by started_at desc;
 
 -- The nodes that failed, errored or warned on a day.
-select unique_id, status, message
+select r.unique_id, r.status, r.message
 from orcavault_run_prod.run_results
-cross join unnest(results)
+cross join unnest(results) as t(r)
 where year = '2026' and month = '11' and day = '04'
-  and status in ('error', 'fail', 'warn');
+  and r.status in ('error', 'fail', 'warn');
 
--- The slowest models this month.
-select unique_id, avg(execution_time) as seconds, count(*) as runs
+-- The slowest models,
+select r.unique_id, avg(r.execution_time) as seconds, count(*) as runs
 from orcavault_run_prod.run_results
-cross join unnest(results)
-where year = '2026' and month = '11' and unique_id like 'model.%'
-group by unique_id
+cross join unnest(results) as t(r)
+group by r.unique_id
 order by seconds desc
 limit 20;
 ```
 
 The account uses Lake Formation and the grants are defined in
-`infra/lakeformation/environments/warehouse`. That stack
-gives the PowerUser read-only access to `orcavault_run_dev` and
-`orcavault_run_prod` and the Admin full access. No other role is granted these
-databases.
+`infra/lakeformation/environments/warehouse`. That stack gives the PowerUser
+read-only access to `orcavault_run_dev` and `orcavault_run_prod` and the Admin
+full access. No other role is granted these databases.
 
 ### Running the image by hand
 

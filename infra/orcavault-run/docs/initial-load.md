@@ -39,11 +39,11 @@ be queried with Athena, its `orcavault_run_<env>` Glue database also needs to be
 in `run_databases` in `infra/lakeformation/environments/warehouse`, which is
 applied after, see [The run's results](../README.md#the-runs-results).
 
-The schedule starts a run every day at 03:00 Melbourne time once it's
-applied. Steps 4 to 7 should be done before then, as a daily run before the
-legacy load would record the CDC positions, after which step 7 isn't safe.
-Alternatively, apply with `-var schedule_enabled=false` to leave the schedule
-off during the initial load, and apply again without it after step 8.
+The schedule starts a run every day at 03:00 Melbourne time once it's applied.
+Steps 4 to 7 should be done before then, as a daily run before the legacy load
+would record the CDC positions, after which step 7 isn't safe. Alternatively,
+apply with `-var schedule_enabled=false` to leave the schedule off during the
+initial load, and apply again without it after step 8.
 
 ## 4. Grant the task's database user
 
