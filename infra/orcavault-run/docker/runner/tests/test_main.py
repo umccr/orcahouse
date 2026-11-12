@@ -1,12 +1,13 @@
 import os
 import re
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import boto3
 import pytest
 from botocore.stub import Stubber
 
-from orcavault_runner.__main__ import Settings, write_event, write_manifest
+from orcavault_runner.__main__ import Settings, write_artifact, write_event, write_manifest
 from orcavault_runner.results import Event
 
 
@@ -91,13 +92,34 @@ def test_write_manifest_s3(monkeypatch):
     assert location == "s3://bucket/state/manifest.json"
 
 
-def test_write_manifest_without_bucket():
-    path = Path("target", "manifest.json")
+def test_write_artifact_s3(monkeypatch):
+    client = boto3.client("s3", region_name="ap-southeast-2")
+    monkeypatch.setattr(boto3, "client", lambda service: client)
+    path = Path("target", "run_results.json")
     path.parent.mkdir()
     path.write_text("{}")
+    started_at = datetime(2026, 11, 5, 3, tzinfo=timezone(timedelta(hours=11)))
+    key = "v1/run_results/year=2026/month=11/day=04/run-1/run_results.json"
 
-    assert write_manifest(Settings()) is None
+    with Stubber(client) as stubber:
+        stubber.add_response(
+            "put_object", {}, {"Bucket": "bucket", "Key": key, "Body": b"{}", "ContentType": "application/json"}
+        )
+
+        location = write_artifact("run_results", Settings(run_id="run-1", results_bucket="bucket"), started_at)
+        stubber.assert_no_pending_responses()
+
+    assert location == f"s3://bucket/{key}"
 
 
-def test_write_manifest_without_manifest():
-    assert write_manifest(Settings(results_bucket="bucket")) is None
+@pytest.mark.parametrize("bucket, written", [(None, True), ("bucket", False)])
+def test_nothing_to_upload(bucket, written):
+    """Without a bucket or the file from dbt don't upload."""
+    if written:
+        path = Path("target", "manifest.json")
+        path.parent.mkdir()
+        path.write_text("{}")
+    settings = Settings(results_bucket=bucket)
+
+    assert write_manifest(settings) is None
+    assert write_artifact("manifest", settings, datetime.now(UTC)) is None

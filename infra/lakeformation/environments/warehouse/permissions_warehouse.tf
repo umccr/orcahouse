@@ -33,6 +33,11 @@ locals {
     "tidywigits"
   ]
 
+  run_databases = [
+    "orcavault_run_dev",
+    "orcavault_run_prod",
+  ]
+
   # Account ID helper
   account_id = data.aws_caller_identity.current.account_id
 }
@@ -62,10 +67,34 @@ resource "aws_lakeformation_permissions" "dbt_tables" {
 }
 
 # ==========================================
+# 2. PERMISSIONS FOR READING THE RUN RESULTS (PowerUserAccess)
+# ==========================================
+resource "aws_lakeformation_permissions" "run_database" {
+  for_each  = toset(local.run_databases)
+  principal = one(data.aws_iam_roles.warehouse_sso_power_user.arns)
+
+  database {
+    name = each.value
+  }
+  permissions = ["DESCRIBE"]
+}
+
+resource "aws_lakeformation_permissions" "run_tables" {
+  for_each  = toset(local.run_databases)
+  principal = one(data.aws_iam_roles.warehouse_sso_power_user.arns)
+
+  table {
+    database_name = each.value
+    wildcard      = true
+  }
+  permissions = ["DESCRIBE", "SELECT"]
+}
+
+# ==========================================
 # 3. PERMISSIONS FOR ADMINISTRATORS
 # ==========================================
 resource "aws_lakeformation_permissions" "admin_database" {
-  for_each  = toset(local.databases)
+  for_each  = toset(concat(local.databases, local.run_databases))
   principal = one(data.aws_iam_roles.warehouse_sso_admin.arns)
 
   database {
@@ -75,7 +104,7 @@ resource "aws_lakeformation_permissions" "admin_database" {
 }
 
 resource "aws_lakeformation_permissions" "admin_tables" {
-  for_each  = toset(local.databases)
+  for_each  = toset(concat(local.databases, local.run_databases))
   principal = one(data.aws_iam_roles.warehouse_sso_admin.arns)
 
   table {

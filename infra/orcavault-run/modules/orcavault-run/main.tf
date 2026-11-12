@@ -16,6 +16,9 @@ locals {
   container_name       = "dbt"
   results_prefix       = "runs/"
   manifest_key         = "state/manifest.json"
+  run_results_prefix   = "v1/run_results/"
+  run_manifest_prefix  = "v1/manifest/"
+  glue_database_name   = replace(local.name_prefix, "-", "_")
   event_source         = "orcahouse.orcavault"
   event_detail_type    = "OrcaVaultRunFinished"
   region               = data.aws_region.current.region

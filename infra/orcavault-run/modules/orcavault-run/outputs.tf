@@ -9,13 +9,28 @@ output "start_run_command" {
 }
 
 output "results_bucket" {
-  description = "The bucket for a run's event which is uploaded to runs/<run_id>/event.json."
+  description = "The bucket for a run's event which is uploaded to runs/<run_id>/event.json, and its dbt artifacts under v1/."
   value       = aws_s3_bucket.results.bucket
 }
 
 output "manifest_uri" {
   description = "The dbt manifest of the latest run."
   value       = "s3://${aws_s3_bucket.results.bucket}/${local.manifest_key}"
+}
+
+output "run_manifests_uri" {
+  description = "Where the dbt manifest.json of each run is uploaded, under year=<YYYY>/month=<MM>/day=<DD>/<run_id>/."
+  value       = "s3://${aws_s3_bucket.results.bucket}/${local.run_manifest_prefix}"
+}
+
+output "run_results_uri" {
+  description = "Where the dbt run_results.json of each run is uploaded, under year=<YYYY>/month=<MM>/day=<DD>/<run_id>/."
+  value       = local.run_results_location
+}
+
+output "run_results_table" {
+  description = "The Athena table for the run results."
+  value       = "${aws_glue_catalog_table.run_results.database_name}.${aws_glue_catalog_table.run_results.name}"
 }
 
 output "debug_command" {

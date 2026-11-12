@@ -255,9 +255,9 @@ run "task_writes_its_event" {
   assert {
     condition = anytrue([
       for statement in data.aws_iam_policy_document.dbt_task.statement :
-      try(contains(statement.resources, "${aws_s3_bucket.results.arn}/state/manifest.json"), false)
+      try(contains(statement.resources, "${aws_s3_bucket.results.arn}/*"), false)
     ])
-    error_message = "the task should be able to write the manifest"
+    error_message = "the task should be able to write its event, manifest and run results"
   }
 }
 

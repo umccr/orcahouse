@@ -33,12 +33,9 @@ def one_line(text: str, limit: int = 300) -> str:
 
 def run_dbt(args: tuple[str, ...], dbt: DbtCommand) -> Event:
     """Run the dbt command and return the result dbt."""
-    results_path = Path("target", "run_results.json")
-    # This must be removed as there could have been a previous execution leaving behind a result.
-    results_path.unlink(missing_ok=True)
-
     code = dbt(args)
 
+    results_path = Path("target", "run_results.json")
     if not results_path.exists():
         return Event(error=f"dbt exited with {code} with no run_results.json, view the logs")
 
@@ -58,8 +55,10 @@ def run(raw_request: str, dbt: DbtCommand) -> Event:
 
     The working directory is expected to be the dbt project.
     """
-    # This must be removed as the image has one from `dbt parse`.
-    Path("target", "manifest.json").unlink(missing_ok=True)
+    # These must be removed as the image has a manifest from `dbt parse`, and a previous execution
+    # could have left behind a result. Whatever is there after the run is from this run.
+    for artifact in ("manifest.json", "run_results.json"):
+        Path("target", artifact).unlink(missing_ok=True)
 
     try:
         args = parse_request(raw_request)
