@@ -34,6 +34,10 @@ locals {
     for name in var.cdc_crawler_names :
     "arn:${data.aws_partition.current.partition}:glue:${local.region}:${data.aws_caller_identity.current.account_id}:crawler/${name}"
   ]
+
+  # See var.unload.
+  unload_enabled      = var.unload != null
+  unload_iam_role_arn = local.unload_enabled ? coalesce(var.unload.iam_role_arn, data.aws_redshiftserverless_namespace.this.default_iam_role_arn) : null
 }
 
 data "aws_caller_identity" "current" {}
@@ -71,6 +75,10 @@ data "aws_security_group" "uom_primary_sg" {
 
 data "aws_redshiftserverless_workgroup" "this" {
   workgroup_name = var.redshift_workgroup_name
+}
+
+data "aws_redshiftserverless_namespace" "this" {
+  namespace_name = data.aws_redshiftserverless_workgroup.this.namespace_name
 }
 
 data "aws_s3_bucket" "cdc" {

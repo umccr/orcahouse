@@ -31,6 +31,12 @@ def one_line(text: str, limit: int = 300) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
+def clear_artifacts() -> None:
+    """Remove the image's manifest from `dbt parse` and any earlier result, so what's left after is this run's."""
+    for artifact in ("manifest.json", "run_results.json"):
+        Path("target", artifact).unlink(missing_ok=True)
+
+
 def run_dbt(args: tuple[str, ...], dbt: DbtCommand) -> Event:
     """Run the dbt command and return the result dbt."""
     code = dbt(args)
@@ -50,23 +56,8 @@ def run_dbt(args: tuple[str, ...], dbt: DbtCommand) -> Event:
     return event
 
 
-def run(raw_request: str, dbt: DbtCommand) -> Event:
-    """Run the dbt request and return the event.
-
-    The working directory is expected to be the dbt project.
-    """
-    # These must be removed as the image has a manifest from `dbt parse`, and a previous execution
-    # could have left behind a result. Whatever is there after the run is from this run.
-    for artifact in ("manifest.json", "run_results.json"):
-        Path("target", artifact).unlink(missing_ok=True)
-
-    try:
-        args = parse_request(raw_request)
-    except RequestError as e:
-        event = Event(error=str(e))
-    else:
-        event = run_dbt(args, dbt)
-
+def finish(event: Event, dbt: DbtCommand) -> Event:
+    """Make a stopped run an error, and put the error on one line for the event."""
     if dbt.stopping:
         event.error = "The run was stopped"
         event.outcome = Outcome.ERROR
@@ -76,3 +67,20 @@ def run(raw_request: str, dbt: DbtCommand) -> Event:
         event.error = one_line(event.error)
 
     return event
+
+
+def run(raw_request: str, dbt: DbtCommand) -> Event:
+    """Run the dbt request and return the event.
+
+    The working directory is expected to be the dbt project.
+    """
+    clear_artifacts()
+
+    try:
+        args = parse_request(raw_request)
+    except RequestError as e:
+        event = Event(error=str(e))
+    else:
+        event = run_dbt(args, dbt)
+
+    return finish(event, dbt)

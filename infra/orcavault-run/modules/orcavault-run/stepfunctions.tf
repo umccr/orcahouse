@@ -1,12 +1,13 @@
-# The Step Functions run definition for the orcavault runner. Each run crawls the CDC,
-# builds the dbt project, and sends the run event, or does only the steps its input lists.
+# The Step Functions run definition for the orcavault runner. Each run crawls the CDC, builds
+# the dbt project, unloads the schema, and sends the run event, or does only the steps its input lists.
 
 locals {
-  run_timeout_seconds = var.run_timeout_hours * 3600
-  crawl_max_wait_ms   = var.crawl_max_wait_minutes * 60000
+  run_timeout_seconds    = var.run_timeout_hours * 3600
+  unload_timeout_seconds = var.unload_timeout_minutes * 60
+  crawl_max_wait_ms      = var.crawl_max_wait_minutes * 60000
 
   # This defines the steps that a run can do in the required order.
-  steps = ["crawl", "dbt"]
+  steps = concat(["crawl", "dbt"], local.unload_enabled ? ["unload"] : [])
 
   # Warning is a successful outcome because models were still applied correctly.
   succeeded_outcomes = ["succeeded", "warned"]
@@ -21,6 +22,7 @@ locals {
     testsFailed     = 0
     failedNodes     = ""
     warnedNodes     = ""
+    unloadOutcome   = "not_run"
   }
 
   run_in_progress_detail = merge(local.empty_event_detail, {
@@ -33,6 +35,31 @@ locals {
     error   = "The runner wrote no event. The task may have failed to start, or been killed. Check the execution for details"
   })
 
+  # The detail of a run that only unloads.
+  unload_only_detail = merge(local.empty_event_detail, {
+    outcome = "succeeded"
+    error   = null
+  })
+
+  no_unload_event_detail = merge(local.empty_event_detail, {
+    outcome = "error"
+    error   = "The unload wrote no event. The task may have failed to start, or been killed. Check the execution for details"
+  })
+
+  # Adds unloadOutcome to the run's detail. A failed unload becomes the run's outcome. Joined onto
+  # one line for the definition.
+  with_unload_outcome = replace(trimspace(<<-EOT
+    {% $unloadDetail.outcome = 'succeeded'
+      ? $merge([$detail, {'unloadOutcome': 'succeeded'}])
+      : $merge([$detail, {
+          'outcome': $unloadDetail.outcome,
+          'error': $unloadDetail.error,
+          'failedNodes': $unloadDetail.failedNodes,
+          'unloadOutcome': 'failed'
+        }]) %}
+  EOT
+  ), "\n", " ")
+
   # The run's detail, i.e. the runner's event or one of the above, and the fields every run
   # event has.
   event_detail = "{% $merge([$detail, $states.input]) %}"
@@ -43,6 +70,51 @@ locals {
     MaxAttempts     = 3
     BackoffRate     = 2
   }
+
+  # The dbt and unload steps both run the dbt task.
+  run_task_arguments = {
+    Cluster        = aws_ecs_cluster.this.arn
+    TaskDefinition = aws_ecs_task_definition.dbt.arn
+    LaunchType     = "FARGATE"
+    NetworkConfiguration = {
+      AwsvpcConfiguration = {
+        Subnets        = data.aws_subnets.uom_private_subnets_ids.ids
+        SecurityGroups = [data.aws_security_group.uom_primary_sg.id]
+        AssignPublicIp = "DISABLED"
+      }
+    }
+  }
+
+  # Only failures to start the task are retried, such as throttling or no Fargate capacity.
+  retry_task_start = {
+    ErrorEquals     = ["ECS.AmazonECSException", "AmazonECS.Unknown"]
+    IntervalSeconds = 60
+    MaxAttempts     = 3
+    BackoffRate     = 2
+  }
+
+  # A failed .sync step's task, from its error, to link its logs.
+  failed_task_arn = trimspace(<<-EOT
+    {% ($task := $match($states.errorOutput.Cause, /"TaskArn"\s*:\s*"([^"]+)"/, 1); $task ? $task[0].groups[0] : null) %}
+  EOT
+  )
+
+  read_event_retry = [
+    # A timed out task is stopped without waiting, which means the runner can take up to the
+    # container's stopTimeout to write its event.
+    {
+      ErrorEquals     = ["S3.NoSuchKeyException"]
+      IntervalSeconds = 30
+      MaxAttempts     = 5
+      BackoffRate     = 1
+    },
+    {
+      ErrorEquals     = ["States.ALL"]
+      IntervalSeconds = 5
+      MaxAttempts     = 3
+      BackoffRate     = 2
+    },
+  ]
 }
 
 resource "aws_cloudwatch_log_group" "states" {
@@ -63,7 +135,7 @@ resource "aws_sfn_state_machine" "run" {
   }
 
   definition = jsonencode({
-    Comment       = "Crawls the CDC, then runs the OrcaVault dbt project on Redshift Serverless."
+    Comment       = "Crawls the CDC, runs the OrcaVault dbt project on Redshift Serverless, then unloads the schema."
     QueryLanguage = "JSONata"
     StartAt       = "ReadSteps"
 
@@ -212,22 +284,23 @@ resource "aws_sfn_state_machine" "run" {
         Next   = "ShouldRunDbt"
       }
 
+      # An unload also checks that no other run is going.
       ShouldRunDbt = {
         Type = "Choice"
         Choices = [
           {
-            Condition = "{% 'dbt' in $steps %}"
+            Condition = "{% 'dbt' in $steps or 'unload' in $steps %}"
             Next      = "CheckNoRunInProgress"
           }
         ]
         Default = "NoDbtStep"
       }
 
-      # Without the dbt step there is no run event to report the crawls, so the execution fails
-      # if one didn't finish.
+      # Without the dbt or unload step there is no run event to report the crawls, so the
+      # execution fails if one didn't finish.
       NoDbtStep = {
         Type    = "Choice"
-        Comment = "dbt isn't one of the steps, so the execution ends without a run or its event."
+        Comment = "Neither dbt nor the unload is one of the steps, so the execution ends without a run or its event."
         Choices = [
           {
             Condition = "{% $crawlIncomplete != '' %}"
@@ -267,9 +340,13 @@ resource "aws_sfn_state_machine" "run" {
           {
             Condition = "{% $states.input > 0 %}"
             Next      = "RunInProgress"
-          }
+          },
+          {
+            Condition = "{% 'dbt' in $steps %}"
+            Next      = "RunDbt"
+          },
         ]
-        Default = "RunDbt"
+        Default = "UnloadOnly"
       }
 
       RunInProgress = {
@@ -285,17 +362,7 @@ resource "aws_sfn_state_machine" "run" {
         Type           = "Task"
         Resource       = "arn:aws:states:::ecs:runTask.sync"
         TimeoutSeconds = local.run_timeout_seconds
-        Arguments = {
-          Cluster        = aws_ecs_cluster.this.arn
-          TaskDefinition = aws_ecs_task_definition.dbt.arn
-          LaunchType     = "FARGATE"
-          NetworkConfiguration = {
-            AwsvpcConfiguration = {
-              Subnets        = data.aws_subnets.uom_private_subnets_ids.ids
-              SecurityGroups = [data.aws_security_group.uom_primary_sg.id]
-              AssignPublicIp = "DISABLED"
-            }
-          }
+        Arguments = merge(local.run_task_arguments, {
           Overrides = {
             ContainerOverrides = [
               {
@@ -308,28 +375,14 @@ resource "aws_sfn_state_machine" "run" {
               }
             ]
           }
-        }
-
-        # Only failures to start the task are retried, such as throttling or no Fargate capacity.
-        Retry = [
-          {
-            ErrorEquals     = ["ECS.AmazonECSException", "AmazonECS.Unknown"]
-            IntervalSeconds = 60
-            MaxAttempts     = 3
-            BackoffRate     = 2
-          }
-        ]
+        })
+        Retry  = [local.retry_task_start]
         Assign = { taskArn = "{% $states.result.TaskArn %}" }
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
-            Assign = {
-              taskArn = trimspace(<<-EOT
-                {% ($task := $match($states.errorOutput.Cause, /"TaskArn"\s*:\s*"([^"]+)"/, 1); $task ? $task[0].groups[0] : null) %}
-              EOT
-              )
-            }
-            Next = "ReadEvent"
+            Assign      = { taskArn = local.failed_task_arn }
+            Next        = "ReadEvent"
           }
         ]
         Next = "ReadEvent"
@@ -344,22 +397,7 @@ resource "aws_sfn_state_machine" "run" {
         }
         Assign = { detail = "{% $parse($states.result.Body) %}" }
         Output = {}
-        Retry = [
-          # A timed out task is stopped without waiting, which means the runner
-          # can take up to the container's stopTimeout to write its event.
-          {
-            ErrorEquals     = ["S3.NoSuchKeyException"]
-            IntervalSeconds = 30
-            MaxAttempts     = 5
-            BackoffRate     = 1
-          },
-          {
-            ErrorEquals     = ["States.ALL"]
-            IntervalSeconds = 5
-            MaxAttempts     = 3
-            BackoffRate     = 2
-          },
-        ]
+        Retry  = local.read_event_retry
         Catch = [
           {
             ErrorEquals = ["States.ALL"]
@@ -367,6 +405,86 @@ resource "aws_sfn_state_machine" "run" {
             Next        = "AddRunFields"
           }
         ]
+        Next = "ShouldUnload"
+      }
+
+      # Only after a build that applied its models.
+      ShouldUnload = {
+        Type = "Choice"
+        Choices = [
+          {
+            Condition = "{% 'unload' in $steps and $detail.outcome in ${jsonencode(local.succeeded_outcomes)} %}"
+            Next      = "RunUnload"
+          }
+        ]
+        Default = "AddRunFields"
+      }
+
+      UnloadOnly = {
+        Type    = "Pass"
+        Comment = "dbt isn't one of the steps, so the run's detail is the unload's."
+        Assign  = { detail = local.unload_only_detail, taskArn = null }
+        Next    = "RunUnload"
+      }
+
+      # The dbt task again, as the unload step, see docker/runner/orcavault_runner/unload.py.
+      RunUnload = {
+        Type           = "Task"
+        Resource       = "arn:aws:states:::ecs:runTask.sync"
+        TimeoutSeconds = local.unload_timeout_seconds
+        Arguments = merge(local.run_task_arguments, {
+          Overrides = {
+            ContainerOverrides = [
+              {
+                Name = local.container_name
+                Environment = [
+                  { Name = "ORCAVAULT_RUN_ID", Value = "{% $states.context.Execution.Name %}" },
+                  { Name = "ORCAVAULT_RUN_STEP", Value = "unload" },
+                ]
+              }
+            ]
+          }
+        })
+        Retry  = [local.retry_task_start]
+        Assign = { unloadTaskArn = "{% $states.result.TaskArn %}" }
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"]
+            Assign      = { unloadTaskArn = local.failed_task_arn }
+            Next        = "ReadUnloadEvent"
+          }
+        ]
+        Next = "ReadUnloadEvent"
+      }
+
+      ReadUnloadEvent = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::aws-sdk:s3:getObject"
+        Arguments = {
+          Bucket = aws_s3_bucket.results.bucket
+          Key    = "{% '${local.results_prefix}' & $states.context.Execution.Name & '/unload/event.json' %}"
+        }
+        Assign = { unloadDetail = "{% $parse($states.result.Body) %}" }
+        Output = {}
+        Retry  = local.read_event_retry
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"]
+            Assign      = { unloadDetail = local.no_unload_event_detail }
+            Next        = "AddUnloadOutcome"
+          }
+        ]
+        Next = "AddUnloadOutcome"
+      }
+
+      # The logs are the dbt task's, unless the unload didn't succeed or there was no dbt task.
+      AddUnloadOutcome = {
+        Type    = "Pass"
+        Comment = "Adds how the unload went to the run's detail."
+        Assign = {
+          detail  = local.with_unload_outcome
+          taskArn = "{% ($unloadDetail.outcome = 'succeeded' and $boolean($taskArn)) ? $taskArn : $unloadTaskArn %}"
+        }
         Next = "AddRunFields"
       }
 

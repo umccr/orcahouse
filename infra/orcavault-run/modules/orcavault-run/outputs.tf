@@ -8,6 +8,16 @@ output "start_run_command" {
   value       = "aws stepfunctions start-execution --state-machine-arn ${aws_sfn_state_machine.run.arn} --input '{}'"
 }
 
+output "start_unload_command" {
+  description = "The command to unload the schema now, without crawling or building. Null without an unload."
+  value       = local.unload_enabled ? "aws stepfunctions start-execution --state-machine-arn ${aws_sfn_state_machine.run.arn} --input '{\"steps\": [\"unload\"]}'" : null
+}
+
+output "unload_uri" {
+  description = "Where the unload step writes each table. Null without an unload."
+  value       = local.unload_enabled ? var.unload.s3_path : null
+}
+
 output "results_bucket" {
   description = "The bucket for a run's event which is uploaded to runs/<run_id>/event.json, and its dbt artifacts under v1/."
   value       = aws_s3_bucket.results.bucket

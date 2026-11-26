@@ -2,8 +2,9 @@
 
 Builds the [umccr/orcavault](https://github.com/umccr/orcavault) dbt project on
 Redshift Serverless once a day, in dev and prod. Each run crawls CDC first, see
-[Crawling the CDC](#crawling-the-cdc), and an execution can be called with only
-partial steps, see [Steps](#steps).
+[Crawling the CDC](#crawling-the-cdc), and unloads the mart after it builds, see
+[The unload](#the-unload). An execution can be called with only partial steps,
+see [Steps](#steps).
 
 ![orcavault-run.drawio.svg](docs/orcavault-run.drawio.svg)
 
@@ -14,13 +15,13 @@ their own workgroup, `orcahouse-dev` or `orcahouse-prod`. Both are in the
 warehouse account, and resources created by an environment have the environment
 name, to avoid conflicts.
 
-| Directory                               | Purpose                                                                                | Applied         |
-| --------------------------------------- | -------------------------------------------------------------------------------------- | --------------- |
-| `account-wide`                          | Creates the ECR repository, `orcavault-run-dbt`                                        | once            |
-| `environments/dev`, `environments/prod` | The run infrastructure, with a schedule, state machine, task, roles, results and alarm | per environment |
-| `modules/orcavault-run`                 | The common module that each environment uses                                           |                 |
-| `docker`                                | The python wrapper that performs `dbt build`                                           |                 |
-| `docs`                                  | The [initial load](docs/initial-load.md) of a new environment, and the diagram         |                 |
+| Directory                               | Purpose                                                                                                                     | Applied         |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `account-wide`                          | Creates the ECR repository, `orcavault-run-dbt`                                                                             | once            |
+| `environments/dev`, `environments/prod` | The run infrastructure, with a schedule, state machine, task, roles, results and alarm                                      | per environment |
+| `modules/orcavault-run`                 | The common module that each environment uses                                                                                |                 |
+| `docker`                                | The python wrapper that performs `dbt build` and the unload                                                                 |                 |
+| `docs`                                  | The [initial load](docs/initial-load.md) of a new environment, the [unload plan](docs/mart-unload-plan.md), and the diagram |                 |
 
 There is a single image for both dev and prod to ensure that both use the same
 build. The orcavault git ref controls which image is used for a deployment.
@@ -53,6 +54,28 @@ for the crawl that is already running.
 Only these upstream CDC crawlers are in the run with room to expand later either
 upstream or downstream from the Step Function.
 
+## The unload
+
+After a build that applied its models, i.e. `succeeded` or `warned`, the
+`unload` step calls orcavault's
+[UNLOAD procedure](https://github.com/umccr/orcavault#unload-schema) with
+`dbt run-operation run_unload_schema`. It unloads each `mart` table to the
+`unload_uri` output, as Parquet under `parquet/mart/<table>/` for the mart
+crawler, and as gzipped CSV with a manifest under `csv/mart/<table>/` for
+OrcaGlue's
+[spreadsheet-mart-tables](https://github.com/umccr/orcaglue/tree/main/spreadsheet-mart-tables#trigger)
+job, which loads the OrcaNexus Aurora database.
+
+- **The run doesn't deploy the procedure.** Its owner, the PowerUser, does, see
+  [Releasing a version](#releasing-a-version). Each deploy grants `EXECUTE` to
+  `orcavault_builder`, the task user's role.
+- **Its arguments** come from the environment's `unload` variable, never from a
+  request.
+- **Its outcome** is the event's `unloadOutcome`, see
+  [The run event](#the-run-event).
+- **A dropped table's files stay**, as each unload only replaces the tables it
+  unloads.
+
 ## What a run does
 
 Each run effectively runs `dbt build` which updates orcavault models. Tests are
@@ -67,13 +90,13 @@ jobs (13:10 UTC), and crawls the CDC before it builds, see
 
 Each run ends with one of these outcomes, i.e. the `outcome` field of the event:
 
-| Outcome     | Meaning                                                                                                 | Execution |
-| ----------- | ------------------------------------------------------------------------------------------------------- | --------- |
-| `succeeded` | Everything built and every test passed.                                                                 | succeeds  |
-| `warned`    | Only warn-severity tests failed. Models were still applied.                                             | succeeds  |
-| `failed`    | A model didn't build, or an error-severity test or a hook failed.                                       | fails     |
-| `error`     | dbt couldn't run, the request was invalid or selected nothing, or the run was stopped or never started. | fails     |
-| `skipped`   | Another run was still going, so this one didn't start.                                                  | fails     |
+| Outcome     | Meaning                                                                                                               | Execution |
+| ----------- | --------------------------------------------------------------------------------------------------------------------- | --------- |
+| `succeeded` | Everything built and every test passed.                                                                               | succeeds  |
+| `warned`    | Only warn-severity tests failed. Models were still applied.                                                           | succeeds  |
+| `failed`    | A model didn't build, an error-severity test or a hook failed, or the unload failed.                                  | fails     |
+| `error`     | dbt or the unload couldn't run, the request was invalid or selected nothing, or the run was stopped or never started. | fails     |
+| `skipped`   | Another run was still going, so this one didn't start.                                                                | fails     |
 
 A succeeded execution's output is the event's `detail`. A failed execution has
 no output. Its error is the outcome, and its cause is the event's `error`, or
@@ -112,16 +135,17 @@ directory, `environments/dev` or `environments/prod`. Its outputs are under
 
 - **Start a run** with the `start_run_command` output, or from the Step
   Functions console with input `{}`. Leave the execution name to Step Functions.
-  Every run crawls the CDC first, which takes a few minutes, unless it's started
-  with `{"steps": ["dbt"]}` only.
+  Every run crawls the CDC first, which takes a few minutes, and unloads the
+  mart after, unless its `steps` leave them out.
 - **Crawl the CDC only** with `{"steps": ["crawl"]}`, see [Steps](#steps).
+- **Unload the mart only** with the `start_unload_command` output.
 - **Pause the schedule** with `-var schedule_enabled=false`.
 - **Stop a run** by stopping its task, from the ECS console or the execution's
-  `RunDbt` step. The runner tells dbt to cancel its queries. If dbt hasn't
-  exited in time ECS kills the task, and the state machine sends the run event.
-  A run that reaches `run_timeout_hours` is stopped the same way. Stopping the
-  execution instead also stops the task, but ends the execution before it sends
-  the run event.
+  `RunDbt` or `RunUnload` step. The runner tells dbt to cancel its queries. If
+  dbt hasn't exited in time ECS kills the task, and the state machine sends the
+  run event. A run that reaches `run_timeout_hours` is stopped the same way.
+  Stopping the execution instead also stops the task, but ends the execution
+  before it sends the run event.
 - **Logs can be read** with the `logs_command` output, or from the `logsUrl` in
   the run's event.
 - **Release a new version** to dev, and then to prod, see
@@ -165,7 +189,14 @@ the following steps:
    terraform -chdir=environments/dev apply
    ```
 
-4. Apply steps 1 to 3 for the prod environment. The image is shared between prod
+4. If the ref changes orcavault's `macros/procedures/`, redeploy the procedure
+   before the next run, as its owner, from orcavault at that ref:
+
+   ```sh
+   dbt run-operation deploy_unload_schema
+   ```
+
+5. Apply steps 1 to 4 for the prod environment. The image is shared between prod
    and dev, so if the `release.auto.tfvars` ref is the same for both, you only
    need to build it once.
 
@@ -175,8 +206,8 @@ document what each environment runs.
 ### Requests
 
 The execution input is the dbt arguments for the run, and the steps it does. The
-scheduled run's `{}` crawls the CDC, and then runs `dbt build`. Arguments can be
-specified in the input:
+scheduled run's `{}` crawls the CDC, runs `dbt build`, and then unloads the
+mart. Arguments can be specified in the input:
 
 ```json
 {
@@ -204,17 +235,20 @@ invocation.
 ### Steps
 
 `steps` lists the steps an execution does. They're always done in the state
-machine order, i.e. `crawl` then `dbt`, irrespective of the order defined here.
+machine order, i.e. `crawl`, `dbt`, then `unload`, irrespective of the order
+defined here.
 
-| `steps`       | Does                                                                            |
-| ------------- | ------------------------------------------------------------------------------- |
-| Not specified | `crawl`, then `dbt`                                                             |
-| `["crawl"]`   | crawls the CDC, and ends without a run or event. Fails if a crawl didn't finish |
-| `["dbt"]`     | runs dbt without crawling first, and sends the run event                        |
+| `steps`            | Does                                                                            |
+| ------------------ | ------------------------------------------------------------------------------- |
+| Not specified      | `crawl`, then `dbt`, then `unload`                                              |
+| `["crawl"]`        | crawls the CDC, and ends without a run or event. Fails if a crawl didn't finish |
+| `["dbt"]`          | runs dbt without crawling first or unloading after, and sends the run event     |
+| `["crawl", "dbt"]` | everything except the unload, so the mart isn't sent to OrcaGlue                |
+| `["unload"]`       | unloads the mart without crawling or building, and sends the run event          |
 
 For example, `{"steps": ["dbt"], "args": "build --select lims+"}` rebuilds
-`lims` and runs dbt without the crawler. A step that doesn't exist fails the
-execution.
+`lims` and runs dbt without the crawler or the unload. A step that doesn't exist
+fails the execution, as does `unload` in an environment without one.
 
 `steps` is only for the state machine. It gets removed before the runner gets a
 request. Any other key is rejected by the runner. An execution without the `dbt`
@@ -229,15 +263,18 @@ it, select it using `{"args": "build --select lims+"}`. The run crawls the CDC
 again first, so a source that failed to load is crawled again too. To skip the
 crawl, add `"steps": ["dbt"]`, see [Steps](#steps).
 
+If only the unload failed, i.e. `unloadOutcome` is `failed`, run
+`{"steps": ["unload"]}` once it's fixed.
+
 Run again with a new execution rather than a
 [redrive](https://docs.aws.amazon.com/step-functions/latest/dg/redrive-executions.html).
 
 ### The run event
 
-Every execution with the `dbt` step ends by sending this event to the default
-event bus, except one that was stopped, see [Operating](#operating), or one
-where Step Functions couldn't check for another run or send the event, even
-after retrying. Those fail the execution, which the no-recent-success alarm
+Every execution with the `dbt` or `unload` step ends by sending this event to
+the default event bus, except one that was stopped, see [Operating](#operating),
+or one where Step Functions couldn't check for another run or send the event,
+even after retrying. Those fail the execution, which the no-recent-success alarm
 reports. Notifications, and anything else that reacts to a run, should use the
 event.
 
@@ -270,7 +307,8 @@ An example of an event going to EventBridge:
     "durationMinutes": 42,
     "logsUrl": "https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?…",
     "executionUrl": "https://ap-southeast-2.console.aws.amazon.com/states/home?…",
-    "crawlIncomplete": ""
+    "crawlIncomplete": "",
+    "unloadOutcome": "not_run"
   }
 }
 ```
@@ -284,16 +322,20 @@ An example of an event going to EventBridge:
 - `failedNodes` and `warnedNodes` have up to 10 nodes.
 - `durationMinutes` is from when the execution started.
 - `logsUrl` is the task's log stream. It's null when the task never started, and
-  when the run timed out.
+  when the run timed out. It's the unload task's when the unload didn't succeed,
+  or the run had no `dbt` step.
 - `crawlIncomplete` lists the crawls that didn't finish before dbt ran,
   separated by commas, such as `orcabus-db-crawler-filemanager (still running)`.
   Each is `not started`, `still running`, `failed`, `cancelled`, or
   `not checked` when its state couldn't be read. It's empty when every crawl
   finished, or the run had no `crawl` step.
+- `unloadOutcome` is `succeeded`, `failed`, or `not_run` when it wasn't a step
+  or dbt didn't apply its models. When it's `failed`, `outcome`, `error` and
+  `failedNodes` are the unload's.
 
 ### The run's manifest
 
-After every run, the runner also writes dbt's `target/manifest.json` to
+After every `dbt` step, the runner also writes dbt's `target/manifest.json` to
 `state/manifest.json` in the results bucket based on the `manifest_uri`. It
 describes the models the environment builds and where they are, and is replaced
 by each run. This mechanism is what the OrcaVault personal schemas are based on,
@@ -318,7 +360,9 @@ a table's location, so each artifact has its own prefix.
 
 The run results can be explored with Athena in the `run_results_table`, i.e.
 `orcavault_run_<env>.run_results`, in the `development` or `production`
-workgroup. Each row is one run, and has the dbt fields:
+workgroup. Each row is one run's dbt command, or its unload's, whose
+`args.which` is `run-operation` and whose file is under
+`<execution name>/unload/`. It has the dbt fields:
 
 | Column         | Contents                                                                                                                                                |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -385,6 +429,9 @@ Without `ORCAVAULT_RESULTS_BUCKET`, the event stays in the container, under
 the task definition sets `ENVIRONMENT` in the run results' `metadata.env`, so
 it's missing when the image is run by hand.
 
+To unload, set `ORCAVAULT_RUN_STEP=unload` and the variables in
+[unload.py](docker/runner/orcavault_runner/unload.py).
+
 ### Local development
 
 The runner uses [uv](https://docs.astral.sh/uv/getting-started/installation/)
@@ -420,8 +467,10 @@ terraform test
 - **Image archiving.** An image that no environment has pulled for 90 days is
   archived, and deleted a year later, see `account-wide/main.tf`.
 - **Overlapping runs.** Two runs at once share their crawls, since a crawler
-  that is running isn't started again, and the second run is `skipped`.
-- **The diagram** doesn't show the CDC crawls yet.
+  that is running isn't started again, and the second run is `skipped`. A run
+  started between the dbt and unload tasks isn't skipped, but each table is
+  still unloaded whole, as dbt replaces it in one transaction.
+- **The diagram** doesn't show the CDC crawls or the unload yet.
 - **Network.** The task runs in the private subnets of `UomPrimaryVpc`, without
   a public IP. It needs to reach ECR and CloudWatch Logs to start, the
   `redshift-serverless` API to get credentials, the workgroup on port 5439, and
