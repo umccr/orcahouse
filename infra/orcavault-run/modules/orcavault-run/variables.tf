@@ -42,6 +42,46 @@ variable "crawl_max_wait_minutes" {
   default     = 60
 }
 
+variable "unload" {
+  description = <<-EOT
+    The unload step, see the README. s3_path is s3://<bucket>/<prefix> without a trailing slash, and
+    iam_role_arn defaults to the namespace's default role. Null leaves the step out.
+  EOT
+  type = object({
+    schema       = string
+    s3_path      = string
+    iam_role_arn = optional(string)
+  })
+  default = null
+
+  # These go into SQL, which the runner checks again.
+  validation {
+    condition     = var.unload == null || can(regex("^[a-z_][a-z0-9_]*$", var.unload.schema))
+    error_message = "unload.schema must be a lowercase schema name."
+  }
+
+  validation {
+    condition     = var.unload == null || can(regex("^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9](/[A-Za-z0-9_.=-]+)*$", var.unload.s3_path))
+    error_message = "unload.s3_path must be s3://<bucket>/<prefix> without a trailing slash."
+  }
+
+  validation {
+    condition     = try(var.unload.iam_role_arn, null) == null || can(regex("^arn:aws[a-z-]*:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$", var.unload.iam_role_arn))
+    error_message = "unload.iam_role_arn must be the ARN of an IAM role."
+  }
+}
+
+variable "unload_timeout_minutes" {
+  description = "The timeout for the unload task."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.unload_timeout_minutes >= 5 && var.unload_timeout_minutes <= 240
+    error_message = "unload_timeout_minutes must be between 5 and 240."
+  }
+}
+
 variable "orcavault_release_ref" {
   description = "The release tag or commit of umccr/orcavault to deploy"
   type        = string

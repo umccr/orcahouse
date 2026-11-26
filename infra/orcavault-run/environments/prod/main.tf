@@ -77,6 +77,12 @@ module "orcavault_run" {
     "orcabus-db-crawler-sequence-run-manager",
     "orcabus-db-crawler-workflow-manager",
   ]
+
+  # To the infra/s3/orcavault bucket, see The unload in the README.
+  unload = {
+    schema  = "mart"
+    s3_path = "s3://orcavault-${local.environment}-warehouse-115253169271-ap-southeast-2-an/v1"
+  }
 }
 
 output "orcavault_run" {

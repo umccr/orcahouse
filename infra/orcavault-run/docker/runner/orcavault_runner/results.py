@@ -30,6 +30,16 @@ class Outcome(StrEnum):
         return 0 if self in (Outcome.SUCCEEDED, Outcome.WARNED) else 1
 
 
+class UnloadOutcome(StrEnum):
+    """How the unload step went, see unload.py."""
+
+    SUCCEEDED = "succeeded"
+    # It started, but didn't finish.
+    FAILED = "failed"
+    # It wasn't a step, or dbt didn't apply its models.
+    NOT_RUN = "not_run"
+
+
 # The amount of nodes the event can format.
 NODES_LISTED = 10
 
@@ -56,6 +66,8 @@ class Event(BaseModel):
     # The unique IDs for failed/warned nodes.
     failed_nodes: list[str] = []
     warned_nodes: list[str] = []
+    # Set by the unload step. The state machine adds it to the run's event.
+    unload_outcome: UnloadOutcome = UnloadOutcome.NOT_RUN
 
     @field_serializer("failed_nodes", "warned_nodes")
     def summarise(self, unique_ids: list[str]) -> str:

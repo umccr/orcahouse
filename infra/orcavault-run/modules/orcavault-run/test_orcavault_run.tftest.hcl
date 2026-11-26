@@ -13,7 +13,8 @@ mock_provider "aws" {
 
   mock_data "aws_redshiftserverless_workgroup" {
     defaults = {
-      arn = "arn:aws:redshift-serverless:ap-southeast-2:123456789012:workgroup/orcahouse-prod"
+      arn            = "arn:aws:redshift-serverless:ap-southeast-2:123456789012:workgroup/orcahouse-prod"
+      namespace_name = "orcahouse-prod"
       endpoint = [
         {
           address      = "orcahouse-prod.123456789012.ap-southeast-2.redshift-serverless.amazonaws.com"
@@ -21,6 +22,12 @@ mock_provider "aws" {
           vpc_endpoint = []
         }
       ]
+    }
+  }
+
+  mock_data "aws_redshiftserverless_namespace" {
+    defaults = {
+      default_iam_role_arn = "arn:aws:iam::123456789012:role/prod-redshift-namespace-role"
     }
   }
 
@@ -100,13 +107,13 @@ run "steps_define_runs" {
 
   assert {
     condition = (
-      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Choices[0].Condition == "{% 'dbt' in $steps %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Choices[0].Condition == "{% 'dbt' in $steps or 'unload' in $steps %}" &&
       jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Choices[0].Next == "CheckNoRunInProgress" &&
       jsondecode(aws_sfn_state_machine.run.definition).States.ShouldRunDbt.Default == "NoDbtStep" &&
       jsondecode(aws_sfn_state_machine.run.definition).States.NoDbtStep.Default == "NoRun" &&
       jsondecode(aws_sfn_state_machine.run.definition).States.NoRun.Type == "Succeed"
     )
-    error_message = "dbt should only run when dbt is a step"
+    error_message = "the dbt task should only run when dbt or the unload is a step"
   }
 
   assert {
@@ -241,6 +248,140 @@ run "every_run_sends_its_event" {
     condition     = strcontains(jsondecode(aws_sfn_state_machine.run.definition).States.ReadEvent.Arguments.Key, "'runs/' & $states.context.Execution.Name & '/event.json'")
     error_message = "the event should be read from where the runner writes it"
   }
+
+  assert {
+    condition = alltrue([
+      for detail in [local.run_in_progress_detail, local.no_event_detail, local.unload_only_detail, local.no_unload_event_detail] :
+      detail.unloadOutcome == "not_run"
+    ])
+    error_message = "every event should have unloadOutcome"
+  }
+}
+
+run "the_unload_follows_a_run_that_applied_its_models" {
+  variables {
+    unload = {
+      schema  = "mart"
+      s3_path = "s3://orcavault-prod-warehouse/v1"
+    }
+  }
+
+  assert {
+    condition     = jsondecode(aws_sfn_state_machine.run.definition).States.ReadSteps.Assign.steps == "{% $exists($states.input.steps) ? $states.input.steps : [\"crawl\",\"dbt\",\"unload\"] %}"
+    error_message = "an execution without steps should also unload"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.ReadEvent.Next == "ShouldUnload" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldUnload.Choices[0].Condition == "{% 'unload' in $steps and $detail.outcome in [\"succeeded\",\"warned\"] %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldUnload.Choices[0].Next == "RunUnload" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ShouldUnload.Default == "AddRunFields"
+    )
+    error_message = "the unload should only follow a run that applied its models"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.IsRunInProgress.Choices[0].Next == "RunInProgress" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.IsRunInProgress.Choices[1].Condition == "{% 'dbt' in $steps %}" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.IsRunInProgress.Choices[1].Next == "RunDbt" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.IsRunInProgress.Default == "UnloadOnly" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.UnloadOnly.Next == "RunUnload"
+    )
+    error_message = "an unload without dbt should still check that no other run is going"
+  }
+
+  assert {
+    condition = jsonencode(jsondecode(aws_sfn_state_machine.run.definition).States.RunUnload.Arguments.Overrides.ContainerOverrides[0].Environment) == jsonencode([
+      { Name = "ORCAVAULT_RUN_ID", Value = "{% $states.context.Execution.Name %}" },
+      { Name = "ORCAVAULT_RUN_STEP", Value = "unload" },
+    ])
+    error_message = "the unload task should run the unload step, without a request"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.RunUnload.TimeoutSeconds == 1800 &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.RunUnload.Arguments.TaskDefinition == jsondecode(aws_sfn_state_machine.run.definition).States.RunDbt.Arguments.TaskDefinition
+    )
+    error_message = "the unload should run the dbt task with its own timeout"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.RunUnload.Catch[0].Next == "ReadUnloadEvent" &&
+      strcontains(jsondecode(aws_sfn_state_machine.run.definition).States.ReadUnloadEvent.Arguments.Key, "'runs/' & $states.context.Execution.Name & '/unload/event.json'") &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.ReadUnloadEvent.Catch[0].Next == "AddUnloadOutcome" &&
+      jsondecode(aws_sfn_state_machine.run.definition).States.AddUnloadOutcome.Next == "AddRunFields"
+    )
+    error_message = "every unload should be in the run event, read from where the runner writes it"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_sfn_state_machine.run.definition).States.AddUnloadOutcome.Assign.detail == local.with_unload_outcome &&
+      strcontains(local.with_unload_outcome, "'outcome': $unloadDetail.outcome") &&
+      strcontains(local.with_unload_outcome, "'unloadOutcome': 'failed'") &&
+      !strcontains(local.with_unload_outcome, "\n")
+    )
+    error_message = "an unload that didn't succeed should be the run's outcome"
+  }
+
+  assert {
+    condition = alltrue([
+      for variable in [
+        { name = "ORCAVAULT_UNLOAD_SCHEMA", value = "mart" },
+        { name = "ORCAVAULT_UNLOAD_S3_PATH", value = "s3://orcavault-prod-warehouse/v1" },
+        { name = "ORCAVAULT_UNLOAD_IAM_ROLE_ARN", value = "arn:aws:iam::123456789012:role/prod-redshift-namespace-role" },
+      ] : contains(jsondecode(aws_ecs_task_definition.dbt.container_definitions)[0].environment, variable)
+    ])
+    error_message = "the task should be given the unload, with the namespace's default role"
+  }
+
+  assert {
+    condition     = strcontains(output.start_unload_command, "--input '{\"steps\": [\"unload\"]}'") && output.unload_uri == "s3://orcavault-prod-warehouse/v1"
+    error_message = "the unload should be able to start on its own"
+  }
+}
+
+run "the_unload_can_have_its_own_role" {
+  variables {
+    unload = {
+      schema       = "mart"
+      s3_path      = "s3://orcavault-prod-warehouse/v1"
+      iam_role_arn = "arn:aws:iam::123456789012:role/unload"
+    }
+  }
+
+  assert {
+    condition     = contains(jsondecode(aws_ecs_task_definition.dbt.container_definitions)[0].environment, { name = "ORCAVAULT_UNLOAD_IAM_ROLE_ARN", value = "arn:aws:iam::123456789012:role/unload" })
+    error_message = "the unload should use the role it's given"
+  }
+}
+
+run "no_unload_without_one" {
+  assert {
+    condition = (
+      alltrue([for variable in jsondecode(aws_ecs_task_definition.dbt.container_definitions)[0].environment : !startswith(variable.name, "ORCAVAULT_UNLOAD_")]) &&
+      output.start_unload_command == null &&
+      output.unload_uri == null
+    )
+    error_message = "an environment without an unload shouldn't have one"
+  }
+}
+
+run "an_unload_path_has_no_trailing_slash" {
+  command = plan
+
+  variables {
+    unload = {
+      schema  = "mart"
+      s3_path = "s3://orcavault-prod-warehouse/v1/"
+    }
+  }
+
+  expect_failures = [var.unload]
 }
 
 run "task_writes_its_event" {

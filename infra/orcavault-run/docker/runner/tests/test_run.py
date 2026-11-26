@@ -31,6 +31,7 @@ def test_scheduled_run():
         "testsFailed": 0,
         "failedNodes": "",
         "warnedNodes": "",
+        "unloadOutcome": "not_run",
     }
 
 

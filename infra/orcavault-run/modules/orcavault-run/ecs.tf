@@ -42,13 +42,21 @@ resource "aws_ecs_task_definition" "dbt" {
       image     = "${data.aws_ecr_repository.dbt.repository_url}:${var.orcavault_release_ref}"
       essential = true
 
-      environment = [
-        { name = "ORCAVAULT_REDSHIFT_HOST", value = data.aws_redshiftserverless_workgroup.this.endpoint[0].address },
-        { name = "ORCAVAULT_DBT_THREADS", value = tostring(var.dbt_threads) },
-        { name = "ORCAVAULT_RESULTS_BUCKET", value = aws_s3_bucket.results.bucket },
-        # dbt adds this to the metadata.env of its artifacts, such as run_results.json.
-        { name = "DBT_ENV_CUSTOM_ENV_ENVIRONMENT", value = var.environment },
-      ]
+      environment = concat(
+        [
+          { name = "ORCAVAULT_REDSHIFT_HOST", value = data.aws_redshiftserverless_workgroup.this.endpoint[0].address },
+          { name = "ORCAVAULT_DBT_THREADS", value = tostring(var.dbt_threads) },
+          { name = "ORCAVAULT_RESULTS_BUCKET", value = aws_s3_bucket.results.bucket },
+          # dbt adds this to the metadata.env of its artifacts, such as run_results.json.
+          { name = "DBT_ENV_CUSTOM_ENV_ENVIRONMENT", value = var.environment },
+        ],
+        # The unload step reads these, see docker/runner/orcavault_runner/unload.py.
+        local.unload_enabled ? [
+          { name = "ORCAVAULT_UNLOAD_SCHEMA", value = var.unload.schema },
+          { name = "ORCAVAULT_UNLOAD_S3_PATH", value = var.unload.s3_path },
+          { name = "ORCAVAULT_UNLOAD_IAM_ROLE_ARN", value = local.unload_iam_role_arn },
+        ] : [],
+      )
 
       stopTimeout = 120
 

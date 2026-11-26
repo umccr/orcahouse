@@ -111,6 +111,20 @@ And then to grant:
 grant role orcavault_builder to "IAMR:AWSReservedSSO_AWSPowerUserAccess_<suffix>";
 ```
 
+Then, as the PowerUser, deploy the UNLOAD procedure from orcavault at the
+environment's ref, see [The unload](../README.md#the-unload):
+
+```bash
+dbt run-operation deploy_unload_schema
+```
+
+Its owner should be the PowerUser, and its ACL should list `orcavault_builder`:
+
+```sql
+select pg_get_userbyid(proowner) as owner, array_to_string(proacl, ',') as acl
+from pg_proc_info where proname = 'unload_schema';
+```
+
 ## 5. Check the task
 
 The task needs network access listed under
@@ -146,13 +160,14 @@ These should be loaded as part of the initial setup by running:
 
 ```bash
 ARN=$(terraform -chdir=environments/$ENV output -json orcavault_run | jq -r .state_machine_arn)
-aws stepfunctions start-execution --state-machine-arn "$ARN" --input '{"args": ["build", "--full-refresh", "--exclude", "resource_type:test", "--vars", "{\"load_legacy\": true}"]}'
+aws stepfunctions start-execution --state-machine-arn "$ARN" --input '{"steps": ["crawl", "dbt"], "args": ["build", "--full-refresh", "--exclude", "resource_type:test", "--vars", "{\"load_legacy\": true}"]}'
 ```
 
 This is a `dbt build` of every seed and model without tests, where each model
 with a legacy source reads it as well as its current sources. The exception is
 `hub_s3object`, which only reads the data portal's objects, which is why the
-tests are excluded. The seeds are built first, as some models read them.
+tests are excluded. The seeds are built first, as some models read them. It
+doesn't unload, as step 8 does.
 
 Wait for it to succeed before step 8, as a run doesn't start while another is
 still going. The status should be `SUCCEEDED` once it has:
@@ -170,8 +185,8 @@ eval "$(terraform -chdir=environments/$ENV output -json orcavault_run | jq -r .s
 ```
 
 No CDC positions are recorded yet, so this reads every commit, which also adds
-the filemanager's objects to `hub_s3object`. Check that it succeeds in the same
-way as step 7.
+the filemanager's objects to `hub_s3object`, and then unloads the mart. Check
+that it succeeds in the same way as step 7.
 
 Don't run the legacy load again. With the CDC positions recorded, a legacy run
 with `--full-refresh` would rebuild `hub_s3object` without the filemanager's

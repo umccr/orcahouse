@@ -7,7 +7,7 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
-from orcavault_runner.__main__ import Settings, write_artifact, write_event, write_manifest
+from orcavault_runner.__main__ import Settings, kept_artifacts, write_artifact, write_event, write_manifest
 from orcavault_runner.results import Event
 
 
@@ -20,11 +20,15 @@ def unset_environment(monkeypatch):
 
 
 ENVIRONMENT = {
+    "ORCAVAULT_RUN_STEP": "unload",
     "ORCAVAULT_RUN_REQUEST": '{"args": "build"}',
     "ORCAVAULT_RUN_ID": "scheduled-1970-01-01",
     "ORCAVAULT_RESULTS_BUCKET": "bucket",
     "ORCAVAULT_RESULTS_DIR": "events",
     "ORCAVAULT_REF": "v1.0.0",
+    "ORCAVAULT_UNLOAD_SCHEMA": "mart",
+    "ORCAVAULT_UNLOAD_S3_PATH": "s3://bucket/v1",
+    "ORCAVAULT_UNLOAD_IAM_ROLE_ARN": "arn:aws:iam::123456789012:role/unload",
 }
 EVENT = Event()
 EVENT_JSON = EVENT.model_dump_json(indent=2)
@@ -72,6 +76,23 @@ def test_write_event_to_directory():
     assert path.read_text() == EVENT_JSON
 
 
+def test_write_unload_event(monkeypatch):
+    """The unload step's event is next to the dbt step's."""
+    client = boto3.client("s3", region_name="ap-southeast-2")
+    monkeypatch.setattr(boto3, "client", lambda service: client)
+    key = "runs/run-1/unload/event.json"
+
+    with Stubber(client) as stubber:
+        stubber.add_response(
+            "put_object", {}, {"Bucket": "bucket", "Key": key, "Body": EVENT_JSON, "ContentType": "application/json"}
+        )
+
+        location = write_event(EVENT, Settings(run_id="run-1", run_step="unload", results_bucket="bucket"))
+        stubber.assert_no_pending_responses()
+
+    assert location == f"s3://bucket/{key}"
+
+
 def test_write_manifest_s3(monkeypatch):
     client = boto3.client("s3", region_name="ap-southeast-2")
     monkeypatch.setattr(boto3, "client", lambda service: client)
@@ -92,24 +113,37 @@ def test_write_manifest_s3(monkeypatch):
     assert location == "s3://bucket/state/manifest.json"
 
 
-def test_write_artifact_s3(monkeypatch):
+@pytest.mark.parametrize(
+    "step, key",
+    [
+        ("dbt", "v1/run_results/year=2026/month=11/day=04/run-1/run_results.json"),
+        ("unload", "v1/run_results/year=2026/month=11/day=04/run-1/unload/run_results.json"),
+    ],
+)
+def test_write_artifact_s3(monkeypatch, step, key):
     client = boto3.client("s3", region_name="ap-southeast-2")
     monkeypatch.setattr(boto3, "client", lambda service: client)
     path = Path("target", "run_results.json")
     path.parent.mkdir()
     path.write_text("{}")
     started_at = datetime(2026, 11, 5, 3, tzinfo=timezone(timedelta(hours=11)))
-    key = "v1/run_results/year=2026/month=11/day=04/run-1/run_results.json"
+    settings = Settings(run_id="run-1", run_step=step, results_bucket="bucket")
 
     with Stubber(client) as stubber:
         stubber.add_response(
             "put_object", {}, {"Bucket": "bucket", "Key": key, "Body": b"{}", "ContentType": "application/json"}
         )
 
-        location = write_artifact("run_results", Settings(run_id="run-1", results_bucket="bucket"), started_at)
+        location = write_artifact("run_results", settings, started_at)
         stubber.assert_no_pending_responses()
 
     assert location == f"s3://bucket/{key}"
+
+
+def test_kept_artifacts():
+    """The unload step keeps no manifest."""
+    assert kept_artifacts(Settings()) == ("run_results", "manifest")
+    assert kept_artifacts(Settings(run_step="unload")) == ("run_results",)
 
 
 @pytest.mark.parametrize("bucket, written", [(None, True), ("bucket", False)])
